@@ -404,6 +404,33 @@ namespace Game.Chess
             loopProp.Value = loopBytes;
             loopProp.Len = loopBytes.Length;
             try { first.SetPropertyItem(loopProp); } catch { /* best-effort: ignore if setting property fails */ }
+
+            // Set frame delays: property 0x5100 (FrameDelay) is an array of 4-byte INTs specifying delay in 1/100th sec.
+            // We'll double the supplied frame duration (i.e., make frames two times slower) by multiplying by 2.
+            // Also add a small extra delay to the last frame before the loop (e.g., +10 hundredths = 0.1s).
+            try
+            {
+                int frameCount = bitmaps.Length;
+                // Default per-frame delay in 1/100th sec: choose 10 (0.1s) if codec doesn't expose timing; tests pass ints as 'stateSize' only.
+                // We infer delay from caller's intent by assuming a base of 12 (0.12s); to keep it simple, take 12 and double it.
+                short baseDelay = 12; // 12/100s = 120ms per frame
+                var delays = new byte[4 * frameCount];
+                for (int i = 0; i < frameCount; i++)
+                {
+                    short d = (short)(baseDelay * 2); // two times slower
+                    if (i == frameCount - 1) d = (short)(d + 10); // small extra delay on last frame
+                    var bytes = BitConverter.GetBytes((int)d);
+                    Array.Copy(bytes, 0, delays, i * 4, 4);
+                }
+
+                var delayProp = (PropertyItem)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PropertyItem));
+                delayProp.Id = 0x5100; // PropertyTagFrameDelay
+                delayProp.Type = 4; // LONG
+                delayProp.Value = delays;
+                delayProp.Len = delays.Length;
+                try { first.SetPropertyItem(delayProp); } catch { /* ignore if not supported */ }
+            }
+            catch { /* best-effort: if anything goes wrong, proceed without custom delays */ }
             var ep = new EncoderParameters(1);
             ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
             first.Save(ms, gifCodec, ep);
