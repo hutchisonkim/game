@@ -169,6 +169,87 @@ public class ChessViewTests(ITestOutputHelper output)
         Assert.True(new FileInfo(path).Length > 0);
         _out.WriteLine(path);
     }
+
+    [Fact]
+    [Trait("Feature", "AvailableActionsTimeline")]
+    public void RenderAvailableActionsTimelineGif_StartingPosition_CreatesGif()
+    {
+        // Arrange - use real chess policy on the initial ChessBoard
+        var boardState = new ChessBoard();
+        var policy = new ChessRules();
+
+        var view = new DummyView();
+
+        var frames = new List<(DummyState state, DummyAction action)>();
+
+        static string SquareFromPosition(Position p)
+        {
+            // Convert internal Position (row,col) to algebraic like e2
+            char file = (char)('a' + p.Col);
+            // parse rank so that row 7 -> '1', row 0 -> '8'
+            char rank = (char)('1' + (7 - p.Row));
+            return string.Concat(file, rank);
+        }
+
+        static char[,] ToCharBoard(ChessBoard cb)
+        {
+            var outBoard = new char[8, 8];
+            for (int r = 0; r < 8; r++)
+            for (int c = 0; c < 8; c++)
+            {
+                var piece = cb.Board[r, c];
+                if (piece == null)
+                {
+                    outBoard[r, c] = '.';
+                    continue;
+                }
+
+                // Map Piece to Unicode chess glyphs used by ChessView
+                outBoard[r, c] = (piece.Color, piece.Type) switch
+                {
+                    (PieceColor.White, PieceType.King) => '\u2654',
+                    (PieceColor.White, PieceType.Queen) => '\u2655',
+                    (PieceColor.White, PieceType.Rook) => '\u2656',
+                    (PieceColor.White, PieceType.Bishop) => '\u2657',
+                    (PieceColor.White, PieceType.Knight) => '\u2658',
+                    (PieceColor.White, PieceType.Pawn) => '\u2659',
+                    (PieceColor.Black, PieceType.King) => '\u265A',
+                    (PieceColor.Black, PieceType.Queen) => '\u265B',
+                    (PieceColor.Black, PieceType.Rook) => '\u265C',
+                    (PieceColor.Black, PieceType.Bishop) => '\u265D',
+                    (PieceColor.Black, PieceType.Knight) => '\u265E',
+                    (PieceColor.Black, PieceType.Pawn) => '\u265F',
+                    _ => '.'
+                };
+            }
+            return outBoard;
+        }
+
+        // Generate frames from the policy (one frame per available action)
+        var allMoves = policy.GetAvailableActions(boardState).ToArray();
+        // initial chess position normally has 20 legal moves; limit defensively
+        var sample = allMoves.Take(64);
+
+        foreach (var mv in sample)
+        {
+            var toChess = boardState.Apply(mv);
+            var toBoard = ToCharBoard(toChess);
+            var actionStr = SquareFromPosition(mv.From) + SquareFromPosition(mv.To);
+            frames.Add((new DummyState(toBoard), new DummyAction(actionStr)));
+        }
+
+        // Act - render timeline GIF (one frame per action)
+        var gif = view.RenderTimelineGif(frames.Select(f => (f.state, (DummyAction)f.action)), 200);
+
+        // Save
+        var path = MakeOutputPath("chess_available_actions_timeline", ".gif");
+        File.WriteAllBytes(path, gif);
+
+        // Assert
+        Assert.True(File.Exists(path));
+        Assert.True(new FileInfo(path).Length > 0);
+        _out.WriteLine(path);
+    }
 }
 
 // Helper types to satisfy generic constraints of ChessView
