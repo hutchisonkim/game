@@ -394,6 +394,16 @@ namespace Game.Chess
             var gifCodec = ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/gif") ?? throw new InvalidOperationException("GIF codec not available.");
             using var first = bitmaps[0] ?? throw new InvalidOperationException("No frames available to render GIF.");
             using var ms = new MemoryStream();
+            // Ensure the generated GIF loops forever (Netscape application extension: loop count 0 = infinite).
+            // Create a PropertyItem instance and set the LoopCount (0x5101) to 0 (short). We use FormatterServices
+            // to allocate a PropertyItem since it has no public constructor.
+            var loopProp = (PropertyItem)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PropertyItem));
+            loopProp.Id = 0x5101; // PropertyTagLoopCount
+            loopProp.Type = 3; // SHORT
+            var loopBytes = BitConverter.GetBytes((short)0); // 0 -> infinite loop
+            loopProp.Value = loopBytes;
+            loopProp.Len = loopBytes.Length;
+            try { first.SetPropertyItem(loopProp); } catch { /* best-effort: ignore if setting property fails */ }
             var ep = new EncoderParameters(1);
             ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
             first.Save(ms, gifCodec, ep);
