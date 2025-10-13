@@ -1,3 +1,6 @@
+using System;
+using System.IO;
+using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using Game.Core;
@@ -11,7 +14,19 @@ public class ChessViewTests(ITestOutputHelper output)
 
     private static string MakeOutputPath(string name, string ext)
     {
-        var dir = Path.Combine(AppContext.BaseDirectory, "TestResults", "View");
+        // Try to find the repository root by walking up from the test assembly directory
+        var start = new DirectoryInfo(AppContext.BaseDirectory);
+        DirectoryInfo? repoRoot = start;
+
+        while (repoRoot != null)
+        {
+            // look for solution file as indicator of repo root
+            if (repoRoot.GetFiles("*.sln").Any()) break;
+            repoRoot = repoRoot.Parent;
+        }
+
+        string rootPath = repoRoot?.FullName ?? AppContext.BaseDirectory;
+        var dir = Path.Combine(rootPath, "TestResults", "View");
         Directory.CreateDirectory(dir);
         return Path.Combine(dir, name + ext);
     }
