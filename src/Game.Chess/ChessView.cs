@@ -204,7 +204,7 @@ namespace Game.Chess
 
                 if (action != null)
                 {
-                    string actionText = action.ToString();
+                    string actionText = action?.ToString() ?? string.Empty;
                     float fontSize = Math.Max(10, gap * 0.6f);
                     using var font = new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Regular, GraphicsUnit.Pixel);
                     using var brush = new SolidBrush(Color.Black);
@@ -222,7 +222,7 @@ namespace Game.Chess
         {
             ArgumentNullException.ThrowIfNull(history);
             var frames = history.ToArray();
-            if (frames.Length == 0) return Array.Empty<byte[]>().FirstOrDefault();
+            if (frames.Length == 0) return Array.Empty<byte>();
 
             var bitmaps = frames.Select(f => RenderBoardBitmap(ExtractBoardFromState(f.state), stateSize)).ToArray();
             int spacing = Math.Max(4, stateSize / 16);
@@ -253,7 +253,7 @@ namespace Game.Chess
 
             var bitmaps = frames.Select(f => RenderBoardBitmap(ExtractBoardFromState(f.state), stateSize)).ToArray();
             var gifCodec = ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/gif") ?? throw new InvalidOperationException("GIF codec not available.");
-            using var first = bitmaps[0];
+            using var first = bitmaps[0] ?? throw new InvalidOperationException("No frames available to render GIF.");
             using var ms = new MemoryStream();
             var ep = new EncoderParameters(1);
             ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
