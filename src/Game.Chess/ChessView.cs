@@ -117,64 +117,6 @@ namespace Game.Chess
             };
         }
 
-        // Helper: create a font suitable for drawing chess glyphs, preferring Segoe UI Symbol on Windows
-        private static Font CreatePieceFont(float fontSize)
-        {
-            try
-            {
-                return new Font("Segoe UI Symbol", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-            }
-            catch
-            {
-                return new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-            }
-        }
-
-        // Helper: draw pieces from a board onto a Graphics surface with specified opacity
-        private static void DrawPiecesOnGraphics(Graphics g, char[,] board, int cell, float opacity = 1.0f)
-        {
-            for (int r = 0; r < 8; r++)
-            {
-                for (int f = 0; f < 8; f++)
-                {
-                    char c = board[r, f];
-                    if (c == '\0' || c == '.') continue;
-                    string s = c.ToString();
-                    float fontSize = cell * 0.75f;
-                    using var fontToUse = CreatePieceFont(fontSize);
-                    using var textBrush = new SolidBrush(Color.FromArgb((int)(opacity * 255), Color.Black));
-                    using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
-                    var rect = new Rectangle(f * cell, r * cell, cell, cell);
-                    g.DrawString(s, fontToUse, textBrush, rect, sf);
-                }
-            }
-        }
-
-        // Helper: parse a square like "e2" into board indices (row, file), or null if invalid
-        private static (int r, int f)? ParseSquareString(string sq)
-        {
-            if (string.IsNullOrWhiteSpace(sq) || sq.Length < 2) return null;
-            char fileCh = sq[0];
-            char rankCh = sq[1];
-            int file = fileCh - 'a';
-            if (file < 0 || file > 7) return null;
-            if (!char.IsDigit(rankCh)) return null;
-            int rank = rankCh - '1';
-            if (rank < 0 || rank > 7) return null;
-            int boardR = 7 - rank;
-            return (boardR, file);
-        }
-
-        /// <summary>
-        /// Convenience: render a FEN placement string directly to a printable board string.
-        /// </summary>
-        public static string RenderFromFen(string fenPlacement)
-        {
-            var board = ParseFen(fenPlacement);
-            return Render(board);
-        }
-
         private static char[,] ExtractBoardFromState(object state)
         {
             ArgumentNullException.ThrowIfNull(state);
@@ -360,16 +302,16 @@ namespace Game.Chess
                     var fromSquares = new List<(int r, int f, char c)>();
                     var toSquares = new List<(int r, int f, char c)>();
                     for (int r = 0; r < 8; r++)
-                    for (int f = 0; f < 8; f++)
-                    {
-                        char c1 = bFrom[r, f];
-                        char c2 = bTo[r, f];
-                        if (c1 != c2)
+                        for (int f = 0; f < 8; f++)
                         {
-                            if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
-                            if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
+                            char c1 = bFrom[r, f];
+                            char c2 = bTo[r, f];
+                            if (c1 != c2)
+                            {
+                                if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
+                                if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
+                            }
                         }
-                    }
 
                     // Heuristic: pair by piece type (ignoring color) or if single from/to
                     if (fromSquares.Count == 1 && toSquares.Count == 1)
@@ -504,16 +446,16 @@ namespace Game.Chess
                         var fromSquares = new List<(int r, int f, char c)>();
                         var toSquares = new List<(int r, int f, char c)>();
                         for (int r = 0; r < 8; r++)
-                        for (int f = 0; f < 8; f++)
-                        {
-                            char c1 = board[r, f];
-                            char c2 = nextBoard[r, f];
-                            if (c1 != c2)
+                            for (int f = 0; f < 8; f++)
                             {
-                                if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
-                                if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
+                                char c1 = board[r, f];
+                                char c2 = nextBoard[r, f];
+                                if (c1 != c2)
+                                {
+                                    if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
+                                    if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
+                                }
                             }
-                        }
 
                         if (fromSquares.Count == 1 && toSquares.Count == 1)
                         {
@@ -643,25 +585,25 @@ namespace Game.Chess
                 {
                     if (board == null) return;
                     for (int r = 0; r < 8; r++)
-                    for (int f = 0; f < 8; f++)
-                    {
-                        char c = board[r, f];
-                        if (c == '\0' || c == '.') continue;
-                        string s = c.ToString();
-                        float fontSize = cell * 0.75f;
-                        Font fontToUse;
-                        try { fontToUse = new Font("Segoe UI Symbol", fontSize, FontStyle.Bold, GraphicsUnit.Pixel); }
-                        catch { fontToUse = new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Bold, GraphicsUnit.Pixel); }
-
-                        using (fontToUse)
+                        for (int f = 0; f < 8; f++)
                         {
-                            using var textBrush = new SolidBrush(Color.FromArgb((int)(opacity * 255), Color.Black));
-                            using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
-                            var rect = new Rectangle(f * cell, r * cell, cell, cell);
-                            g.DrawString(s, fontToUse, textBrush, rect, sf);
+                            char c = board[r, f];
+                            if (c == '\0' || c == '.') continue;
+                            string s = c.ToString();
+                            float fontSize = cell * 0.75f;
+                            Font fontToUse;
+                            try { fontToUse = new Font("Segoe UI Symbol", fontSize, FontStyle.Bold, GraphicsUnit.Pixel); }
+                            catch { fontToUse = new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Bold, GraphicsUnit.Pixel); }
+
+                            using (fontToUse)
+                            {
+                                using var textBrush = new SolidBrush(Color.FromArgb((int)(opacity * 255), Color.Black));
+                                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+                                var rect = new Rectangle(f * cell, r * cell, cell, cell);
+                                g.DrawString(s, fontToUse, textBrush, rect, sf);
+                            }
                         }
-                    }
                 }
 
                 // faded from, then to opaque
@@ -707,16 +649,16 @@ namespace Game.Chess
                         if (bFrom != null && bTo != null)
                         {
                             for (int r = 0; r < 8; r++)
-                            for (int f = 0; f < 8; f++)
-                            {
-                                char c1 = bFrom[r, f];
-                                char c2 = bTo[r, f];
-                                if (c1 != c2)
+                                for (int f = 0; f < 8; f++)
                                 {
-                                    if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
-                                    if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
+                                    char c1 = bFrom[r, f];
+                                    char c2 = bTo[r, f];
+                                    if (c1 != c2)
+                                    {
+                                        if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
+                                        if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
+                                    }
                                 }
-                            }
                         }
 
                         if (fromSquares.Count == 1 && toSquares.Count == 1)
