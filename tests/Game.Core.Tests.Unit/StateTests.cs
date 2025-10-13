@@ -8,7 +8,7 @@ public class StateTests
 {
     [Fact]
     [Trait("Feature","Clone")]
-    public void Clone_ReturnsDistinctCopy()
+    public void Clone_WhenCalled_ReturnsDistinctCopy()
     {
         // Arrange: create a simple state implementation for test
         var state = new TestState();

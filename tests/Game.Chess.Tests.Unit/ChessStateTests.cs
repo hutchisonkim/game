@@ -8,7 +8,7 @@ public class ChessStateTests
 {
     [Fact]
     [Trait("Feature","InitialPosition")]
-    public void InitialPosition_HasCorrectPieces()
+    public void Constructor_InitialPosition_HasCorrectPieces()
     {
         var s = new ChessState();
 
@@ -30,7 +30,7 @@ public class ChessStateTests
 
     [Fact]
     [Trait("Feature","ApplyMove")]
-    public void ApplyMove_MovesPiece()
+    public void ApplyMove_TwoSquarePawnMove_MovesPiece()
     {
         var s = new ChessState();
         var from = new Position(1, 0); // white pawn

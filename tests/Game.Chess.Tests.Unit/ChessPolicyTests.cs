@@ -8,8 +8,8 @@ namespace Game.Chess.Tests.Unit;
 public class ChessPolicyTests
 {
     [Fact]
-    [Trait("Feature","PawnMoves")]
-    public void Pawn_InitialPosition_IncludesDoubleMove()
+    [Trait("Feature","PawnMovement")]
+    public void GetAvailableActions_PawnInitialPosition_IncludesDoubleMove()
     {
         var s = new ChessState();
         var policy = new ChessPolicy();
@@ -26,7 +26,7 @@ public class ChessPolicyTests
 
     [Fact]
     [Trait("Feature","PawnCapture")]
-    public void Pawn_Capture_IsGenerated()
+    public void GetAvailableActions_PawnCapture_GeneratesCaptureAction()
     {
         var s = new ChessState();
         // place a black pawn diagonally in front of white pawn
