@@ -85,7 +85,7 @@ namespace Game.Chess
                     }
                     else
                     {
-                        board[r, file++] = ch;
+                        board[r, file++] = MapFenCharToSymbol(ch);
                     }
                 }
 
@@ -93,6 +93,28 @@ namespace Game.Chess
             }
 
             return board;
+        }
+
+        /// <summary>
+        /// Map a FEN piece letter (r,n,b,q,k,p or uppercase) to a Unicode chess symbol char.
+        /// Uppercase letters map to white pieces, lowercase to black pieces.
+        /// Unknown characters are returned unchanged.
+        /// </summary>
+        private static char MapFenCharToSymbol(char ch)
+        {
+            // White: uppercase, Black: lowercase
+            bool isWhite = char.IsUpper(ch);
+            char t = char.ToLowerInvariant(ch);
+            return t switch
+            {
+                'k' => isWhite ? '\u2654' : '\u265A', // King
+                'q' => isWhite ? '\u2655' : '\u265B', // Queen
+                'r' => isWhite ? '\u2656' : '\u265C', // Rook
+                'b' => isWhite ? '\u2657' : '\u265D', // Bishop
+                'n' => isWhite ? '\u2658' : '\u265E', // Knight
+                'p' => isWhite ? '\u2659' : '\u265F', // Pawn
+                _ => ch,
+            };
         }
 
         /// <summary>
@@ -161,11 +183,24 @@ namespace Game.Chess
                         {
                             string s = c.ToString();
                             float fontSize = cell * 0.75f;
-                            using var font = new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-                            using var textBrush = new SolidBrush(Color.Black);
-                            using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
-                            g.DrawString(s, font, textBrush, rect, sf);
+                            // Prefer a font that contains chess glyphs on Windows; fall back to GenericSansSerif.
+                            Font fontToUse;
+                            try
+                            {
+                                fontToUse = new Font("Segoe UI Symbol", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+                            }
+                            catch
+                            {
+                                fontToUse = new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+                            }
+
+                            using (fontToUse)
+                            {
+                                using var textBrush = new SolidBrush(Color.Black);
+                                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+                                g.DrawString(s, fontToUse, textBrush, rect, sf);
+                            }
                         }
                     }
                 }

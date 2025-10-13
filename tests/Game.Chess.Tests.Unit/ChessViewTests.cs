@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using Game.Core;
@@ -21,7 +18,7 @@ public class ChessViewTests(ITestOutputHelper output)
         while (repoRoot != null)
         {
             // look for solution file as indicator of repo root
-            if (repoRoot.GetFiles("*.sln").Any()) break;
+            if (repoRoot.GetFiles("*.sln").Length != 0) break;
             repoRoot = repoRoot.Parent;
         }
 
