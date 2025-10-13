@@ -1,5 +1,3 @@
-// Game.Chess/ChessState.cs
-using System;
 using Game.Core;
 
 namespace Game.Chess;
@@ -10,23 +8,18 @@ public enum PieceType { Pawn, Rook, Knight, Bishop, Queen, King }
 
 public sealed record Piece(PieceColor Color, PieceType Type);
 
-/// <summary>
-/// Very small chessboard state holding pieces in an 8x8 array.
-/// Board[row, col] where row 0 is White's back rank (convention used here).
-/// This class implements IState.Clone for simple branching.
-/// </summary>
-public sealed class ChessState : IState
+public sealed class ChessBoard : IState<ChessMove, ChessBoard>
 {
     // 8x8 board: [row, col]
     public Piece?[,] Board { get; }
 
-    public ChessState()
+    public ChessBoard()
     {
         Board = new Piece?[8, 8];
         SetupInitialPosition();
     }
 
-    private ChessState(Piece?[,] board)
+    private ChessBoard(Piece?[,] board)
     {
         Board = board;
     }
@@ -62,34 +55,29 @@ public sealed class ChessState : IState
         Board[7, 7] = new Piece(PieceColor.Black, PieceType.Rook);
     }
 
-    /// <summary>
-    /// Simple deep-ish clone of the board array and pieces (pieces are immutable records).
-    /// </summary>
-    public IState Clone()
+    public ChessBoard Clone()
     {
         var copy = new Piece?[8, 8];
         for (int r = 0; r < 8; r++)
             for (int c = 0; c < 8; c++)
                 copy[r, c] = Board[r, c];
-        return new ChessState(copy);
+        return new ChessBoard(copy);
     }
 
-    /// <summary>
-    /// Helper: get piece or null
-    /// </summary>
     public Piece? PieceAt(Position p) => p.IsValid ? Board[p.Row, p.Col] : null;
 
-    /// <summary>
-    /// Apply a move (mutating) — returns a new ChessState with the move applied.
-    /// Note: no legality checks are performed here; use the policy to enumerate legal moves.
-    /// </summary>
-    public ChessState ApplyMove(ChessMove m)
+    public ChessBoard Apply(ChessMove m)
     {
         if (!m.From.IsValid || !m.To.IsValid) throw new ArgumentException("Invalid positions.");
-        var clone = (ChessState)Clone();
+        var clone = Clone();
         var piece = clone.Board[m.From.Row, m.From.Col];
         clone.Board[m.From.Row, m.From.Col] = null;
         clone.Board[m.To.Row, m.To.Col] = piece;
         return clone;
+    }
+
+    ChessBoard IState<ChessMove, ChessBoard>.Apply(ChessMove m)
+    {
+        return Apply(m);
     }
 }

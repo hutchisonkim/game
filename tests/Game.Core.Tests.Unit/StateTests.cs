@@ -1,13 +1,12 @@
 using Xunit;
-using Game.Core;
 
 namespace Game.Core.Tests.Unit;
 
-[Trait("Category","Unit")]
+[Trait("Category", "Unit")]
 public class StateTests
 {
     [Fact]
-    [Trait("Feature","Clone")]
+    [Trait("Feature", "Clone")]
     public void Clone_WhenCalled_ReturnsDistinctCopy()
     {
         // Arrange: create a simple state implementation for test

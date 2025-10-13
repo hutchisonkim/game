@@ -1,4 +1,3 @@
-// Game.Chess/ChessAction.cs
 using Game.Core;
 
 namespace Game.Chess;
@@ -9,19 +8,9 @@ public readonly record struct Position(int Row, int Col)
     public override string ToString() => $"({Row},{Col})";
 }
 
-/// <summary>
-/// Chess move: from -> to. Promotion info omitted for now.
-/// </summary>
-public sealed class ChessMove : IAction
+public sealed class ChessMove(Position from, Position to) : IAction
 {
-    public Position From { get; }
-    public Position To { get; }
-
+    public Position From { get; } = from;
+    public Position To { get; } = to;
     public string Description => $"{From} -> {To}";
-
-    public ChessMove(Position from, Position to)
-    {
-        From = from;
-        To = to;
-    }
 }

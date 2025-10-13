@@ -4,14 +4,22 @@ namespace Game.Chess
     {
         static void Main(string[] args)
         {
-            var state = new ChessState();
-            var policy = new ChessPolicy();
+            var state = new ChessBoard();
+            var policy = new ChessRules();
             var actions = policy.GetAvailableActions(state);
 
+            var actionCount = 0;
             Console.WriteLine("Initial legal moves:");
-            foreach (ChessMove? action in actions.Take(10))
+            foreach (ChessMove? action in actions)
             {
-                Console.WriteLine($"{action.From} -> {action.To}");
+                var pieceFrom = state.PieceAt(action.From);
+                var pieceTo = state.PieceAt(action.To);
+                
+                Console.WriteLine($"#{actionCount}: {action.From} -> {action.To}");
+                Console.WriteLine($"Piece from: {pieceFrom?.Color} {pieceFrom?.Type}");
+                Console.WriteLine($"Piece to: {pieceTo?.Color} {pieceTo?.Type}");
+
+                actionCount++;
             }
         }
     }

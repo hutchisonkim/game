@@ -1,18 +1,16 @@
-using System.Linq;
 using Xunit;
-using Game.Chess;
 
 namespace Game.Chess.Tests.Unit;
 
-[Trait("Category","Unit")]
+[Trait("Category", "Unit")]
 public class ChessPolicyTests
 {
     [Fact]
-    [Trait("Feature","PawnMovement")]
+    [Trait("Feature", "PawnMovement")]
     public void GetAvailableActions_PawnInitialPosition_IncludesDoubleMove()
     {
-        var s = new ChessState();
-        var policy = new ChessPolicy();
+        var s = new ChessBoard();
+        var policy = new ChessRules();
 
         // White pawn at (1,0) should have move to (2,0) and (3,0)
         var moves = policy.GetAvailableActions(s)
@@ -25,14 +23,14 @@ public class ChessPolicyTests
     }
 
     [Fact]
-    [Trait("Feature","PawnCapture")]
+    [Trait("Feature", "PawnCapture")]
     public void GetAvailableActions_PawnCapture_GeneratesCaptureAction()
     {
-        var s = new ChessState();
+        var s = new ChessBoard();
         // place a black pawn diagonally in front of white pawn
         s.Board[2, 1] = new Piece(PieceColor.Black, PieceType.Pawn);
 
-        var policy = new ChessPolicy();
+        var policy = new ChessRules();
         var moves = policy.GetAvailableActions(s)
             .Where(m => m.From.Row == 1 && m.From.Col == 0)
             .Select(m => (m.To.Row, m.To.Col))

@@ -1,16 +1,15 @@
 using Xunit;
-using Game.Chess;
 
 namespace Game.Chess.Tests.Unit;
 
-[Trait("Category","Unit")]
+[Trait("Category", "Unit")]
 public class ChessStateTests
 {
     [Fact]
-    [Trait("Feature","InitialPosition")]
+    [Trait("Feature", "InitialPosition")]
     public void Constructor_InitialPosition_HasCorrectPieces()
     {
-        var s = new ChessState();
+        var s = new ChessBoard();
 
         // Pawns
         for (int c = 0; c < 8; c++)
@@ -29,14 +28,14 @@ public class ChessStateTests
     }
 
     [Fact]
-    [Trait("Feature","ApplyMove")]
+    [Trait("Feature", "ApplyMove")]
     public void ApplyMove_TwoSquarePawnMove_MovesPiece()
     {
-        var s = new ChessState();
+        var s = new ChessBoard();
         var from = new Position(1, 0); // white pawn
         var to = new Position(3, 0);   // two squares forward
 
-        var moved = s.ApplyMove(new ChessMove(from, to));
+        var moved = s.Apply(new ChessMove(from, to));
 
         Assert.Null(moved.PieceAt(from));
         var piece = moved.PieceAt(to);

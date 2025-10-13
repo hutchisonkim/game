@@ -1,5 +1,3 @@
-// Game.Chess/ChessPolicy.cs
-using System.Collections.Generic;
 using Game.Core;
 
 namespace Game.Chess;
@@ -13,9 +11,9 @@ namespace Game.Chess;
 /// - King: one-square moves (no castling implemented)
 /// This is intentionally minimal but complete for basic legal move generation.
 /// </summary>
-public sealed class ChessPolicy : IPolicy<ChessState, ChessMove>
+public sealed class ChessRules : IPolicy<ChessBoard, ChessMove>
 {
-    public IEnumerable<ChessMove> GetAvailableActions(ChessState state)
+    public IEnumerable<ChessMove> GetAvailableActions(ChessBoard state)
     {
         for (int r = 0; r < 8; r++)
         {
@@ -31,7 +29,7 @@ public sealed class ChessPolicy : IPolicy<ChessState, ChessMove>
         }
     }
 
-    private IEnumerable<ChessMove> GetMovesForPiece(ChessState state, Position from, Piece piece)
+    private static IEnumerable<ChessMove> GetMovesForPiece(ChessBoard state, Position from, Piece piece)
     {
         return piece.Type switch
         {
@@ -41,7 +39,7 @@ public sealed class ChessPolicy : IPolicy<ChessState, ChessMove>
             PieceType.Queen => SlidingMoves(state, from, piece, directionsQueen),
             PieceType.Knight => KnightMoves(state, from, piece),
             PieceType.King => KingMoves(state, from, piece),
-            _ => System.Linq.Enumerable.Empty<ChessMove>()
+            _ => []
         };
     }
 
@@ -55,7 +53,7 @@ public sealed class ChessPolicy : IPolicy<ChessState, ChessMove>
 
     #region Move Generators
 
-    private IEnumerable<ChessMove> SlidingMoves(ChessState state, Position from, Piece piece, (int dr, int dc)[] directions)
+    private static IEnumerable<ChessMove> SlidingMoves(ChessBoard state, Position from, Piece piece, (int dr, int dc)[] directions)
     {
         foreach (var (dr, dc) in directions)
         {
@@ -79,7 +77,7 @@ public sealed class ChessPolicy : IPolicy<ChessState, ChessMove>
         }
     }
 
-    private IEnumerable<ChessMove> KnightMoves(ChessState state, Position from, Piece piece)
+    private static IEnumerable<ChessMove> KnightMoves(ChessBoard state, Position from, Piece piece)
     {
         var jumps = new (int dr, int dc)[]
         {
@@ -96,7 +94,7 @@ public sealed class ChessPolicy : IPolicy<ChessState, ChessMove>
         }
     }
 
-    private IEnumerable<ChessMove> KingMoves(ChessState state, Position from, Piece piece)
+    private static IEnumerable<ChessMove> KingMoves(ChessBoard state, Position from, Piece piece)
     {
         for (int dr = -1; dr <= 1; dr++)
             for (int dc = -1; dc <= 1; dc++)
@@ -110,7 +108,7 @@ public sealed class ChessPolicy : IPolicy<ChessState, ChessMove>
             }
     }
 
-    private IEnumerable<ChessMove> PawnMoves(ChessState state, Position from, Piece piece)
+    private static IEnumerable<ChessMove> PawnMoves(ChessBoard state, Position from, Piece piece)
     {
         int dir = piece.Color == PieceColor.White ? +1 : -1;
         int startRow = piece.Color == PieceColor.White ? 1 : 6;

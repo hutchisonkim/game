@@ -1,13 +1,8 @@
-// Game.Core/State.cs
-using System;
-
 namespace Game.Core;
 
-public interface IState
+public interface IState<TAction, TSelf>
+    where TSelf : IState<TAction, TSelf>
 {
-    /// <summary>
-    /// Create a deep-ish clone suitable for branching/inspection.
-    /// Implementations should copy internal mutable structures.
-    /// </summary>
-    IState Clone();
+    TSelf Clone();
+    TSelf Apply(TAction action);
 }
