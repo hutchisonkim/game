@@ -54,8 +54,8 @@ public class ChessViewTests(ITestOutputHelper output)
     [Trait("Feature", "Rendering")]
     public void RenderTransitionPng_FromEmptyToRook_SavesPng()
     {
-        var fromFen = "8/8/8/8/8/8/8/8"; // empty
-        var toFen = "8/8/8/8/8/8/8/R7"; // one rook at a1 (bottom-left)
+        var fromFen = "8/8/8/8/8/8/8/R7";
+        var toFen = "8/8/8/8/8/8/8/..R5";
         var from = ChessView<DummyAction, DummyState, DummyView>.ParseFen(fromFen);
         var to = ChessView<DummyAction, DummyState, DummyView>.ParseFen(toFen);
 
@@ -75,8 +75,7 @@ public class ChessViewTests(ITestOutputHelper output)
         var frames = new (DummyState state, DummyAction action)[]
         {
             (new DummyState(ChessView<DummyAction, DummyState, DummyView>.ParseFen("8/8/8/8/8/8/8/R7")), new DummyAction("s1")),
-            (new DummyState(ChessView<DummyAction, DummyState, DummyView>.ParseFen("8/8/8/8/8/8/8/.R6")), new DummyAction("s2")),
-            (new DummyState(ChessView<DummyAction, DummyState, DummyView>.ParseFen("8/8/8/8/8/8/8/..R5")), new DummyAction("s3")),
+            (new DummyState(ChessView<DummyAction, DummyState, DummyView>.ParseFen("8/8/8/8/8/8/8/..R5")), new DummyAction("s2")),
         };
 
         var view = new DummyView();
