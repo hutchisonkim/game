@@ -390,9 +390,107 @@ namespace Game.Chess
             var frames = history.ToArray();
             if (frames.Length == 0) return Array.Empty<byte>().ToArray();
 
-            var bitmaps = frames.Select(f => RenderBoardBitmap(ExtractBoardFromState(f.state), stateSize)).ToArray();
+            // Render each frame, draw arrow for the action (parse move or diff with next state), then compose GIF
+            int cell = Math.Max(4, stateSize / 8);
+            (int r, int f)? ParseSquareLocal(string sq)
+            {
+                if (string.IsNullOrWhiteSpace(sq) || sq.Length < 2) return null;
+                char fileCh = sq[0];
+                char rankCh = sq[1];
+                int file = fileCh - 'a';
+                if (file < 0 || file > 7) return null;
+                if (!char.IsDigit(rankCh)) return null;
+                int rank = rankCh - '1';
+                if (rank < 0 || rank > 7) return null;
+                int boardR = 7 - rank;
+                return (boardR, file);
+            }
+
+            var bitmaps = new List<Bitmap>();
+            for (int i = 0; i < frames.Length; i++)
+            {
+                var (state, action) = frames[i];
+                var board = ExtractBoardFromState(state);
+                var bmp = RenderBoardBitmap(board, stateSize);
+                try
+                {
+                    var moves = new List<(int fromR, int fromF, int toR, int toF)>();
+                    if (action != null)
+                    {
+                        var text = action.ToString() ?? string.Empty;
+                        var tokens = text.Split([' ', '-', 'x', ':'], StringSplitOptions.RemoveEmptyEntries);
+                        for (int t = 0; t + 1 < tokens.Length; t++)
+                        {
+                            var a = ParseSquareLocal(tokens[t]);
+                            var b = ParseSquareLocal(tokens[t + 1]);
+                            if (a != null && b != null)
+                            {
+                                moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
+                                break;
+                            }
+                        }
+                    }
+
+                    // If no move parsed from action text, attempt to diff with next state's board
+                    if (moves.Count == 0 && i + 1 < frames.Length)
+                    {
+                        var nextBoard = ExtractBoardFromState(frames[i + 1].state);
+                        var fromSquares = new List<(int r, int f, char c)>();
+                        var toSquares = new List<(int r, int f, char c)>();
+                        for (int r = 0; r < 8; r++)
+                        for (int f = 0; f < 8; f++)
+                        {
+                            char c1 = board[r, f];
+                            char c2 = nextBoard[r, f];
+                            if (c1 != c2)
+                            {
+                                if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
+                                if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
+                            }
+                        }
+
+                        if (fromSquares.Count == 1 && toSquares.Count == 1)
+                        {
+                            moves.Add((fromSquares[0].r, fromSquares[0].f, toSquares[0].r, toSquares[0].f));
+                        }
+                        else if (fromSquares.Count > 0 && toSquares.Count > 0)
+                        {
+                            foreach (var fs in fromSquares)
+                            {
+                                var match = toSquares.FirstOrDefault(ts => ts.c == fs.c);
+                                if (match != default)
+                                {
+                                    moves.Add((fs.r, fs.f, match.r, match.f));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (moves.Count > 0)
+                    {
+                        using var g = Graphics.FromImage(bmp);
+                        using var pen = new Pen(Color.Red, Math.Max(2, cell / 6)) { EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor };
+                        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                        foreach (var mv in moves)
+                        {
+                            var fromCenter = new PointF(mv.fromF * cell + cell / 2f, mv.fromR * cell + cell / 2f);
+                            var toCenter = new PointF(mv.toF * cell + cell / 2f, mv.toR * cell + cell / 2f);
+                            g.DrawLine(pen, fromCenter, toCenter);
+                        }
+                    }
+                }
+                catch
+                {
+                    // best-effort: ignore drawing failures
+                }
+
+                bitmaps.Add(bmp);
+            }
+
             var gifCodec = ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/gif") ?? throw new InvalidOperationException("GIF codec not available.");
-            using var first = bitmaps[0] ?? throw new InvalidOperationException("No frames available to render GIF.");
+            if (bitmaps.Count == 0) throw new InvalidOperationException("No frames available to render GIF.");
+            using var first = bitmaps[0];
             using var ms = new MemoryStream();
             // Ensure the generated GIF loops forever (Netscape application extension: loop count 0 = infinite).
             // Create a PropertyItem instance and set the LoopCount (0x5101) to 0 (short). We use FormatterServices
@@ -410,7 +508,7 @@ namespace Game.Chess
             // Also add a small extra delay to the last frame before the loop (e.g., +10 hundredths = 0.1s).
             try
             {
-                int frameCount = bitmaps.Length;
+                int frameCount = bitmaps.Count;
                 // Default per-frame delay in 1/100th sec: choose 10 (0.1s) if codec doesn't expose timing; tests pass ints as 'stateSize' only.
                 // We infer delay from caller's intent by assuming a base of 12 (0.12s); to keep it simple, take 12 and double it.
                 short baseDelay = 12; // 12/100s = 120ms per frame
@@ -435,7 +533,7 @@ namespace Game.Chess
             ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
             first.Save(ms, gifCodec, ep);
 
-            for (int i = 1; i < bitmaps.Length; i++)
+            for (int i = 1; i < bitmaps.Count; i++)
             {
                 var ep2 = new EncoderParameters(1);
                 ep2.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.FrameDimensionTime);
