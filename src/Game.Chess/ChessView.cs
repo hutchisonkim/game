@@ -117,6 +117,55 @@ namespace Game.Chess
             };
         }
 
+        // Helper: create a font suitable for drawing chess glyphs, preferring Segoe UI Symbol on Windows
+        private static Font CreatePieceFont(float fontSize)
+        {
+            try
+            {
+                return new Font("Segoe UI Symbol", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+            }
+            catch
+            {
+                return new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+            }
+        }
+
+        // Helper: draw pieces from a board onto a Graphics surface with specified opacity
+        private static void DrawPiecesOnGraphics(Graphics g, char[,] board, int cell, float opacity = 1.0f)
+        {
+            for (int r = 0; r < 8; r++)
+            {
+                for (int f = 0; f < 8; f++)
+                {
+                    char c = board[r, f];
+                    if (c == '\0' || c == '.') continue;
+                    string s = c.ToString();
+                    float fontSize = cell * 0.75f;
+                    using var fontToUse = CreatePieceFont(fontSize);
+                    using var textBrush = new SolidBrush(Color.FromArgb((int)(opacity * 255), Color.Black));
+                    using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+                    var rect = new Rectangle(f * cell, r * cell, cell, cell);
+                    g.DrawString(s, fontToUse, textBrush, rect, sf);
+                }
+            }
+        }
+
+        // Helper: parse a square like "e2" into board indices (row, file), or null if invalid
+        private static (int r, int f)? ParseSquareString(string sq)
+        {
+            if (string.IsNullOrWhiteSpace(sq) || sq.Length < 2) return null;
+            char fileCh = sq[0];
+            char rankCh = sq[1];
+            int file = fileCh - 'a';
+            if (file < 0 || file > 7) return null;
+            if (!char.IsDigit(rankCh)) return null;
+            int rank = rankCh - '1';
+            if (rank < 0 || rank > 7) return null;
+            int boardR = 7 - rank;
+            return (boardR, file);
+        }
+
         /// <summary>
         /// Convenience: render a FEN placement string directly to a printable board string.
         /// </summary>
