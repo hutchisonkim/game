@@ -2,14 +2,12 @@ using Xunit;
 using Xunit.Abstractions;
 using Game.Core;
 
-namespace Game.Chess.Tests.View.Unit;
+namespace Game.Chess.Tests.Unit;
 
 [Trait("Category", "Unit")]
-public class ChessViewTests
+public class ChessViewTests(ITestOutputHelper output)
 {
-    private readonly ITestOutputHelper _out;
-
-    public ChessViewTests(ITestOutputHelper output) => _out = output;
+    private readonly ITestOutputHelper _out = output;
 
     private static string MakeOutputPath(string name, string ext)
     {
@@ -183,6 +181,48 @@ public class ChessViewTests
         Assert.True(new FileInfo(path).Length > 0);
         _out.WriteLine(path);
     }
+
+    [Fact]
+    [Trait("Feature", "AvailableActionsTimeline")]
+    public void RenderAvailableActionsTimelineGif_SixtyFourTurnsRandomMoves_CreatesGif()
+    {
+        var boardState = new ChessBoard();
+        var policy = new ChessRules();
+
+        var view = new DummyView();
+        var frames = new List<(DummyState state, DummyAction action)>();
+
+        // Deterministic randomness
+        var rng = new Random(54321);
+        // var rng = new Random(12345);
+
+        var current = boardState;
+
+        for (int turn = 0; turn < 64; turn++)
+        {
+            var moves = policy.GetAvailableActions(current).ToList();
+            if (moves.Count == 0) break;
+
+            // pick a random move deterministically
+            var mv = moves[rng.Next(moves.Count)];
+
+            var toChess = current.Apply(mv);
+            var toBoard = ToCharBoard(toChess);
+            var actionStr = SquareFromPosition(mv.From) + SquareFromPosition(mv.To);
+            frames.Add((new DummyState(toBoard), new DummyAction(actionStr)));
+
+            // advance state
+            current = toChess;
+        }
+
+        var gif = view.RenderTimelineGif(frames.Select(f => (f.state, (DummyAction)f.action)), 200);
+        var path = MakeOutputPath("chess_available_actions_timeline_64turns_54321", ".gif");
+        File.WriteAllBytes(path, gif);
+
+        Assert.True(File.Exists(path));
+        Assert.True(new FileInfo(path).Length > 0);
+        _out.WriteLine(path);
+    }
 }
 
 // Helper types to satisfy generic constraints of ChessView
@@ -191,11 +231,9 @@ public record DummyAction(string Description) : IAction
     public override string ToString() => Description;
 }
 
-public class DummyState : IState<DummyAction, DummyState>
+public class DummyState(char[,] board) : IState<DummyAction, DummyState>
 {
-    public char[,] Board { get; }
-
-    public DummyState(char[,] board) => Board = board ?? throw new ArgumentNullException(nameof(board));
+    public char[,] Board { get; } = board ?? throw new ArgumentNullException(nameof(board));
 
     public DummyState Clone() => new((char[,])Board.Clone());
     public DummyState Apply(DummyAction action) => Clone();

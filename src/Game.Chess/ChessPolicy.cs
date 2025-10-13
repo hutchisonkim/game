@@ -45,7 +45,7 @@ public sealed class ChessRules : IPolicy<ChessBoard, ChessMove>
             PieceType.Queen => PatternMoves(state, from, piece, MovePatterns.Queen),
             PieceType.Knight => PatternMoves(state, from, piece, MovePatterns.Knight),
             PieceType.King => PatternMoves(state, from, piece, MovePatterns.King),
-            _ => Array.Empty<ChessMove>()
+            _ => []
         };
     }
 

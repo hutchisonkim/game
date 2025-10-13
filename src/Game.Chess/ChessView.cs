@@ -163,7 +163,7 @@ namespace Game.Chess
                     for (int f = 0; f < 8; f++)
                     {
                         var rect = new Rectangle(f * cell, r * cell, cell, cell);
-                        bool light = ((r + f) % 2 == 0);
+                        bool light = (r + f) % 2 == 0;
                         using (var brush = new SolidBrush(light ? Color.Beige : Color.SaddleBrown))
                         {
                             g.FillRectangle(brush, rect);
@@ -321,12 +321,12 @@ namespace Game.Chess
                     else if (fromSquares.Count > 0 && toSquares.Count > 0)
                     {
                         // try pair by same char
-                        foreach (var fs in fromSquares)
+                        foreach (var (r, f, c) in fromSquares)
                         {
-                            var match = toSquares.FirstOrDefault(ts => ts.c == fs.c);
+                            var match = toSquares.FirstOrDefault(ts => ts.c == c);
                             if (match != default)
                             {
-                                moves.Add((fs.r, fs.f, match.r, match.f));
+                                moves.Add((r, f, match.r, match.f));
                                 break;
                             }
                         }
@@ -335,10 +335,10 @@ namespace Game.Chess
 
                 // Draw arrows for discovered moves
                 using var pen = new Pen(Color.Red, Math.Max(2, cell / 6)) { EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor };
-                foreach (var mv in moves)
+                foreach (var (fromR, fromF, toR, toF) in moves)
                 {
-                    var fromCenter = new PointF(mv.fromF * cell + cell / 2f, mv.fromR * cell + cell / 2f);
-                    var toCenter = new PointF(mv.toF * cell + cell / 2f, mv.toR * cell + cell / 2f);
+                    var fromCenter = new PointF(fromF * cell + cell / 2f, fromR * cell + cell / 2f);
+                    var toCenter = new PointF(toF * cell + cell / 2f, toR * cell + cell / 2f);
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                     g.DrawLine(pen, fromCenter, toCenter);
                 }
@@ -352,7 +352,7 @@ namespace Game.Chess
         {
             ArgumentNullException.ThrowIfNull(history);
             var frames = history.ToArray();
-            if (frames.Length == 0) return Array.Empty<byte>();
+            if (frames.Length == 0) return [];
 
             var bitmaps = frames.Select(f => RenderBoardBitmap(ExtractBoardFromState(f.state), stateSize)).ToArray();
             int spacing = Math.Max(4, stateSize / 16);
@@ -383,7 +383,7 @@ namespace Game.Chess
 
             // Render each frame, draw arrow for the action (parse move or diff with next state), then compose GIF
             int cell = Math.Max(4, stateSize / 8);
-            (int r, int f)? ParseSquareLocal(string sq)
+            static (int r, int f)? ParseSquareLocal(string sq)
             {
                 if (string.IsNullOrWhiteSpace(sq) || sq.Length < 2) return null;
                 char fileCh = sq[0];
@@ -463,12 +463,12 @@ namespace Game.Chess
                         }
                         else if (fromSquares.Count > 0 && toSquares.Count > 0)
                         {
-                            foreach (var fs in fromSquares)
+                            foreach (var (r, f, c) in fromSquares)
                             {
-                                var match = toSquares.FirstOrDefault(ts => ts.c == fs.c);
+                                var match = toSquares.FirstOrDefault(ts => ts.c == c);
                                 if (match != default)
                                 {
-                                    moves.Add((fs.r, fs.f, match.r, match.f));
+                                    moves.Add((r, f, match.r, match.f));
                                     break;
                                 }
                             }
@@ -480,10 +480,10 @@ namespace Game.Chess
                         using var g = Graphics.FromImage(bmp);
                         using var pen = new Pen(Color.Red, Math.Max(2, cell / 6)) { EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor };
                         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                        foreach (var mv in moves)
+                        foreach (var (fromR, fromF, toR, toF) in moves)
                         {
-                            var fromCenter = new PointF(mv.fromF * cell + cell / 2f, mv.fromR * cell + cell / 2f);
-                            var toCenter = new PointF(mv.toF * cell + cell / 2f, mv.toR * cell + cell / 2f);
+                            var fromCenter = new PointF(fromF * cell + cell / 2f, fromR * cell + cell / 2f);
+                            var toCenter = new PointF(toF * cell + cell / 2f, toR * cell + cell / 2f);
                             g.DrawLine(pen, fromCenter, toCenter);
                         }
                     }
@@ -559,7 +559,7 @@ namespace Game.Chess
         {
             ArgumentNullException.ThrowIfNull(transitions);
             var items = transitions.ToArray();
-            if (items.Length == 0) return Array.Empty<byte>();
+            if (items.Length == 0) return [];
 
             // Use the first 'from' state as the background template, otherwise fall back to first 'to'
             var baseState = items[0].stateFrom ?? items[0].stateTo;
@@ -667,12 +667,12 @@ namespace Game.Chess
                         }
                         else if (fromSquares.Count > 0 && toSquares.Count > 0)
                         {
-                            foreach (var fs in fromSquares)
+                            foreach (var (r, f, c) in fromSquares)
                             {
-                                var match = toSquares.FirstOrDefault(ts => ts.c == fs.c);
+                                var match = toSquares.FirstOrDefault(ts => ts.c == c);
                                 if (match != default)
                                 {
-                                    moves.Add((fs.r, fs.f, match.r, match.f));
+                                    moves.Add((r, f, match.r, match.f));
                                     break;
                                 }
                             }
@@ -680,10 +680,10 @@ namespace Game.Chess
                     }
 
                     using var pen = new Pen(Color.Red, Math.Max(2, cell / 6)) { EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor };
-                    foreach (var mv in moves)
+                    foreach (var (fromR, fromF, toR, toF) in moves)
                     {
-                        var fromCenter = new PointF(mv.fromF * cell + cell / 2f, mv.fromR * cell + cell / 2f);
-                        var toCenter = new PointF(mv.toF * cell + cell / 2f, mv.toR * cell + cell / 2f);
+                        var fromCenter = new PointF(fromF * cell + cell / 2f, fromR * cell + cell / 2f);
+                        var toCenter = new PointF(toF * cell + cell / 2f, toR * cell + cell / 2f);
                         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                         g.DrawLine(pen, fromCenter, toCenter);
                     }
