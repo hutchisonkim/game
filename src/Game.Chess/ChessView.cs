@@ -429,6 +429,23 @@ namespace Game.Chess
                                 break;
                             }
                         }
+
+                        // Fallback: compact UCI-like strings like "e2e4" (no separator)
+                        if (moves.Count == 0 && text.Length >= 4)
+                        {
+                            try
+                            {
+                                var aTxt = text.Substring(0, 2);
+                                var bTxt = text.Substring(2, 2);
+                                var a = ParseSquareLocal(aTxt);
+                                var b = ParseSquareLocal(bTxt);
+                                if (a != null && b != null)
+                                {
+                                    moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
+                                }
+                            }
+                            catch { /* ignore */ }
+                        }
                     }
 
                     // If no move parsed from action text, attempt to diff with next state's board
