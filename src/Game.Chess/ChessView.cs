@@ -293,7 +293,7 @@ namespace Game.Chess
                 }
 
                 // Simple parse: find patterns of two squares
-                var tokens = text.Split(new[] { ' ', '-', 'x', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                var tokens = text.Split([' ', '-', 'x', ':'], StringSplitOptions.RemoveEmptyEntries);
                 for (int i = 0; i + 1 < tokens.Length; i++)
                 {
                     var a = ParseSquare(tokens[i]);
@@ -487,7 +487,7 @@ namespace Game.Chess
                         return (boardR, file);
                     }
 
-                    var tokens = text.Split(new[] { ' ', '-', 'x', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    var tokens = text.Split([' ', '-', 'x', ':'], StringSplitOptions.RemoveEmptyEntries);
                     for (int i = 0; i + 1 < tokens.Length; i++)
                     {
                         var a = ParseSquare(tokens[i]);

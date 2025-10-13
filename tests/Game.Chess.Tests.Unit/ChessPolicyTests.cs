@@ -38,4 +38,19 @@ public class ChessPolicyTests
 
         Assert.Contains((2, 1), moves);
     }
+
+    [Fact]
+    [Trait("Feature", "Initialization")]
+    public void GetAvailableActions_InitialBoard_Has20Actions()
+    {
+        var s = new ChessBoard();
+        var policy = new ChessRules();
+
+        var actions = policy.GetAvailableActions(s)
+            .Where(a => s.PieceAt(a.From)?.Color == PieceColor.White)
+            .ToArray();
+
+        // At the initial position, White (starting side) should have 20 legal moves
+        Assert.Equal(20, actions.Length);
+    }
 }

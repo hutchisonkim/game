@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace Game.Chess;
 
 // Represents a reusable description of how a piece can move relative to its position.
@@ -11,28 +9,21 @@ public interface IMovePattern
     bool MoveOnly { get; }
 }
 
-public sealed class DirectionalPattern : IMovePattern
+public sealed class DirectionalPattern((int dr, int dc)[] vectors, bool isRepeatable, bool captureOnly = false, bool moveOnly = false) : IMovePattern
 {
-    private readonly (int dr, int dc)[] vectors;
-    public DirectionalPattern((int dr, int dc)[] vectors, bool isRepeatable, bool captureOnly = false, bool moveOnly = false)
-    {
-        this.vectors = vectors;
-        IsRepeatable = isRepeatable;
-        CaptureOnly = captureOnly;
-        MoveOnly = moveOnly;
-    }
+    private readonly (int dr, int dc)[] vectors = vectors;
 
     public IEnumerable<(int dr, int dc)> GetVectors() => vectors;
-    public bool IsRepeatable { get; }
-    public bool CaptureOnly { get; }
-    public bool MoveOnly { get; }
+    public bool IsRepeatable { get; } = isRepeatable;
+    public bool CaptureOnly { get; } = captureOnly;
+    public bool MoveOnly { get; } = moveOnly;
 }
 
 public static class MovePatterns
 {
-    public static readonly IMovePattern Rook = new DirectionalPattern(new[] { (1,0), (-1,0), (0,1), (0,-1) }, isRepeatable: true);
-    public static readonly IMovePattern Bishop = new DirectionalPattern(new[] { (1,1), (1,-1), (-1,1), (-1,-1) }, isRepeatable: true);
-    public static readonly IMovePattern Queen = new DirectionalPattern(new[] { (1,0), (-1,0), (0,1), (0,-1), (1,1), (1,-1), (-1,1), (-1,-1) }, isRepeatable: true);
-    public static readonly IMovePattern Knight = new DirectionalPattern(new[] { (2,1),(1,2),(-1,2),(-2,1),(-2,-1),(-1,-2),(1,-2),(2,-1) }, isRepeatable: false);
-    public static readonly IMovePattern King = new DirectionalPattern(new[] { (1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1) }, isRepeatable: false);
+    public static readonly IMovePattern Rook = new DirectionalPattern([(1,0), (-1,0), (0,1), (0,-1)], isRepeatable: true);
+    public static readonly IMovePattern Bishop = new DirectionalPattern([(1,1), (1,-1), (-1,1), (-1,-1)], isRepeatable: true);
+    public static readonly IMovePattern Queen = new DirectionalPattern([(1,0), (-1,0), (0,1), (0,-1), (1,1), (1,-1), (-1,1), (-1,-1)], isRepeatable: true);
+    public static readonly IMovePattern Knight = new DirectionalPattern([(2,1),(1,2),(-1,2),(-2,1),(-2,-1),(-1,-2),(1,-2),(2,-1)], isRepeatable: false);
+    public static readonly IMovePattern King = new DirectionalPattern([(1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)], isRepeatable: false);
 }
