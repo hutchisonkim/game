@@ -34,79 +34,62 @@ public sealed class ChessRules : IPolicy<ChessBoard, ChessMove>
         return piece.Type switch
         {
             PieceType.Pawn => PawnMoves(state, from, piece),
-            PieceType.Rook => SlidingMoves(state, from, piece, directionsRook),
-            PieceType.Bishop => SlidingMoves(state, from, piece, directionsBishop),
-            PieceType.Queen => SlidingMoves(state, from, piece, directionsQueen),
-            PieceType.Knight => KnightMoves(state, from, piece),
-            PieceType.King => KingMoves(state, from, piece),
-            _ => []
+            PieceType.Rook => PatternMoves(state, from, piece, MovePatterns.Rook),
+            PieceType.Bishop => PatternMoves(state, from, piece, MovePatterns.Bishop),
+            PieceType.Queen => PatternMoves(state, from, piece, MovePatterns.Queen),
+            PieceType.Knight => PatternMoves(state, from, piece, MovePatterns.Knight),
+            PieceType.King => PatternMoves(state, from, piece, MovePatterns.King),
+            _ => Array.Empty<ChessMove>()
         };
     }
 
-    #region Directions
-
-    private static readonly (int dr, int dc)[] directionsRook = new[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
-    private static readonly (int dr, int dc)[] directionsBishop = new[] { (1, 1), (1, -1), (-1, 1), (-1, -1) };
-    private static readonly (int dr, int dc)[] directionsQueen = new[] { (1, 0), (-1, 0), (0, 1), (0, -1), (1,1), (1,-1), (-1,1), (-1,-1) };
-
-    #endregion
+    // Direction vectors are now provided by MovePatterns in MovePattern.cs
 
     #region Move Generators
 
-    private static IEnumerable<ChessMove> SlidingMoves(ChessBoard state, Position from, Piece piece, (int dr, int dc)[] directions)
+    private static IEnumerable<ChessMove> PatternMoves(ChessBoard state, Position from, Piece piece, IMovePattern pattern)
     {
-        foreach (var (dr, dc) in directions)
+        foreach (var (dr, dc) in pattern.GetVectors())
         {
             int r = from.Row + dr, c = from.Col + dc;
+
             while (r >= 0 && r < 8 && c >= 0 && c < 8)
             {
-                var target = state.PieceAt(new Position(r, c));
-                if (target == null)
+                var to = new Position(r, c);
+                var target = state.PieceAt(to);
+
+                if (pattern.MoveOnly)
                 {
-                    yield return new ChessMove(from, new Position(r, c));
+                    if (target == null)
+                        yield return new ChessMove(from, to);
+                    else
+                        break; // blocked
+                }
+                else if (pattern.CaptureOnly)
+                {
+                    if (target != null && target.Color != piece.Color)
+                        yield return new ChessMove(from, to);
+                    if (target != null) break;
                 }
                 else
                 {
-                    if (target.Color != piece.Color)
-                        yield return new ChessMove(from, new Position(r, c));
-                    break; // blocked
+                    if (target == null)
+                        yield return new ChessMove(from, to);
+                    else
+                    {
+                        if (target.Color != piece.Color)
+                            yield return new ChessMove(from, to);
+                        break; // blocked by any piece
+                    }
                 }
 
+                if (!pattern.IsRepeatable) break;
                 r += dr; c += dc;
             }
         }
     }
 
-    private static IEnumerable<ChessMove> KnightMoves(ChessBoard state, Position from, Piece piece)
-    {
-        var jumps = new (int dr, int dc)[]
-        {
-            (2,1),(1,2),(-1,2),(-2,1),(-2,-1),(-1,-2),(1,-2),(2,-1)
-        };
-
-        foreach (var (dr, dc) in jumps)
-        {
-            var to = new Position(from.Row + dr, from.Col + dc);
-            if (!to.IsValid) continue;
-            var target = state.PieceAt(to);
-            if (target == null || target.Color != piece.Color)
-                yield return new ChessMove(from, to);
-        }
-    }
-
-    private static IEnumerable<ChessMove> KingMoves(ChessBoard state, Position from, Piece piece)
-    {
-        for (int dr = -1; dr <= 1; dr++)
-            for (int dc = -1; dc <= 1; dc++)
-            {
-                if (dr == 0 && dc == 0) continue;
-                var to = new Position(from.Row + dr, from.Col + dc);
-                if (!to.IsValid) continue;
-                var target = state.PieceAt(to);
-                if (target == null || target.Color != piece.Color)
-                    yield return new ChessMove(from, to);
-            }
-    }
+    // Knight and King move logic is handled by PatternMoves with MovePatterns.Knight and MovePatterns.King.
 
     private static IEnumerable<ChessMove> PawnMoves(ChessBoard state, Position from, Piece piece)
     {
