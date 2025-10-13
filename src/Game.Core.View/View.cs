@@ -7,6 +7,7 @@ where TView : IView<TAction, TState, TView>
 {
     byte[] RenderStatePng(TState state, int stateSize = 400);
     byte[] RenderTransitionPng(TState stateFrom, TState stateTo, TAction action, int stateSize = 400);
+    byte[] RenderMultiTransitionPng(IEnumerable<(TState stateFrom, TState stateTo, TAction action)> transitions, int stateSize = 400);
     byte[] RenderTimelinePng(IEnumerable<(TState state, TAction action)> history, int stateSize = 50);
     byte[] RenderTimelineGif(IEnumerable<(TState state, TAction action)> history, int stateSize = 400);
 }
