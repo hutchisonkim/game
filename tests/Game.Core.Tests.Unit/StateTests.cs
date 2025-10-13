@@ -18,7 +18,7 @@ public class StateTests
         // Assert: different reference but equal behavior
         Assert.NotSame(state, clone);
         Assert.IsType<TestState>(clone);
-        var s2 = (TestState)clone;
+        var s2 = clone;
         Assert.Equal("value", s2.Data);
 
         // Mutate original and ensure clone unaffected
@@ -26,13 +26,22 @@ public class StateTests
         Assert.Equal("value", s2.Data);
     }
 
-    private sealed class TestState : IState
+    private sealed class TestState : IState<TestAction, TestState>
     {
         public string Data { get; set; } = "value";
-        public IState Clone()
+        public TestState Clone()
         {
-            // shallow clone for test
-            return new TestState { Data = this.Data };
+            return new TestState { Data = Data };
         }
+
+        public TestState Apply(TestAction action)
+        {
+            return this;
+        }
+    }
+
+    private sealed class TestAction : IAction
+    {
+        public string Description => "Test Action";
     }
 }
