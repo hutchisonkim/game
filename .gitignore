@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/tmp/
+**/TestResults/
+.vs/
+*.user
+*.suo
+node_modules/
+~*
+.env
+**/artifacts/
+**/coverage-report/
+**/screenshots/
