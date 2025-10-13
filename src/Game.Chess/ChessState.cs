@@ -12,16 +12,20 @@ public sealed class ChessBoard : IState<ChessMove, ChessBoard>
 {
     // 8x8 board: [row, col]
     public Piece?[,] Board { get; }
+    // Number of half-moves (plies) that have been played so far. Even = White to move, Odd = Black to move.
+    public int TurnCount { get; }
 
     public ChessBoard()
     {
         Board = new Piece?[8, 8];
+        TurnCount = 0;
         SetupInitialPosition();
     }
 
-    private ChessBoard(Piece?[,] board)
+    private ChessBoard(Piece?[,] board, int turnCount = 0)
     {
         Board = board;
+        TurnCount = turnCount;
     }
 
     private void SetupInitialPosition()
@@ -61,7 +65,7 @@ public sealed class ChessBoard : IState<ChessMove, ChessBoard>
         for (int r = 0; r < 8; r++)
             for (int c = 0; c < 8; c++)
                 copy[r, c] = Board[r, c];
-        return new ChessBoard(copy);
+        return new ChessBoard(copy, TurnCount);
     }
 
     public Piece? PieceAt(Position p) => p.IsValid ? Board[p.Row, p.Col] : null;
@@ -73,7 +77,8 @@ public sealed class ChessBoard : IState<ChessMove, ChessBoard>
         var piece = clone.Board[m.From.Row, m.From.Col];
         clone.Board[m.From.Row, m.From.Col] = null;
         clone.Board[m.To.Row, m.To.Col] = piece;
-        return clone;
+        // Advance turn count (one ply played)
+        return new ChessBoard(clone.Board, TurnCount + 1);
     }
 
     ChessBoard IState<ChessMove, ChessBoard>.Apply(ChessMove m)

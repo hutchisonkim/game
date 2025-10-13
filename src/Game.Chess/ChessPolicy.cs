@@ -15,6 +15,9 @@ public sealed class ChessRules : IPolicy<ChessBoard, ChessMove>
 {
     public IEnumerable<ChessMove> GetAvailableActions(ChessBoard state)
     {
+        // Determine side to move from TurnCount: even -> White, odd -> Black
+        var sideToMove = (state.TurnCount % 2 == 0) ? PieceColor.White : PieceColor.Black;
+
         for (int r = 0; r < 8; r++)
         {
             for (int c = 0; c < 8; c++)
@@ -22,6 +25,9 @@ public sealed class ChessRules : IPolicy<ChessBoard, ChessMove>
                 var from = new Position(r, c);
                 var piece = state.PieceAt(from);
                 if (piece == null) continue;
+
+                // only generate moves for the side to move
+                if (piece.Color != sideToMove) continue;
 
                 foreach (var mv in GetMovesForPiece(state, from, piece))
                     yield return mv;
