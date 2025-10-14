@@ -706,7 +706,32 @@ namespace Game.Chess.Renders
             if (bitmaps.Count == 0) throw new InvalidOperationException("No frames available to render GIF.");
             using var first = bitmaps[0];
             using var ms = new MemoryStream();
-            // Note: skipping GIF PropertyItem loop/delay settings to avoid using FormatterServices (obsolete API).
+            // Try to set GIF loop and frame delays by cloning an existing PropertyItem if available.
+            // This avoids FormatterServices.GetUninitializedObject and uses existing PropertyItem instances.
+            try
+            {
+                var existing = first.PropertyItems;
+                if (existing != null && existing.Length > 0)
+                {
+                    // Find any PropertyItem we can clone
+                    var proto = existing[0];
+                    // Create new PropertyItems by copying fields from the proto
+                    PropertyItem? loopProp = null;
+                    try { loopProp = first.GetPropertyItem(proto.Id); } catch { loopProp = proto; }
+                    if (loopProp != null)
+                    {
+                        loopProp.Id = 0x5101; // PropertyTagLoopCount
+                        loopProp.Type = 3; // SHORT
+                        loopProp.Value = BitConverter.GetBytes((short)0); // 0 -> infinite loop
+                        loopProp.Len = loopProp.Value.Length;
+                        try { first.SetPropertyItem(loopProp); } catch { /* ignore if not supported */ }
+                    }
+                }
+            }
+            catch
+            {
+                /* best-effort: ignore failures (PropertyItems may be read-only or not supported) */
+            }
             var ep = new EncoderParameters(1);
             ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
             first.Save(ms, gifCodec, ep);
@@ -759,7 +784,52 @@ namespace Game.Chess.Renders
             using var first = bitmaps[0];
             using var ms = new MemoryStream();
 
-            // Note: skipping GIF PropertyItem loop/delay settings to avoid using FormatterServices (obsolete API).
+            // Try to set GIF loop and frame delays by cloning an existing PropertyItem if available.
+            // This avoids FormatterServices.GetUninitializedObject and uses existing PropertyItem instances.
+            try
+            {
+                var existing = first.PropertyItems;
+                if (existing != null && existing.Length > 0)
+                {
+                    var proto = existing[0];
+                    PropertyItem? loopProp = null;
+                    try { loopProp = first.GetPropertyItem(proto.Id); } catch { loopProp = proto; }
+                    if (loopProp != null)
+                    {
+                        loopProp.Id = 0x5101; // PropertyTagLoopCount
+                        loopProp.Type = 3; // SHORT
+                        loopProp.Value = BitConverter.GetBytes((short)0); // Infinite loop
+                        loopProp.Len = loopProp.Value.Length;
+                        try { first.SetPropertyItem(loopProp); } catch { /* ignore if not supported */ }
+                    }
+
+                    int frameCount = bitmaps.Count;
+                    short baseDelay = 24 * 4;
+                    var delays = new byte[4 * frameCount];
+                    for (int i = 0; i < frameCount; i++)
+                    {
+                        short d = baseDelay;
+                        if (i == frameCount - 1) d = (short)(d + 10);
+                        var bytes = BitConverter.GetBytes((int)d);
+                        Array.Copy(bytes, 0, delays, i * 4, 4);
+                    }
+
+                    PropertyItem? delayProp = null;
+                    try { delayProp = first.GetPropertyItem(proto.Id); } catch { delayProp = proto; }
+                    if (delayProp != null)
+                    {
+                        delayProp.Id = 0x5100; // PropertyTagFrameDelay
+                        delayProp.Type = 4; // LONG
+                        delayProp.Value = delays;
+                        delayProp.Len = delays.Length;
+                        try { first.SetPropertyItem(delayProp); } catch { /* ignore if not supported */ }
+                    }
+                }
+            }
+            catch
+            {
+                /* best-effort: ignore if PropertyItems are not available or cloning fails */
+            }
 
             var ep = new EncoderParameters(1);
             ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
