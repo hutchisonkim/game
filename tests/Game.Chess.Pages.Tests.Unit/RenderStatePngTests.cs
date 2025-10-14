@@ -150,7 +150,7 @@ namespace Game.Chess.Pages.Tests.Unit
             var actionStr = SquareFromPosition(move.From) + SquareFromPosition(move.To);
 
             // Act
-            byte[] beforePng = ChessRenderHelper.RenderStatePngWithArrow(ToFen(board), actionStr, Color.White);
+            byte[] beforePng = ChessRenderHelper.RenderStatePngWithArrow(ToFen(board), actionStr, Color.Red, dotNotSolid: true);
             var newBoard = board.Apply(move);
             byte[] afterPng = ChessRenderHelper.RenderStatePngWithArrow(ToFen(newBoard), actionStr, Color.Red);
 

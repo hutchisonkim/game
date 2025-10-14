@@ -42,7 +42,7 @@ namespace Game.Chess
             return ms.ToArray();
         }
 
-        public static byte[] RenderStatePngWithArrow(string fen, string action, System.Drawing.Color arrowColor, int stateSize = 400)
+        public static byte[] RenderStatePngWithArrow(string fen, string action, System.Drawing.Color arrowColor, int stateSize = 400, bool dotNotSolid = false)
         {
             if (string.IsNullOrWhiteSpace(fen)) throw new ArgumentNullException(nameof(fen));
 
@@ -74,19 +74,35 @@ namespace Game.Chess
                     return (boardR, file);
                 }
 
-                var tokens = action.Split([' ', '-', 'x', ':'], StringSplitOptions.RemoveEmptyEntries);
-                for (int i = 0; i + 1 < tokens.Length; i++)
+                // Parse UCI-like notation (e.g., e2e4)
+                if (action.Length == 4 && char.IsLetter(action[0]) && char.IsDigit(action[1]) && char.IsLetter(action[2]) && char.IsDigit(action[3]))
                 {
-                    var a = ParseSquare(tokens[i]);
-                    var b = ParseSquare(tokens[i + 1]);
+                    var a = ParseSquare(action.Substring(0, 2));
+                    var b = ParseSquare(action.Substring(2, 2));
                     if (a != null && b != null)
                     {
                         moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
-                        break;
+                    }
+                }
+                else
+                {
+                    var tokens = action.Split([' ', '-', 'x', ':'], StringSplitOptions.RemoveEmptyEntries);
+                    for (int i = 0; i + 1 < tokens.Length; i++)
+                    {
+                        var a = ParseSquare(tokens[i]);
+                        var b = ParseSquare(tokens[i + 1]);
+                        if (a != null && b != null)
+                        {
+                            moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
+                            break;
+                        }
                     }
                 }
 
-                using var pen = new Pen(arrowColor, Math.Max(2, cell / 6)) { EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor };
+                using var pen = new Pen(arrowColor, Math.Max(2, cell / 6)) {
+                    EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor,
+                    DashStyle = dotNotSolid ? System.Drawing.Drawing2D.DashStyle.Dot : System.Drawing.Drawing2D.DashStyle.Solid
+                };
                 foreach (var (fromR, fromF, toR, toF) in moves)
                 {
                     var fromCenter = new PointF(fromF * cell + cell / 2f, fromR * cell + cell / 2f);
