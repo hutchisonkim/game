@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Xunit;
 using Game.Chess;
+using System.Drawing;
 
 namespace Game.Chess.Pages.Tests.Unit
 {
@@ -131,6 +132,49 @@ namespace Game.Chess.Pages.Tests.Unit
             File.WriteAllBytes(outputPath, gifBytes);
 
             Assert.True(File.Exists(outputPath));
+        }
+
+        [Fact]
+        [Trait("Category", "Unit")]
+        public void RenderTransitionPngs_RandomMove_ProducesTwoPngsWithArrows()
+        {
+            // Arrange
+            var board = new ChessBoard();
+            var policy = new ChessRules();
+            var moves = policy.GetAvailableActions(board).ToList();
+            Assert.True(moves.Count > 0);
+
+            // Pick a random move deterministically
+            var rng = new Random(12345);
+            var move = moves[rng.Next(moves.Count)];
+            var actionStr = SquareFromPosition(move.From) + SquareFromPosition(move.To);
+
+            // Act
+            byte[] beforePng = ChessRenderHelper.RenderStatePngWithArrow(ToFen(board), actionStr, Color.White);
+            var newBoard = board.Apply(move);
+            byte[] afterPng = ChessRenderHelper.RenderStatePngWithArrow(ToFen(newBoard), actionStr, Color.Red);
+
+            // Assert
+            Assert.NotNull(beforePng);
+            Assert.True(beforePng.Length > 0);
+            Assert.NotNull(afterPng);
+            Assert.True(afterPng.Length > 0);
+
+            // Save for manual inspection (optional)
+            string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
+            string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
+            string beforeOutputPath = Path.Combine(rootDir, "TestResults", "Pages", "RenderTransitionPngs_Before.png");
+            string afterOutputPath = Path.Combine(rootDir, "TestResults", "Pages", "RenderTransitionPngs_After.png");
+            string? directory = Path.GetDirectoryName(beforeOutputPath);
+            if (directory != null)
+            {
+                Directory.CreateDirectory(directory);
+            }
+            File.WriteAllBytes(beforeOutputPath, beforePng);
+            File.WriteAllBytes(afterOutputPath, afterPng);
+
+            Assert.True(File.Exists(beforeOutputPath));
+            Assert.True(File.Exists(afterOutputPath));
         }
     }
 }
