@@ -47,6 +47,21 @@ namespace Game.Chess.Renders
             Console.WriteLine();
         }
 
+        public byte[] RenderPreTransitionPng(TState stateFrom, TState stateTo, TAction action, int stateSize = 400)
+        {
+            throw new NotImplementedException();
+        }
+
+        public byte[] RenderPostTransitionPng(TState stateFrom, TState stateTo, TAction action, int stateSize = 400)
+        {
+            throw new NotImplementedException();
+        }
+
+        public byte[] RenderTransitionGif(TState stateFrom, TState stateTo, TAction action, int stateSize = 400)
+        {
+            throw new NotImplementedException();
+        }
+        
         public static char[,] ParseFen(string fenPlacement)
         {
             if (string.IsNullOrWhiteSpace(fenPlacement)) throw new ArgumentNullException(nameof(fenPlacement));
