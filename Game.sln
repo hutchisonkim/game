@@ -14,9 +14,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Tests.Unit", "te
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{2B1DFAE3-E2E2-4ED7-AD6C-30398F277C21}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Page", "src\Game.Chess.Pages\Game.Chess.Pages.csproj", "{47B6A1D7-37BB-4365-87F2-EF9178B1191B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Pages", "src\Game.Chess.Pages\Game.Chess.Pages.csproj", "{47B6A1D7-37BB-4365-87F2-EF9178B1191B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Core.Page", "src\Game.Core.Pages\Game.Core.Pages.csproj", "{0FC7C0CD-31EB-41C4-812A-189055BA4B63}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Core.Pages", "src\Game.Core.Pages\Game.Core.Pages.csproj", "{0FC7C0CD-31EB-41C4-812A-189055BA4B63}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
