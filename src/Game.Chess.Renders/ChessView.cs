@@ -57,51 +57,9 @@ namespace Game.Chess.Renders
             try
             {
                 // Draw arrow based on action or diff to next state (pre-transition should show arrow from stateFrom to stateTo)
-                var moves = new List<(int fromR, int fromF, int toR, int toF)>();
-                if (action != null)
-                {
-                    var text = action.ToString() ?? string.Empty;
-                    var tokens = text.Split(new[] { ' ', '-', 'x', ':' }, StringSplitOptions.RemoveEmptyEntries);
-                    (int r, int f)? ParseSquareLocal(string sq)
-                    {
-                        if (string.IsNullOrWhiteSpace(sq) || sq.Length < 2) return null;
-                        char fileCh = sq[0];
-                        char rankCh = sq[1];
-                        int file = fileCh - 'a';
-                        if (file < 0 || file > 7) return null;
-                        if (!char.IsDigit(rankCh)) return null;
-                        int rank = rankCh - '1';
-                        if (rank < 0 || rank > 7) return null;
-                        int boardR = 7 - rank;
-                        return (boardR, file);
-                    }
+                var moves = MoveParser.ParseMovesFromAction(action?.ToString());
 
-                    for (int t = 0; t + 1 < tokens.Length; t++)
-                    {
-                        var a = ParseSquareLocal(tokens[t]);
-                        var b = ParseSquareLocal(tokens[t + 1]);
-                        if (a != null && b != null)
-                        {
-                            moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
-                            break;
-                        }
-                    }
-
-                    if (moves.Count == 0 && text.Length >= 4)
-                    {
-                        try
-                        {
-                            var aTxt = text.Substring(0, 2);
-                            var bTxt = text.Substring(2, 2);
-                            var a = ParseSquareLocal(aTxt);
-                            var b = ParseSquareLocal(bTxt);
-                            if (a != null && b != null) moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
-                        }
-                        catch { }
-                    }
-                }
-
-                // Fallback: diff with stateTo
+                // Fallback to diff
                 if (moves.Count == 0 && stateTo != null)
                 {
                     try
@@ -173,49 +131,7 @@ namespace Game.Chess.Renders
             try
             {
                 // Draw arrow based on action or diff from stateFrom to stateTo
-                var moves = new List<(int fromR, int fromF, int toR, int toF)>();
-                if (action != null)
-                {
-                    var text = action.ToString() ?? string.Empty;
-                    var tokens = text.Split(new[] { ' ', '-', 'x', ':' }, StringSplitOptions.RemoveEmptyEntries);
-                    (int r, int f)? ParseSquareLocal(string sq)
-                    {
-                        if (string.IsNullOrWhiteSpace(sq) || sq.Length < 2) return null;
-                        char fileCh = sq[0];
-                        char rankCh = sq[1];
-                        int file = fileCh - 'a';
-                        if (file < 0 || file > 7) return null;
-                        if (!char.IsDigit(rankCh)) return null;
-                        int rank = rankCh - '1';
-                        if (rank < 0 || rank > 7) return null;
-                        int boardR = 7 - rank;
-                        return (boardR, file);
-                    }
-
-                    for (int t = 0; t + 1 < tokens.Length; t++)
-                    {
-                        var a = ParseSquareLocal(tokens[t]);
-                        var b = ParseSquareLocal(tokens[t + 1]);
-                        if (a != null && b != null)
-                        {
-                            moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
-                            break;
-                        }
-                    }
-
-                    if (moves.Count == 0 && text.Length >= 4)
-                    {
-                        try
-                        {
-                            var aTxt = text.Substring(0, 2);
-                            var bTxt = text.Substring(2, 2);
-                            var a = ParseSquareLocal(aTxt);
-                            var b = ParseSquareLocal(bTxt);
-                            if (a != null && b != null) moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
-                        }
-                        catch { }
-                    }
-                }
+                var moves = MoveParser.ParseMovesFromAction(action?.ToString());
 
                 if (moves.Count == 0 && stateFrom != null)
                 {
@@ -284,138 +200,22 @@ namespace Game.Chess.Renders
             throw new NotImplementedException();
         }
 
+#nullable enable
         public static char[,] ParseFen(string fenPlacement)
         {
-            if (string.IsNullOrWhiteSpace(fenPlacement)) throw new ArgumentNullException(nameof(fenPlacement));
-
-            var board = new char[8, 8];
-            var ranks = fenPlacement.Split('/');
-            if (ranks.Length != 8) throw new ArgumentException("FEN placement must contain 8 ranks.", nameof(fenPlacement));
-
-            for (int r = 0; r < 8; r++)
-            {
-                string rankStr = ranks[r];
-                int file = 0;
-                foreach (char ch in rankStr)
-                {
-                    if (file >= 8) throw new ArgumentException("Too many squares in rank.", nameof(fenPlacement));
-                    if (char.IsDigit(ch))
-                    {
-                        int emptyCount = ch - '0';
-                        for (int i = 0; i < emptyCount; i++)
-                        {
-                            board[r, file++] = '.';
-                        }
-                    }
-                    else
-                    {
-                        board[r, file++] = MapFenCharToSymbol(ch);
-                    }
-                }
-
-                if (file != 8) throw new ArgumentException("Not enough squares in rank.", nameof(fenPlacement));
-            }
-
-            return board;
-        }
-
-        private static char MapFenCharToSymbol(char ch)
-        {
-            bool isWhite = char.IsUpper(ch);
-            char t = char.ToLowerInvariant(ch);
-            return t switch
-            {
-                'k' => isWhite ? '\u2654' : '\u265A',
-                'q' => isWhite ? '\u2655' : '\u265B',
-                'r' => isWhite ? '\u2656' : '\u265C',
-                'b' => isWhite ? '\u2657' : '\u265D',
-                'n' => isWhite ? '\u2658' : '\u265E',
-                'p' => isWhite ? '\u2659' : '\u265F',
-                _ => ch,
-            };
+            return ChessBoardParser.ParseFen(fenPlacement);
         }
 
         private static char[,] ExtractBoardFromState(object state)
         {
-            ArgumentNullException.ThrowIfNull(state);
-            if (state is char[,] arr)
-            {
-                if (arr.GetLength(0) == 8 && arr.GetLength(1) == 8) return arr;
-                throw new ArgumentException("Board must be 8x8.", nameof(state));
-            }
-
-            var type = state.GetType();
-            var boardProp = type.GetProperties().FirstOrDefault(p => p.PropertyType == typeof(char[,]));
-            if (boardProp != null)
-            {
-                var val = boardProp.GetValue(state) as char[,];
-                if (val != null) return val;
-            }
-
-            var fenProp = type.GetProperties().FirstOrDefault(p => p.PropertyType == typeof(string) && (p.Name.Equals("Fen", StringComparison.OrdinalIgnoreCase) || p.Name.Equals("FenPlacement", StringComparison.OrdinalIgnoreCase) || p.Name.Equals("FEN", StringComparison.OrdinalIgnoreCase)));
-            if (fenProp != null)
-            {
-                var fen = fenProp.GetValue(state) as string;
-                if (!string.IsNullOrWhiteSpace(fen)) return ParseFen(fen);
-            }
-
-            var s = state.ToString();
-            if (!string.IsNullOrWhiteSpace(s) && s.Contains('/')) return ParseFen(s);
-
-            throw new ArgumentException("Unable to extract board from state.", nameof(state));
+            return BoardExtractor.ExtractBoardFromState(state);
         }
+#nullable restore
 #pragma warning disable CA1416 // Validate platform compatibility
 
-        internal static Bitmap RenderBoardBitmap(char[,] board, int size, bool drawPieces = true)
+        public static Bitmap RenderBoardBitmap(char[,] board, int size, bool drawPieces = true)
         {
-            int cell = Math.Max(4, size / 8);
-            if (!OperatingSystem.IsWindows())
-                throw new PlatformNotSupportedException("Bitmap rendering is only supported on Windows.");
-
-            var bmp = new Bitmap(cell * 8, cell * 8);
-            using (var g = Graphics.FromImage(bmp))
-            {
-                g.Clear(Color.White);
-                for (int r = 0; r < 8; r++)
-                {
-                    for (int f = 0; f < 8; f++)
-                    {
-                        var rect = new Rectangle(f * cell, r * cell, cell, cell);
-                        bool light = (r + f) % 2 == 0;
-                        using (var brush = new SolidBrush(light ? Color.Beige : Color.SaddleBrown))
-                        {
-                            g.FillRectangle(brush, rect);
-                        }
-                        if (drawPieces)
-                        {
-                            char c = board[r, f];
-                            if (c != '\0' && c != '.')
-                            {
-                                string s = c.ToString();
-                                float fontSize = cell * 0.75f;
-                                Font fontToUse;
-                                try
-                                {
-                                    fontToUse = new Font("Segoe UI Symbol", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-                                }
-                                catch
-                                {
-                                    fontToUse = new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-                                }
-
-                                using (fontToUse)
-                                {
-                                    using var textBrush = new SolidBrush(Color.Black);
-                                    using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
-                                    g.DrawString(s, fontToUse, textBrush, rect, sf);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return bmp;
+            return ChessBitmapRenderer.RenderBoardBitmap(board, size, drawPieces);
         }
 
         public byte[] RenderStatePng(TState state, int stateSize = 400)
@@ -702,52 +502,8 @@ namespace Game.Chess.Renders
                 bitmaps.Add(bmp);
             }
 
-            var gifCodec = ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/gif") ?? throw new InvalidOperationException("GIF codec not available.");
-            if (bitmaps.Count == 0) throw new InvalidOperationException("No frames available to render GIF.");
-            using var first = bitmaps[0];
-            using var ms = new MemoryStream();
-            // Try to set GIF loop and frame delays by cloning an existing PropertyItem if available.
-            // This avoids FormatterServices.GetUninitializedObject and uses existing PropertyItem instances.
-            try
-            {
-                var existing = first.PropertyItems;
-                if (existing != null && existing.Length > 0)
-                {
-                    // Find any PropertyItem we can clone
-                    var proto = existing[0];
-                    // Create new PropertyItems by copying fields from the proto
-                    PropertyItem? loopProp = null;
-                    try { loopProp = first.GetPropertyItem(proto.Id); } catch { loopProp = proto; }
-                    if (loopProp != null)
-                    {
-                        loopProp.Id = 0x5101; // PropertyTagLoopCount
-                        loopProp.Type = 3; // SHORT
-                        loopProp.Value = BitConverter.GetBytes((short)0); // 0 -> infinite loop
-                        loopProp.Len = loopProp.Value.Length;
-                        try { first.SetPropertyItem(loopProp); } catch { /* ignore if not supported */ }
-                    }
-                }
-            }
-            catch
-            {
-                /* best-effort: ignore failures (PropertyItems may be read-only or not supported) */
-            }
-            var ep = new EncoderParameters(1);
-            ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
-            first.Save(ms, gifCodec, ep);
-
-            for (int i = 1; i < bitmaps.Count; i++)
-            {
-                var ep2 = new EncoderParameters(1);
-                ep2.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.FrameDimensionTime);
-                first.SaveAdd(bitmaps[i], ep2);
-                bitmaps[i].Dispose();
-            }
-
-            var epFlush = new EncoderParameters(1);
-            epFlush.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.Flush);
-            first.SaveAdd(epFlush);
-            return ms.ToArray();
+            // Delegate GIF composition to GifComposer
+            return GifComposer.CombineBitmapsToGif(bitmaps);
         }
 
         public byte[] RenderTimelineGifUsingPngPairs(List<(byte[], byte[])> transitionPngPairs, int stateSize = 400)
@@ -776,78 +532,8 @@ namespace Game.Chess.Renders
                 }
             }
 
-            if (bitmaps.Count == 0) throw new InvalidOperationException("No valid frames available to render GIF.");
-
-            var gifCodec = ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/gif")
-                   ?? throw new InvalidOperationException("GIF codec not available.");
-
-            using var first = bitmaps[0];
-            using var ms = new MemoryStream();
-
-            // Try to set GIF loop and frame delays by cloning an existing PropertyItem if available.
-            // This avoids FormatterServices.GetUninitializedObject and uses existing PropertyItem instances.
-            try
-            {
-                var existing = first.PropertyItems;
-                if (existing != null && existing.Length > 0)
-                {
-                    var proto = existing[0];
-                    PropertyItem? loopProp = null;
-                    try { loopProp = first.GetPropertyItem(proto.Id); } catch { loopProp = proto; }
-                    if (loopProp != null)
-                    {
-                        loopProp.Id = 0x5101; // PropertyTagLoopCount
-                        loopProp.Type = 3; // SHORT
-                        loopProp.Value = BitConverter.GetBytes((short)0); // Infinite loop
-                        loopProp.Len = loopProp.Value.Length;
-                        try { first.SetPropertyItem(loopProp); } catch { /* ignore if not supported */ }
-                    }
-
-                    int frameCount = bitmaps.Count;
-                    short baseDelay = 24 * 4;
-                    var delays = new byte[4 * frameCount];
-                    for (int i = 0; i < frameCount; i++)
-                    {
-                        short d = baseDelay;
-                        if (i == frameCount - 1) d = (short)(d + 10);
-                        var bytes = BitConverter.GetBytes((int)d);
-                        Array.Copy(bytes, 0, delays, i * 4, 4);
-                    }
-
-                    PropertyItem? delayProp = null;
-                    try { delayProp = first.GetPropertyItem(proto.Id); } catch { delayProp = proto; }
-                    if (delayProp != null)
-                    {
-                        delayProp.Id = 0x5100; // PropertyTagFrameDelay
-                        delayProp.Type = 4; // LONG
-                        delayProp.Value = delays;
-                        delayProp.Len = delays.Length;
-                        try { first.SetPropertyItem(delayProp); } catch { /* ignore if not supported */ }
-                    }
-                }
-            }
-            catch
-            {
-                /* best-effort: ignore if PropertyItems are not available or cloning fails */
-            }
-
-            var ep = new EncoderParameters(1);
-            ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
-            first.Save(ms, gifCodec, ep);
-
-            for (int i = 1; i < bitmaps.Count; i++)
-            {
-                var ep2 = new EncoderParameters(1);
-                ep2.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.FrameDimensionTime);
-                first.SaveAdd(bitmaps[i], ep2);
-                bitmaps[i].Dispose();
-            }
-
-            var epFlush = new EncoderParameters(1);
-            epFlush.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.Flush);
-            first.SaveAdd(epFlush);
-
-            return ms.ToArray();
+            // Delegate composition to GifComposer (works from PNG pair bytes)
+            return GifComposer.CombinePngPairsToGif(transitionPngPairs.Select(p => (p.Item1, p.Item2)).ToList());
         }
 
         public byte[] RenderTransitionSequencePng(IEnumerable<(TState stateFrom, TState stateTo, TAction action)> transitions, int stateSize = 400)
@@ -866,29 +552,8 @@ namespace Game.Chess.Renders
             var frames = transitions.ToArray();
             if (frames.Length == 0) return Array.Empty<byte>();
 
-            var bitmaps = frames.Select(f => RenderBoardBitmap(ExtractBoardFromState(f.stateTo), stateSize)).ToArray();
-            var gifCodec = ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/gif")
-                           ?? throw new InvalidOperationException("GIF codec not available.");
-
-            using var first = bitmaps[0];
-            using var ms = new MemoryStream();
-            var ep = new EncoderParameters(1);
-            ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
-            first.Save(ms, gifCodec, ep);
-
-            for (int i = 1; i < bitmaps.Length; i++)
-            {
-                var ep2 = new EncoderParameters(1);
-                ep2.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.FrameDimensionTime);
-                first.SaveAdd(bitmaps[i], ep2);
-                bitmaps[i].Dispose();
-            }
-
-            var epFlush = new EncoderParameters(1);
-            epFlush.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.Flush);
-            first.SaveAdd(epFlush);
-
-            return ms.ToArray();
+            var bitmaps = frames.Select(f => RenderBoardBitmap(ExtractBoardFromState(f.stateTo), stateSize)).ToList();
+            return GifComposer.CombineBitmapsToGif(bitmaps);
         }
     }
 }
