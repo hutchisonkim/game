@@ -1,4 +1,3 @@
-using System.Text;
 using System.Drawing;
 using System.Drawing.Imaging;
 using Game.Core;
@@ -6,9 +5,6 @@ using Game.Core.Renders;
 
 namespace Game.Chess.Renders;
 
-/// <summary>
-/// Provides simple textual rendering utilities for a chess board.
-/// </summary>
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class ChessView<TAction, TState, TView> : IView<TAction, TState, TView>
     where TAction : IAction
@@ -160,7 +156,7 @@ public class ChessView<TAction, TState, TView> : IView<TAction, TState, TView>
         }
 
         // Delegate composition to GifComposer (works from PNG pair bytes)
-        return GifComposer.CombinePngPairsToGif(transitionPngPairs.Select(p => (p.Item1, p.Item2)).ToList());
+        return GifComposer.CombinePngPairsToGif([.. transitionPngPairs.Select(p => (p.Item1, p.Item2))], frameDelaysMs: 480);
     }
 
     public byte[] RenderTransitionSequencePng(IEnumerable<(TState stateFrom, TState stateTo, TAction action)> transitions, int stateSize = 400)
@@ -175,7 +171,7 @@ public class ChessView<TAction, TState, TView> : IView<TAction, TState, TView>
         if (frames.Length == 0) return Array.Empty<byte>();
 
         var bitmaps = frames.Select(f => RenderBoardBitmap(ExtractBoardFromState(f.stateTo), stateSize)).ToList();
-        return GifComposer.CombineBitmapsToGif(bitmaps);
+        return GifComposer.CombineBitmapsToGif(bitmaps, frameDelaysMs: 0);
     }
 }
 
