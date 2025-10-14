@@ -12,6 +12,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Core.View.Tests.Unit",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Tests.Unit", "tests\Game.Chess.Tests.Unit\Game.Chess.Tests.Unit.csproj", "{44444444-4444-4444-4444-444444444444}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Pages.Tests.Unit", "tests\Game.Chess.Pages.Tests.Unit\Game.Chess.Pages.Tests.Unit.csproj", "{77C7C7C7-7C7C-7C7C-7C7C-77C77C77C7C7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Core.Pages.Tests.Unit", "tests\Game.Core.Pages.Tests.Unit\Game.Core.Pages.Tests.Unit.csproj", "{88D8D8D8-8D8D-8D8D-8D8D-88D88D88D8D8}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{2B1DFAE3-E2E2-4ED7-AD6C-30398F277C21}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Pages", "src\Game.Chess.Pages\Game.Chess.Pages.csproj", "{47B6A1D7-37BB-4365-87F2-EF9178B1191B}"
@@ -56,6 +60,14 @@ Global
 		{0FC7C0CD-31EB-41C4-812A-189055BA4B63}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0FC7C0CD-31EB-41C4-812A-189055BA4B63}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0FC7C0CD-31EB-41C4-812A-189055BA4B63}.Release|Any CPU.Build.0 = Release|Any CPU
+		{77C7C7C7-7C7C-7C7C-7C7C-77C77C77C7C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77C7C7C7-7C7C-7C7C-7C7C-77C77C77C7C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77C7C7C7-7C7C-7C7C-7C7C-77C77C77C7C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77C7C7C7-7C7C-7C7C-7C7C-77C77C77C7C7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{88D8D8D8-8D8D-8D8D-8D8D-88D88D88D8D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{88D8D8D8-8D8D-8D8D-8D8D-88D88D88D8D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{88D8D8D8-8D8D-8D8D-8D8D-88D88D88D8D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{88D8D8D8-8D8D-8D8D-8D8D-88D88D88D8D8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
