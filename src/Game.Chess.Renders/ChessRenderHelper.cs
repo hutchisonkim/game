@@ -1,40 +1,17 @@
 using System.Drawing;
 using System.Text;
-using Game.Core;
 
 namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public static class ChessRenderHelper
 {
-    public sealed record HelperAction(string Desc) : IAction
-    {
-        public string Description => Desc;
-        public override string ToString() => Desc;
-    }
-
-    private sealed class HelperState : IState<HelperAction, HelperState>
-    {
-        public char[,] Board { get; }
-
-        public HelperState(char[,] board)
-        {
-            Board = board ?? throw new ArgumentNullException(nameof(board));
-        }
-
-        public HelperState Clone() => new HelperState((char[,])Board.Clone());
-
-        public HelperState Apply(HelperAction action) => Clone();
-    }
-
-    private sealed class HelperView : ChessView<HelperAction, HelperState, HelperView> { }
-
     public static byte[] RenderStatePng(string fen, int stateSize = 400)
     {
         if (string.IsNullOrWhiteSpace(fen)) throw new ArgumentNullException(nameof(fen));
 
-        var board = ChessView<HelperAction, HelperState, HelperView>.ParseFen(fen);
-        using var bmp = ChessView<HelperAction, HelperState, HelperView>.RenderBoardBitmap(board, stateSize);
+        var board = ChessView.ParseFen(fen);
+        using var bmp = ChessView.RenderBoardBitmap(board, stateSize);
         using var ms = new MemoryStream();
         bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
         return ms.ToArray();
@@ -84,8 +61,8 @@ public static class ChessRenderHelper
     {
         if (string.IsNullOrWhiteSpace(fen)) throw new ArgumentNullException(nameof(fen));
 
-        var board = ChessView<HelperAction, HelperState, HelperView>.ParseFen(fen);
-        using var bmp = ChessView<HelperAction, HelperState, HelperView>.RenderBoardBitmap(board, stateSize);
+        var board = ChessView.ParseFen(fen);
+        using var bmp = ChessView.RenderBoardBitmap(board, stateSize);
         using var outBmp = new Bitmap(bmp.Width, bmp.Height);
         using var g = Graphics.FromImage(outBmp);
         using var ms = new MemoryStream();
@@ -157,15 +134,6 @@ public static class ChessRenderHelper
 
     public static byte[] RenderTimelineGifUsingPngPairs(List<(byte[], byte[])> transitionPngPairs, int v)
     {
-        var view = new HelperView();
-        return view.RenderTimelineGifUsingPngPairs(transitionPngPairs, v);
-    }
-
-    static ChessRenderHelper()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            throw new PlatformNotSupportedException("Rendering is only supported on Windows.");
-        }
+        return ChessView.RenderTimelineGifUsingPngPairs(transitionPngPairs, v);
     }
 }

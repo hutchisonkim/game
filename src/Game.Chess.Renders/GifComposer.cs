@@ -15,7 +15,7 @@ internal static class GifComposer
     /// </summary>
     /// <param name="bitmaps">Frames to include in the GIF. The first bitmap will be used as the primary image and disposed at the end.</param>
     /// <param name="frameDelaysMs">Optional per-frame delays in milliseconds. If non-null and length >= frame count, delays will be applied. Otherwise delays are not modified.</param>
-    public static byte[] CombineBitmapsToGif(List<Bitmap> bitmaps, int frameDelaysMs = 0)
+    public static byte[] CombineBitmapsToGif(List<Bitmap> bitmaps, int frameDelaysMs = 240)
     {
         if (bitmaps == null || bitmaps.Count == 0) throw new ArgumentException("No frames provided.", nameof(bitmaps));
 
@@ -98,7 +98,7 @@ internal static class GifComposer
         return ms.ToArray();
     }
 
-    public static byte[] CombinePngPairsToGif(List<(byte[] fromPng, byte[] toPng)> pngPairs, int frameDelaysMs = 0)
+    public static byte[] CombinePngPairsToGif(List<(byte[] fromPng, byte[] toPng)> pngPairs, int frameDelaysMs = 240)
     {
         if (pngPairs == null || pngPairs.Count == 0) throw new ArgumentException("No PNG pairs provided.", nameof(pngPairs));
         var bitmaps = new List<Bitmap>();
