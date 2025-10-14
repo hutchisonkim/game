@@ -3,6 +3,7 @@ using Game.Core;
 
 namespace Game.Chess.Renders;
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public static class ChessRenderHelper
 {
     public sealed record HelperAction(string Desc) : IAction

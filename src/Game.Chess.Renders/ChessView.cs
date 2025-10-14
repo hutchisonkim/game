@@ -9,6 +9,7 @@ namespace Game.Chess.Renders
     /// <summary>
     /// Provides simple textual rendering utilities for a chess board.
     /// </summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public class ChessView<TAction, TState, TView> : IView<TAction, TState, TView>
         where TAction : IAction
         where TState : IState<TAction, TState>
@@ -49,19 +50,240 @@ namespace Game.Chess.Renders
 
         public byte[] RenderPreTransitionPng(TState stateFrom, TState stateTo, TAction action, int stateSize = 400)
         {
-            throw new NotImplementedException();
+            if (stateFrom == null) throw new ArgumentNullException(nameof(stateFrom));
+            var board = ExtractBoardFromState(stateFrom);
+            var cell = Math.Max(4, stateSize / 8);
+            using var bmp = RenderBoardBitmap(board, stateSize);
+            try
+            {
+                // Draw arrow based on action or diff to next state (pre-transition should show arrow from stateFrom to stateTo)
+                var moves = new List<(int fromR, int fromF, int toR, int toF)>();
+                if (action != null)
+                {
+                    var text = action.ToString() ?? string.Empty;
+                    var tokens = text.Split(new[] { ' ', '-', 'x', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    (int r, int f)? ParseSquareLocal(string sq)
+                    {
+                        if (string.IsNullOrWhiteSpace(sq) || sq.Length < 2) return null;
+                        char fileCh = sq[0];
+                        char rankCh = sq[1];
+                        int file = fileCh - 'a';
+                        if (file < 0 || file > 7) return null;
+                        if (!char.IsDigit(rankCh)) return null;
+                        int rank = rankCh - '1';
+                        if (rank < 0 || rank > 7) return null;
+                        int boardR = 7 - rank;
+                        return (boardR, file);
+                    }
+
+                    for (int t = 0; t + 1 < tokens.Length; t++)
+                    {
+                        var a = ParseSquareLocal(tokens[t]);
+                        var b = ParseSquareLocal(tokens[t + 1]);
+                        if (a != null && b != null)
+                        {
+                            moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
+                            break;
+                        }
+                    }
+
+                    if (moves.Count == 0 && text.Length >= 4)
+                    {
+                        try
+                        {
+                            var aTxt = text.Substring(0, 2);
+                            var bTxt = text.Substring(2, 2);
+                            var a = ParseSquareLocal(aTxt);
+                            var b = ParseSquareLocal(bTxt);
+                            if (a != null && b != null) moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
+                        }
+                        catch { }
+                    }
+                }
+
+                // Fallback: diff with stateTo
+                if (moves.Count == 0 && stateTo != null)
+                {
+                    try
+                    {
+                        var nextBoard = ExtractBoardFromState(stateTo);
+                        var fromSquares = new List<(int r, int f, char c)>();
+                        var toSquares = new List<(int r, int f, char c)>();
+                        for (int r = 0; r < 8; r++)
+                            for (int f = 0; f < 8; f++)
+                            {
+                                char c1 = board[r, f];
+                                char c2 = nextBoard[r, f];
+                                if (c1 != c2)
+                                {
+                                    if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
+                                    if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
+                                }
+                            }
+
+                        if (fromSquares.Count == 1 && toSquares.Count == 1)
+                        {
+                            moves.Add((fromSquares[0].r, fromSquares[0].f, toSquares[0].r, toSquares[0].f));
+                        }
+                        else if (fromSquares.Count > 0 && toSquares.Count > 0)
+                        {
+                            foreach (var (r, f, c) in fromSquares)
+                            {
+                                var match = toSquares.FirstOrDefault(ts => ts.c == c);
+                                if (match != default)
+                                {
+                                    moves.Add((r, f, match.r, match.f));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (moves.Count > 0)
+                {
+                    using var g = Graphics.FromImage(bmp);
+                    using var pen = new Pen(Color.Red, Math.Max(2, cell / 6)) { EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor };
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    foreach (var (fromR, fromF, toR, toF) in moves)
+                    {
+                        var fromCenter = new PointF(fromF * cell + cell / 2f, fromR * cell + cell / 2f);
+                        var toCenter = new PointF(toF * cell + cell / 2f, toR * cell + cell / 2f);
+                        g.DrawLine(pen, fromCenter, toCenter);
+                    }
+                }
+            }
+            catch
+            {
+                // best-effort: ignore drawing failures
+            }
+
+            using var ms = new MemoryStream();
+            bmp.Save(ms, ImageFormat.Png);
+            return ms.ToArray();
         }
 
         public byte[] RenderPostTransitionPng(TState stateFrom, TState stateTo, TAction action, int stateSize = 400)
         {
-            throw new NotImplementedException();
+            if (stateTo == null) throw new ArgumentNullException(nameof(stateTo));
+            var board = ExtractBoardFromState(stateTo);
+            var cell = Math.Max(4, stateSize / 8);
+            using var bmp = RenderBoardBitmap(board, stateSize);
+            try
+            {
+                // Draw arrow based on action or diff from stateFrom to stateTo
+                var moves = new List<(int fromR, int fromF, int toR, int toF)>();
+                if (action != null)
+                {
+                    var text = action.ToString() ?? string.Empty;
+                    var tokens = text.Split(new[] { ' ', '-', 'x', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    (int r, int f)? ParseSquareLocal(string sq)
+                    {
+                        if (string.IsNullOrWhiteSpace(sq) || sq.Length < 2) return null;
+                        char fileCh = sq[0];
+                        char rankCh = sq[1];
+                        int file = fileCh - 'a';
+                        if (file < 0 || file > 7) return null;
+                        if (!char.IsDigit(rankCh)) return null;
+                        int rank = rankCh - '1';
+                        if (rank < 0 || rank > 7) return null;
+                        int boardR = 7 - rank;
+                        return (boardR, file);
+                    }
+
+                    for (int t = 0; t + 1 < tokens.Length; t++)
+                    {
+                        var a = ParseSquareLocal(tokens[t]);
+                        var b = ParseSquareLocal(tokens[t + 1]);
+                        if (a != null && b != null)
+                        {
+                            moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
+                            break;
+                        }
+                    }
+
+                    if (moves.Count == 0 && text.Length >= 4)
+                    {
+                        try
+                        {
+                            var aTxt = text.Substring(0, 2);
+                            var bTxt = text.Substring(2, 2);
+                            var a = ParseSquareLocal(aTxt);
+                            var b = ParseSquareLocal(bTxt);
+                            if (a != null && b != null) moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
+                        }
+                        catch { }
+                    }
+                }
+
+                if (moves.Count == 0 && stateFrom != null)
+                {
+                    try
+                    {
+                        var prevBoard = ExtractBoardFromState(stateFrom);
+                        var fromSquares = new List<(int r, int f, char c)>();
+                        var toSquares = new List<(int r, int f, char c)>();
+                        for (int r = 0; r < 8; r++)
+                            for (int f = 0; f < 8; f++)
+                            {
+                                char c1 = prevBoard[r, f];
+                                char c2 = board[r, f];
+                                if (c1 != c2)
+                                {
+                                    if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
+                                    if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
+                                }
+                            }
+
+                        if (fromSquares.Count == 1 && toSquares.Count == 1)
+                        {
+                            moves.Add((fromSquares[0].r, fromSquares[0].f, toSquares[0].r, toSquares[0].f));
+                        }
+                        else if (fromSquares.Count > 0 && toSquares.Count > 0)
+                        {
+                            foreach (var (r, f, c) in fromSquares)
+                            {
+                                var match = toSquares.FirstOrDefault(ts => ts.c == c);
+                                if (match != default)
+                                {
+                                    moves.Add((r, f, match.r, match.f));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (moves.Count > 0)
+                {
+                    using var g = Graphics.FromImage(bmp);
+                    using var pen = new Pen(Color.Red, Math.Max(2, cell / 6)) { EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor };
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    foreach (var (fromR, fromF, toR, toF) in moves)
+                    {
+                        var fromCenter = new PointF(fromF * cell + cell / 2f, fromR * cell + cell / 2f);
+                        var toCenter = new PointF(toF * cell + cell / 2f, toR * cell + cell / 2f);
+                        g.DrawLine(pen, fromCenter, toCenter);
+                    }
+                }
+            }
+            catch
+            {
+                // best-effort: ignore drawing failures
+            }
+
+            using var ms = new MemoryStream();
+            bmp.Save(ms, ImageFormat.Png);
+            return ms.ToArray();
         }
 
         public byte[] RenderTransitionGif(TState stateFrom, TState stateTo, TAction action, int stateSize = 400)
         {
             throw new NotImplementedException();
         }
-        
+
         public static char[,] ParseFen(string fenPlacement)
         {
             if (string.IsNullOrWhiteSpace(fenPlacement)) throw new ArgumentNullException(nameof(fenPlacement));
@@ -484,43 +706,7 @@ namespace Game.Chess.Renders
             if (bitmaps.Count == 0) throw new InvalidOperationException("No frames available to render GIF.");
             using var first = bitmaps[0];
             using var ms = new MemoryStream();
-            // Ensure the generated GIF loops forever (Netscape application extension: loop count 0 = infinite).
-            // Create a PropertyItem instance and set the LoopCount (0x5101) to 0 (short). We use FormatterServices
-            // to allocate a PropertyItem since it has no public constructor.
-            var loopProp = (PropertyItem)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PropertyItem));
-            loopProp.Id = 0x5101; // PropertyTagLoopCount
-            loopProp.Type = 3; // SHORT
-            var loopBytes = BitConverter.GetBytes((short)0); // 0 -> infinite loop
-            loopProp.Value = loopBytes;
-            loopProp.Len = loopBytes.Length;
-            try { first.SetPropertyItem(loopProp); } catch { /* best-effort: ignore if setting property fails */ }
-
-            // Set frame delays: property 0x5100 (FrameDelay) is an array of 4-byte INTs specifying delay in 1/100th sec.
-            // We'll double the supplied frame duration (i.e., make frames two times slower) by multiplying by 2.
-            // Also add a small extra delay to the last frame before the loop (e.g., +10 hundredths = 0.1s).
-            try
-            {
-                int frameCount = bitmaps.Count;
-                // Default per-frame delay in 1/100th sec: choose 10 (0.1s) if codec doesn't expose timing; tests pass ints as 'stateSize' only.
-                // We infer delay from caller's intent by assuming a base of 12 (0.12s); to keep it simple, take 12 and double it.
-                short baseDelay = 12; // 12/100s = 120ms per frame
-                var delays = new byte[4 * frameCount];
-                for (int i = 0; i < frameCount; i++)
-                {
-                    short d = (short)(baseDelay * 2); // two times slower
-                    if (i == frameCount - 1) d = (short)(d + 10); // small extra delay on last frame
-                    var bytes = BitConverter.GetBytes((int)d);
-                    Array.Copy(bytes, 0, delays, i * 4, 4);
-                }
-
-                var delayProp = (PropertyItem)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PropertyItem));
-                delayProp.Id = 0x5100; // PropertyTagFrameDelay
-                delayProp.Type = 4; // LONG
-                delayProp.Value = delays;
-                delayProp.Len = delays.Length;
-                try { first.SetPropertyItem(delayProp); } catch { /* ignore if not supported */ }
-            }
-            catch { /* best-effort: if anything goes wrong, proceed without custom delays */ }
+            // Note: skipping GIF PropertyItem loop/delay settings to avoid using FormatterServices (obsolete API).
             var ep = new EncoderParameters(1);
             ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
             first.Save(ms, gifCodec, ep);
@@ -573,36 +759,7 @@ namespace Game.Chess.Renders
             using var first = bitmaps[0];
             using var ms = new MemoryStream();
 
-            var loopProp = (PropertyItem)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PropertyItem));
-            loopProp.Id = 0x5101; // PropertyTagLoopCount
-            loopProp.Type = 3; // SHORT
-            loopProp.Value = BitConverter.GetBytes((short)0); // Infinite loop
-            loopProp.Len = loopProp.Value.Length;
-            try { first.SetPropertyItem(loopProp); } catch { /* Ignore if setting property fails */ }
-
-            // Set frame delays to make the GIF play slower (adjust baseDelay as needed for desired speed)
-            try
-            {
-                int frameCount = bitmaps.Count;
-                // short baseDelay = 24; // 24/100s = 240ms per frame (slower than the default in RenderTimelineGif; increase for even slower playback)
-                short baseDelay = 24 * 4;
-                var delays = new byte[4 * frameCount];
-                for (int i = 0; i < frameCount; i++)
-                {
-                    short d = baseDelay;
-                    if (i == frameCount - 1) d = (short)(d + 10); // Small extra delay on last frame
-                    var bytes = BitConverter.GetBytes((int)d);
-                    Array.Copy(bytes, 0, delays, i * 4, 4);
-                }
-
-                var delayProp = (PropertyItem)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PropertyItem));
-                delayProp.Id = 0x5100; // PropertyTagFrameDelay
-                delayProp.Type = 4; // LONG
-                delayProp.Value = delays;
-                delayProp.Len = delays.Length;
-                try { first.SetPropertyItem(delayProp); } catch { /* Ignore if not supported */ }
-            }
-            catch { /* Best-effort: if anything goes wrong, proceed without custom delays */ }
+            // Note: skipping GIF PropertyItem loop/delay settings to avoid using FormatterServices (obsolete API).
 
             var ep = new EncoderParameters(1);
             ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
