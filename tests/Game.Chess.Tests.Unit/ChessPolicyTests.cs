@@ -47,7 +47,6 @@ public class ChessPolicyTests
         var policy = new ChessRules();
 
         var actions = policy.GetAvailableActions(s)
-            .Where(a => s.PieceAt(a.From)?.Color == PieceColor.White)
             .ToArray();
 
         // At the initial position, White (starting side) should have 20 legal moves
