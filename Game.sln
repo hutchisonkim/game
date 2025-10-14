@@ -22,6 +22,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Pages", "src\Gam
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Core.Pages", "src\Game.Core.Pages\Game.Core.Pages.csproj", "{0FC7C0CD-31EB-41C4-812A-189055BA4B63}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Renders", "src\Game.Chess.Renders\Game.Chess.Renders.csproj", "{823ED9C6-C3AC-45D6-A062-215C8B3217DE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Core.Renders", "src\Game.Core.Renders\Game.Core.Renders.csproj", "{B77C2326-B990-499B-9322-703519C16019}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -68,6 +72,14 @@ Global
 		{88D8D8D8-8D8D-8D8D-8D8D-88D88D88D8D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{88D8D8D8-8D8D-8D8D-8D8D-88D88D88D8D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{88D8D8D8-8D8D-8D8D-8D8D-88D88D88D8D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{823ED9C6-C3AC-45D6-A062-215C8B3217DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{823ED9C6-C3AC-45D6-A062-215C8B3217DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{823ED9C6-C3AC-45D6-A062-215C8B3217DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{823ED9C6-C3AC-45D6-A062-215C8B3217DE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B77C2326-B990-499B-9322-703519C16019}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B77C2326-B990-499B-9322-703519C16019}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B77C2326-B990-499B-9322-703519C16019}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B77C2326-B990-499B-9322-703519C16019}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -75,5 +87,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{47B6A1D7-37BB-4365-87F2-EF9178B1191B} = {2B1DFAE3-E2E2-4ED7-AD6C-30398F277C21}
 		{0FC7C0CD-31EB-41C4-812A-189055BA4B63} = {2B1DFAE3-E2E2-4ED7-AD6C-30398F277C21}
+		{823ED9C6-C3AC-45D6-A062-215C8B3217DE} = {2B1DFAE3-E2E2-4ED7-AD6C-30398F277C21}
+		{B77C2326-B990-499B-9322-703519C16019} = {2B1DFAE3-E2E2-4ED7-AD6C-30398F277C21}
 	EndGlobalSection
 EndGlobal
