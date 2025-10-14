@@ -134,6 +134,13 @@ namespace Game.Chess
             var view = new HelperView();
             return view.RenderTimelineGif(history, stateSize);
         }
+
+        public static byte[] RenderTimelineGifUsingPngPairs(List<(byte[], byte[])> transitionPngPairs, int v)
+        {
+            var view = new HelperView();
+            return view.RenderTimelineGifUsingPngPairs(transitionPngPairs, v);
+        }
+
         static ChessRenderHelper()
         {
             if (!OperatingSystem.IsWindows())

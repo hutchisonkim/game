@@ -176,5 +176,53 @@ namespace Game.Chess.Pages.Tests.Unit
             Assert.True(File.Exists(beforeOutputPath));
             Assert.True(File.Exists(afterOutputPath));
         }
+        [Fact]
+        [Trait("Feature", "Rendering")]
+        public void RenderTimelineGif_64Turns_ProducesGifUsingTransitionPngPairs()
+        {
+            // Arrange
+            var boardState = new ChessBoard();
+            var policy = new ChessRules();
+            var transitionPngPairs = new List<(byte[], byte[])>();
+            var rng = new Random(12345);
+            var current = boardState;
+
+            for (int turn = 0; turn < 64; turn++)
+            {
+                var moves = policy.GetAvailableActions(current).ToList();
+                if (moves.Count == 0) break;
+
+                var mv = moves[rng.Next(moves.Count)];
+                var actionStr = SquareFromPosition(mv.From) + SquareFromPosition(mv.To);
+
+                byte[] beforePng = ChessRenderHelper.RenderStatePngWithArrow(ToFen(current), actionStr, Color.OrangeRed);
+                var toChess = current.Apply(mv);
+                byte[] afterPng = ChessRenderHelper.RenderStatePngWithArrow(ToFen(toChess), actionStr, Color.Red);
+
+                transitionPngPairs.Add((beforePng, afterPng));
+
+                current = toChess;
+            }
+
+            // Act
+            byte[] gifBytes = ChessRenderHelper.RenderTimelineGifUsingPngPairs(transitionPngPairs, 200);
+
+            // Assert
+            Assert.NotNull(gifBytes);
+            Assert.True(gifBytes.Length > 0);
+
+            // Save for manual inspection (optional)
+            string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
+            string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
+            string outputPath = Path.Combine(rootDir, "TestResults", "Pages", "RenderTimelineGif_64Turns_ProducesGifUsingTransitionPngPairs.gif");
+            string? directory = Path.GetDirectoryName(outputPath);
+            if (directory != null)
+            {
+                Directory.CreateDirectory(directory);
+            }
+            File.WriteAllBytes(outputPath, gifBytes);
+
+            Assert.True(File.Exists(outputPath));
+        }
     }
 }

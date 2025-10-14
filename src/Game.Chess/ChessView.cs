@@ -555,6 +555,89 @@ namespace Game.Chess
             return ms.ToArray();
         }
 
+        public byte[] RenderTimelineGifUsingPngPairs(List<(byte[], byte[])> transitionPngPairs, int stateSize = 400)
+        {
+            if (transitionPngPairs == null || transitionPngPairs.Count == 0)
+                throw new ArgumentNullException(nameof(transitionPngPairs));
+
+            var bitmaps = new List<Bitmap>();
+            foreach (var (fromPng, toPng) in transitionPngPairs)
+            {
+                try
+                {
+                    var fromStream = new MemoryStream(fromPng);
+                    var toStream = new MemoryStream(toPng);
+                    var fromBmp = new Bitmap(fromStream);
+                    var toBmp = new Bitmap(toStream);
+
+                    bitmaps.Add(fromBmp);
+                    bitmaps.Add(toBmp);
+
+
+                }
+                catch
+                {
+                    // Ignore any invalid PNGs and continue
+                }
+            }
+
+            if (bitmaps.Count == 0) throw new InvalidOperationException("No valid frames available to render GIF.");
+
+            var gifCodec = ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/gif")
+                   ?? throw new InvalidOperationException("GIF codec not available.");
+
+            using var first = bitmaps[0];
+            using var ms = new MemoryStream();
+
+            var loopProp = (PropertyItem)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PropertyItem));
+            loopProp.Id = 0x5101; // PropertyTagLoopCount
+            loopProp.Type = 3; // SHORT
+            loopProp.Value = BitConverter.GetBytes((short)0); // Infinite loop
+            loopProp.Len = loopProp.Value.Length;
+            try { first.SetPropertyItem(loopProp); } catch { /* Ignore if setting property fails */ }
+
+            // Set frame delays to make the GIF play slower (adjust baseDelay as needed for desired speed)
+            try
+            {
+                int frameCount = bitmaps.Count;
+                short baseDelay = 24; // 24/100s = 240ms per frame (slower than the default in RenderTimelineGif; increase for even slower playback)
+                var delays = new byte[4 * frameCount];
+                for (int i = 0; i < frameCount; i++)
+                {
+                    short d = baseDelay;
+                    if (i == frameCount - 1) d = (short)(d + 10); // Small extra delay on last frame
+                    var bytes = BitConverter.GetBytes((int)d);
+                    Array.Copy(bytes, 0, delays, i * 4, 4);
+                }
+
+                var delayProp = (PropertyItem)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PropertyItem));
+                delayProp.Id = 0x5100; // PropertyTagFrameDelay
+                delayProp.Type = 4; // LONG
+                delayProp.Value = delays;
+                delayProp.Len = delays.Length;
+                try { first.SetPropertyItem(delayProp); } catch { /* Ignore if not supported */ }
+            }
+            catch { /* Best-effort: if anything goes wrong, proceed without custom delays */ }
+
+            var ep = new EncoderParameters(1);
+            ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
+            first.Save(ms, gifCodec, ep);
+
+            for (int i = 1; i < bitmaps.Count; i++)
+            {
+                var ep2 = new EncoderParameters(1);
+                ep2.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.FrameDimensionTime);
+                first.SaveAdd(bitmaps[i], ep2);
+                bitmaps[i].Dispose();
+            }
+
+            var epFlush = new EncoderParameters(1);
+            epFlush.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.Flush);
+            first.SaveAdd(epFlush);
+
+            return ms.ToArray();
+        }
+
         public byte[] RenderMultiTransitionPng(IEnumerable<(TState stateFrom, TState stateTo, TAction action)> transitions, int stateSize = 400)
         {
             ArgumentNullException.ThrowIfNull(transitions);
