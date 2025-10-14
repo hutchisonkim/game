@@ -14,7 +14,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Game.Core\Game.Core.csproj" />
+    <ProjectReference Include="..\..\src\Game.Chess\Game.Chess.csproj" />
+    <ProjectReference Include="..\..\src\Game.Chess.Renders\Game.Chess.Renders.csproj" />
   </ItemGroup>
 
 </Project>

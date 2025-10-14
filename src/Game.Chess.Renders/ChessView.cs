@@ -2,9 +2,9 @@ using System.Text;
 using System.Drawing;
 using System.Drawing.Imaging;
 using Game.Core;
-using Game.Core.View;
+using Game.Core.Renders;
 
-namespace Game.Chess
+namespace Game.Chess.Renders
 {
     /// <summary>
     /// Provides simple textual rendering utilities for a chess board.
@@ -14,11 +14,6 @@ namespace Game.Chess
         where TState : IState<TAction, TState>
         where TView : IView<TAction, TState, TView>
     {
-        /// <summary>
-        /// Renders a board represented as an 8x8 char array into a multiline string.
-        /// Empty squares should be represented by '.' or '\0'.
-        /// The returned string displays ranks 8..1 from top to bottom and files a..h left to right.
-        /// </summary>
         public static string Render(char[,] board)
         {
             ArgumentNullException.ThrowIfNull(board);
@@ -46,20 +41,12 @@ namespace Game.Chess
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Prints a board represented as an 8x8 char array to the console.
-        /// </summary>
         public static void Print(char[,] board)
         {
             Console.Write(Render(board));
             Console.WriteLine();
         }
 
-        /// <summary>
-        /// Parses the piece placement portion of a FEN string into an 8x8 char array.
-        /// Empty squares are set to '.'.
-        /// Only the placement field is required (e.g. "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR").
-        /// </summary>
         public static char[,] ParseFen(string fenPlacement)
         {
             if (string.IsNullOrWhiteSpace(fenPlacement)) throw new ArgumentNullException(nameof(fenPlacement));
@@ -95,24 +82,18 @@ namespace Game.Chess
             return board;
         }
 
-        /// <summary>
-        /// Map a FEN piece letter (r,n,b,q,k,p or uppercase) to a Unicode chess symbol char.
-        /// Uppercase letters map to white pieces, lowercase to black pieces.
-        /// Unknown characters are returned unchanged.
-        /// </summary>
         private static char MapFenCharToSymbol(char ch)
         {
-            // White: uppercase, Black: lowercase
             bool isWhite = char.IsUpper(ch);
             char t = char.ToLowerInvariant(ch);
             return t switch
             {
-                'k' => isWhite ? '\u2654' : '\u265A', // King
-                'q' => isWhite ? '\u2655' : '\u265B', // Queen
-                'r' => isWhite ? '\u2656' : '\u265C', // Rook
-                'b' => isWhite ? '\u2657' : '\u265D', // Bishop
-                'n' => isWhite ? '\u2658' : '\u265E', // Knight
-                'p' => isWhite ? '\u2659' : '\u265F', // Pawn
+                'k' => isWhite ? '\u2654' : '\u265A',
+                'q' => isWhite ? '\u2655' : '\u265B',
+                'r' => isWhite ? '\u2656' : '\u265C',
+                'b' => isWhite ? '\u2657' : '\u265D',
+                'n' => isWhite ? '\u2658' : '\u265E',
+                'p' => isWhite ? '\u2659' : '\u265F',
                 _ => ch,
             };
         }
@@ -175,7 +156,6 @@ namespace Game.Chess
                             {
                                 string s = c.ToString();
                                 float fontSize = cell * 0.75f;
-                                // Prefer a font that contains chess glyphs on Windows; fall back to GenericSansSerif.
                                 Font fontToUse;
                                 try
                                 {
@@ -220,7 +200,6 @@ namespace Game.Chess
             var bTo = ExtractBoardFromState(stateTo);
 
             int cell = Math.Max(4, stateSize / 8);
-            // Render background board only (no pieces)
             using var boardBg = RenderBoardBitmap(bFrom, stateSize, drawPieces: false);
             using var outBmp = new Bitmap(boardBg.Width, boardBg.Height);
             using var g = Graphics.FromImage(outBmp);
@@ -229,7 +208,6 @@ namespace Game.Chess
             g.Clear(Color.White);
             g.DrawImage(boardBg, 0, 0);
 
-            // Helper to draw pieces from a board with specified opacity
             void DrawPieces(char[,] board, float opacity)
             {
                 for (int r = 0; r < 8; r++)
@@ -256,16 +234,12 @@ namespace Game.Chess
                 }
             }
 
-            // Draw 'from' pieces faded, then 'to' pieces fully opaque
             DrawPieces(bFrom, 0.35f);
             DrawPieces(bTo, 1.0f);
 
-            // Draw arrow from source to destination based on action.ToString() if possible
             if (action != null)
             {
-                // Try to parse UCI-like notation (e.g., e2e4) or algebraic with hyphen
                 var text = action.ToString() ?? string.Empty;
-                // Accept patterns like e2e4, e7-e5, e2-e4
                 var moves = new List<(int fromR, int fromF, int toR, int toF)>();
 
                 (int r, int f)? ParseSquare(string sq)
@@ -278,12 +252,10 @@ namespace Game.Chess
                     if (!char.IsDigit(rankCh)) return null;
                     int rank = rankCh - '1';
                     if (rank < 0 || rank > 7) return null;
-                    // Our internal board indexing uses ranks 0..7 top-to-bottom where 0 == rank8 in display
-                    int boardR = 7 - rank; // convert '1' -> row 7, '8' -> row 0
+                    int boardR = 7 - rank;
                     return (boardR, file);
                 }
 
-                // Simple parse: find patterns of two squares
                 var tokens = text.Split([' ', '-', 'x', ':'], StringSplitOptions.RemoveEmptyEntries);
                 for (int i = 0; i + 1 < tokens.Length; i++)
                 {
@@ -292,11 +264,10 @@ namespace Game.Chess
                     if (a != null && b != null)
                     {
                         moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
-                        break; // only first match
+                        break;
                     }
                 }
 
-                // If no parse from action string, attempt to diff boards: find moved piece(s)
                 if (moves.Count == 0)
                 {
                     var fromSquares = new List<(int r, int f, char c)>();
@@ -313,14 +284,12 @@ namespace Game.Chess
                             }
                         }
 
-                    // Heuristic: pair by piece type (ignoring color) or if single from/to
                     if (fromSquares.Count == 1 && toSquares.Count == 1)
                     {
                         moves.Add((fromSquares[0].r, fromSquares[0].f, toSquares[0].r, toSquares[0].f));
                     }
                     else if (fromSquares.Count > 0 && toSquares.Count > 0)
                     {
-                        // try pair by same char
                         foreach (var (r, f, c) in fromSquares)
                         {
                             var match = toSquares.FirstOrDefault(ts => ts.c == c);
@@ -333,7 +302,6 @@ namespace Game.Chess
                     }
                 }
 
-                // Draw arrows for discovered moves
                 using var pen = new Pen(Color.Red, Math.Max(2, cell / 6)) { EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor };
                 foreach (var (fromR, fromF, toR, toF) in moves)
                 {
@@ -352,7 +320,7 @@ namespace Game.Chess
         {
             ArgumentNullException.ThrowIfNull(history);
             var frames = history.ToArray();
-            if (frames.Length == 0) return [];
+            if (frames.Length == 0) return Array.Empty<byte>();
 
             var bitmaps = frames.Select(f => RenderBoardBitmap(ExtractBoardFromState(f.state), stateSize)).ToArray();
             int spacing = Math.Max(4, stateSize / 16);
@@ -374,6 +342,7 @@ namespace Game.Chess
             outBmp.Save(ms, ImageFormat.Png);
             return ms.ToArray();
         }
+
 
         public byte[] RenderTimelineGif(IEnumerable<(TState state, TAction action)> history, int stateSize = 400)
         {
@@ -600,7 +569,8 @@ namespace Game.Chess
             try
             {
                 int frameCount = bitmaps.Count;
-                short baseDelay = 24; // 24/100s = 240ms per frame (slower than the default in RenderTimelineGif; increase for even slower playback)
+                // short baseDelay = 24; // 24/100s = 240ms per frame (slower than the default in RenderTimelineGif; increase for even slower playback)
+                short baseDelay = 24 * 4;
                 var delays = new byte[4 * frameCount];
                 for (int i = 0; i < frameCount; i++)
                 {
@@ -638,145 +608,45 @@ namespace Game.Chess
             return ms.ToArray();
         }
 
-        public byte[] RenderMultiTransitionPng(IEnumerable<(TState stateFrom, TState stateTo, TAction action)> transitions, int stateSize = 400)
+        public byte[] RenderTransitionSequencePng(IEnumerable<(TState stateFrom, TState stateTo, TAction action)> transitions, int stateSize = 400)
         {
-            ArgumentNullException.ThrowIfNull(transitions);
-            var items = transitions.ToArray();
-            if (items.Length == 0) return [];
-
-            // Use the first 'from' state as the background template, otherwise fall back to first 'to'
-            var baseState = items[0].stateFrom ?? items[0].stateTo;
-            if (baseState == null) throw new ArgumentException("At least one state must be non-null.", nameof(transitions));
-
-            var baseBoard = ExtractBoardFromState(baseState);
-            int cell = Math.Max(4, stateSize / 8);
-            using var boardBg = RenderBoardBitmap(baseBoard, stateSize, drawPieces: false);
-            using var outBmp = new Bitmap(boardBg.Width, boardBg.Height);
-            using var g = Graphics.FromImage(outBmp);
-            using var ms = new MemoryStream();
-
-            g.Clear(Color.White);
-            g.DrawImage(boardBg, 0, 0);
-
-            // For each transition, draw faded 'from' pieces, then opaque 'to' pieces, and arrow
-            foreach (var (stateFrom, stateTo, action) in items)
+            if (transitions == null) return Array.Empty<byte>();
+            foreach (var t in transitions)
             {
-                var bFrom = stateFrom != null ? ExtractBoardFromState(stateFrom) : null;
-                var bTo = stateTo != null ? ExtractBoardFromState(stateTo) : null;
-
-                void DrawPiecesLocal(char[,]? board, float opacity)
-                {
-                    if (board == null) return;
-                    for (int r = 0; r < 8; r++)
-                        for (int f = 0; f < 8; f++)
-                        {
-                            char c = board[r, f];
-                            if (c == '\0' || c == '.') continue;
-                            string s = c.ToString();
-                            float fontSize = cell * 0.75f;
-                            Font fontToUse;
-                            try { fontToUse = new Font("Segoe UI Symbol", fontSize, FontStyle.Bold, GraphicsUnit.Pixel); }
-                            catch { fontToUse = new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Bold, GraphicsUnit.Pixel); }
-
-                            using (fontToUse)
-                            {
-                                using var textBrush = new SolidBrush(Color.FromArgb((int)(opacity * 255), Color.Black));
-                                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
-                                var rect = new Rectangle(f * cell, r * cell, cell, cell);
-                                g.DrawString(s, fontToUse, textBrush, rect, sf);
-                            }
-                        }
-                }
-
-                // faded from, then to opaque
-                DrawPiecesLocal(bFrom, 0.35f);
-                DrawPiecesLocal(bTo, 1.0f);
-
-                // Draw arrow for this transition (use same parsing/diff heuristics as single transition)
-                if (action != null)
-                {
-                    var text = action.ToString() ?? string.Empty;
-                    var moves = new List<(int fromR, int fromF, int toR, int toF)>();
-
-                    (int r, int f)? ParseSquare(string sq)
-                    {
-                        if (string.IsNullOrWhiteSpace(sq) || sq.Length < 2) return null;
-                        char fileCh = sq[0];
-                        char rankCh = sq[1];
-                        int file = fileCh - 'a';
-                        if (file < 0 || file > 7) return null;
-                        if (!char.IsDigit(rankCh)) return null;
-                        int rank = rankCh - '1';
-                        if (rank < 0 || rank > 7) return null;
-                        int boardR = 7 - rank;
-                        return (boardR, file);
-                    }
-
-                    var tokens = text.Split([' ', '-', 'x', ':'], StringSplitOptions.RemoveEmptyEntries);
-                    for (int i = 0; i + 1 < tokens.Length; i++)
-                    {
-                        var a = ParseSquare(tokens[i]);
-                        var b = ParseSquare(tokens[i + 1]);
-                        if (a != null && b != null)
-                        {
-                            moves.Add((a.Value.r, a.Value.f, b.Value.r, b.Value.f));
-                            break;
-                        }
-                    }
-
-                    if (moves.Count == 0)
-                    {
-                        var fromSquares = new List<(int r, int f, char c)>();
-                        var toSquares = new List<(int r, int f, char c)>();
-                        if (bFrom != null && bTo != null)
-                        {
-                            for (int r = 0; r < 8; r++)
-                                for (int f = 0; f < 8; f++)
-                                {
-                                    char c1 = bFrom[r, f];
-                                    char c2 = bTo[r, f];
-                                    if (c1 != c2)
-                                    {
-                                        if (c1 != '\0' && c1 != '.') fromSquares.Add((r, f, c1));
-                                        if (c2 != '\0' && c2 != '.') toSquares.Add((r, f, c2));
-                                    }
-                                }
-                        }
-
-                        if (fromSquares.Count == 1 && toSquares.Count == 1)
-                        {
-                            moves.Add((fromSquares[0].r, fromSquares[0].f, toSquares[0].r, toSquares[0].f));
-                        }
-                        else if (fromSquares.Count > 0 && toSquares.Count > 0)
-                        {
-                            foreach (var (r, f, c) in fromSquares)
-                            {
-                                var match = toSquares.FirstOrDefault(ts => ts.c == c);
-                                if (match != default)
-                                {
-                                    moves.Add((r, f, match.r, match.f));
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    using var pen = new Pen(Color.Red, Math.Max(2, cell / 6)) { EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor };
-                    foreach (var (fromR, fromF, toR, toF) in moves)
-                    {
-                        var fromCenter = new PointF(fromF * cell + cell / 2f, fromR * cell + cell / 2f);
-                        var toCenter = new PointF(toF * cell + cell / 2f, toR * cell + cell / 2f);
-                        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                        g.DrawLine(pen, fromCenter, toCenter);
-                    }
-                }
+                if (t.stateTo != null) return RenderStatePng(t.stateTo, stateSize);
             }
-
-            outBmp.Save(ms, ImageFormat.Png);
-            return ms.ToArray();
+            return Array.Empty<byte>();
         }
 
-#pragma warning restore CA1416 // Validate platform compatibility
+        public byte[] RenderTransitionSequenceGif(IEnumerable<(TState stateFrom, TState stateTo, TAction action)> transitions, int stateSize = 400)
+        {
+            if (transitions == null) throw new ArgumentNullException(nameof(transitions));
+            var frames = transitions.ToArray();
+            if (frames.Length == 0) return Array.Empty<byte>();
+
+            var bitmaps = frames.Select(f => RenderBoardBitmap(ExtractBoardFromState(f.stateTo), stateSize)).ToArray();
+            var gifCodec = ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/gif")
+                           ?? throw new InvalidOperationException("GIF codec not available.");
+
+            using var first = bitmaps[0];
+            using var ms = new MemoryStream();
+            var ep = new EncoderParameters(1);
+            ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.MultiFrame);
+            first.Save(ms, gifCodec, ep);
+
+            for (int i = 1; i < bitmaps.Length; i++)
+            {
+                var ep2 = new EncoderParameters(1);
+                ep2.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.FrameDimensionTime);
+                first.SaveAdd(bitmaps[i], ep2);
+                bitmaps[i].Dispose();
+            }
+
+            var epFlush = new EncoderParameters(1);
+            epFlush.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.SaveFlag, (long)EncoderValue.Flush);
+            first.SaveAdd(epFlush);
+
+            return ms.ToArray();
+        }
     }
 }

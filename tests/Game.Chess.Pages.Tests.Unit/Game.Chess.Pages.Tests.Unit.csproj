@@ -15,7 +15,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Game.Chess.Pages\Game.Chess.Pages.csproj" />
-    <ProjectReference Include="..\..\src\Game.Core\Game.Core.csproj" />
   </ItemGroup>
 
 </Project>

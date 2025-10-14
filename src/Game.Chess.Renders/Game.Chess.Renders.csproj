@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Game.Chess\Game.Chess.csproj" />
     <ProjectReference Include="..\Game.Core.Renders\Game.Core.Renders.csproj" />
   </ItemGroup>
 

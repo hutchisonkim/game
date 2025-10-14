@@ -7,7 +7,7 @@ using Xunit;
 using Game.Chess;
 using System.Drawing;
 
-namespace Game.Chess.Pages.Tests.Unit
+namespace Game.Chess.Renders.Tests.Unit
 {
     public class RenderStatePngTests
     {
@@ -73,7 +73,7 @@ namespace Game.Chess.Pages.Tests.Unit
             // Save for manual inspection (optional)
             string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
             string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
-            string outputPath = Path.Combine(rootDir, "TestResults", "Pages", "RenderStatePng_ValidFen_ProducesPng.png");
+            string outputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderStatePng_ValidFen_ProducesPng.png");
             string? directory = Path.GetDirectoryName(outputPath);
             if (directory != null)
             {
@@ -123,7 +123,7 @@ namespace Game.Chess.Pages.Tests.Unit
             // Save for manual inspection (optional)
             string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
             string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
-            string outputPath = Path.Combine(rootDir, "TestResults", "Pages", "RenderTimelineGif_64Turns_ProducesGif.gif");
+            string outputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderTimelineGif_64Turns_ProducesGif.gif");
             string? directory = Path.GetDirectoryName(outputPath);
             if (directory != null)
             {
@@ -163,8 +163,8 @@ namespace Game.Chess.Pages.Tests.Unit
             // Save for manual inspection (optional)
             string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
             string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
-            string beforeOutputPath = Path.Combine(rootDir, "TestResults", "Pages", "RenderTransitionPngs_Before.png");
-            string afterOutputPath = Path.Combine(rootDir, "TestResults", "Pages", "RenderTransitionPngs_After.png");
+            string beforeOutputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderTransitionPngs_Before.png");
+            string afterOutputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderTransitionPngs_After.png");
             string? directory = Path.GetDirectoryName(beforeOutputPath);
             if (directory != null)
             {
@@ -214,7 +214,7 @@ namespace Game.Chess.Pages.Tests.Unit
             // Save for manual inspection (optional)
             string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
             string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
-            string outputPath = Path.Combine(rootDir, "TestResults", "Pages", "RenderTimelineGif_64Turns_ProducesGifUsingTransitionPngPairs.gif");
+            string outputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderTimelineGif_64Turns_ProducesGifUsingTransitionPngPairs.gif");
             string? directory = Path.GetDirectoryName(outputPath);
             if (directory != null)
             {
