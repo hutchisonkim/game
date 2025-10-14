@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Text;
 using Game.Core;
 
 namespace Game.Chess.Renders;
@@ -39,6 +40,46 @@ public static class ChessRenderHelper
         return ms.ToArray();
     }
 
+    public static string ToFen(ChessBoard board)
+    {
+        var sb = new StringBuilder();
+        for (int boardRow = 0; boardRow < 8; boardRow++)
+        {
+            int empty = 0;
+            for (int c = 0; c < 8; c++)
+            {
+                var piece = board.Board[boardRow, c];
+                if (piece == null)
+                {
+                    empty++;
+                }
+                else
+                {
+                    if (empty > 0)
+                    {
+                        sb.Append(empty);
+                        empty = 0;
+                    }
+                    char ch = piece.Type switch
+                    {
+                        PieceType.Pawn => 'p',
+                        PieceType.Rook => 'r',
+                        PieceType.Knight => 'n',
+                        PieceType.Bishop => 'b',
+                        PieceType.Queen => 'q',
+                        PieceType.King => 'k',
+                        _ => '?'
+                    };
+                    if (piece.Color == PieceColor.White) ch = char.ToUpper(ch);
+                    sb.Append(ch);
+                }
+            }
+            if (empty > 0) sb.Append(empty);
+            if (boardRow < 7) sb.Append('/');
+        }
+        return sb.ToString();
+    }
+        
     public static byte[] RenderStatePngWithArrow(string fen, string action, System.Drawing.Color arrowColor, int stateSize = 400, bool dotNotSolid = false)
     {
         if (string.IsNullOrWhiteSpace(fen)) throw new ArgumentNullException(nameof(fen));
@@ -112,25 +153,6 @@ public static class ChessRenderHelper
 
         outBmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
         return ms.ToArray();
-    }
-
-    public static byte[] RenderTimelineGif(IEnumerable<string> fenFrames, IEnumerable<string>? actionTexts = null, int stateSize = 400)
-    {
-        if (fenFrames == null) throw new ArgumentNullException(nameof(fenFrames));
-        var fens = fenFrames.ToArray();
-        var actions = (actionTexts ?? Enumerable.Empty<string>()).ToArray();
-
-        var history = new List<(HelperState state, HelperAction action)>();
-        for (int i = 0; i < fens.Length; i++)
-        {
-            var board = ChessView<HelperAction, HelperState, HelperView>.ParseFen(fens[i]);
-            var state = new HelperState(board);
-            var action = new HelperAction(i < actions.Length ? actions[i] : string.Empty);
-            history.Add((state, action));
-        }
-
-        var view = new HelperView();
-        return view.RenderTimelineGif(history, stateSize);
     }
 
     public static byte[] RenderTimelineGifUsingPngPairs(List<(byte[], byte[])> transitionPngPairs, int v)
