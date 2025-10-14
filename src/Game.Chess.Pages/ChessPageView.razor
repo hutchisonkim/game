@@ -1,0 +1,28 @@
+@page "/chess"
+@inject IPageContract PageService
+
+<div class="chess-board">
+    @if (ViewModel != null)
+    {
+        <pre>@ViewModel.StateJson</pre>
+        <button @onclick="MakeMove">Make Move</button>
+    }
+</div>
+
+@code {
+    private ChessPageViewModel? ViewModel;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await PageService.QueryAsync(new("chess", "page-1", "GetState"));
+        ViewModel = new ChessPageViewModel(result.Data?.ToString() ?? "{}");
+    }
+
+    private async Task MakeMove()
+    {
+        var result = await PageService.ExecuteCommandAsync(
+            new("chess", "page-1", "MovePiece", new() { ["from"] = "e2", ["to"] = "e4" })
+        );
+        ViewModel = new ChessPageViewModel(result.Data?.ToString() ?? "{}");
+    }
+}
