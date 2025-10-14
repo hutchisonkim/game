@@ -184,7 +184,7 @@ public class ChessViewTests(ITestOutputHelper output)
 
     [Fact]
     [Trait("Feature", "AvailableActionsTimeline")]
-    public void RenderAvailableActionsTimelineGif_SixtyFourTurnsRandomMoves_CreatesGif()
+    public void RenderTimelineGif_64Turns_ProducesGif()
     {
         var boardState = new ChessBoard();
         var policy = new ChessRules();
@@ -216,7 +216,7 @@ public class ChessViewTests(ITestOutputHelper output)
         }
 
         var gif = view.RenderTimelineGif(frames.Select(f => (f.state, (DummyAction)f.action)), 200);
-        var path = MakeOutputPath("chess_available_actions_timeline_64turns_54321", ".gif");
+        var path = MakeOutputPath("RenderTimelineGif_64Turns_ProducesGif", ".gif");
         File.WriteAllBytes(path, gif);
 
         Assert.True(File.Exists(path));
