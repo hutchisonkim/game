@@ -148,7 +148,7 @@ namespace Game.Chess
         }
 #pragma warning disable CA1416 // Validate platform compatibility
 
-        private static Bitmap RenderBoardBitmap(char[,] board, int size, bool drawPieces = true)
+        internal static Bitmap RenderBoardBitmap(char[,] board, int size, bool drawPieces = true)
         {
             int cell = Math.Max(4, size / 8);
             if (!OperatingSystem.IsWindows())
