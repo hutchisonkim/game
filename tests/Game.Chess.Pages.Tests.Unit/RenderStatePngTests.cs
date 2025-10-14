@@ -13,7 +13,7 @@ namespace Game.Chess.Pages.Tests.Unit
         private static string ToFen(ChessBoard board)
         {
             var sb = new StringBuilder();
-            for (int boardRow = 7; boardRow >= 0; boardRow--)
+            for (int boardRow = 0; boardRow < 8; boardRow++)
             {
                 int empty = 0;
                 for (int c = 0; c < 8; c++)
@@ -45,7 +45,7 @@ namespace Game.Chess.Pages.Tests.Unit
                     }
                 }
                 if (empty > 0) sb.Append(empty);
-                if (boardRow > 0) sb.Append('/');
+                if (boardRow < 7) sb.Append('/');
             }
             return sb.ToString();
         }
