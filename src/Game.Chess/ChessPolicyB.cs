@@ -268,9 +268,12 @@ public class ChessBoard : IState<ChessMove, ChessBoard>
     private readonly Piece?[,] _board = new Piece?[8, 8];
 
     public Piece?[,] Board => _board;
+    public int TurnCount { get; private set; }
 
     public ChessBoard()
     {
+        TurnCount = 0;
+
         for (int x = 0; x < 8; x++)
         {
             _board[1, x] = PieceFactory.Create(PieceType.Pawn, PieceColor.Black);
@@ -308,6 +311,7 @@ public class ChessBoard : IState<ChessMove, ChessBoard>
         Array.Copy(_board, copy, _board.Length);
         var newBoard = new ChessBoard();
         Array.Copy(copy, newBoard._board, copy.Length);
+        newBoard.TurnCount = TurnCount;
         return newBoard;
     }
 
@@ -327,17 +331,21 @@ public class ChessBoard : IState<ChessMove, ChessBoard>
         newBoard._board[action.To.Row, action.To.Col] = piece;
         newBoard._board[action.From.Row, action.From.Col] = null;
 
+        newBoard.TurnCount = this.TurnCount + 1;
+
         return newBoard;
     }
 
-    public IEnumerable<ChessMove> GetAvailableActions(PieceColor forColorB = PieceColor.White)
+    public IEnumerable<ChessMove> GetAvailableActions()
     {
+        var currentColor = (TurnCount % 2 == 0) ? PieceColor.White : PieceColor.Black;
+
         for (int row = 0; row < 8; row++)
         {
             for (int col = 0; col < 8; col++)
             {
                 var piece = this[row, col];
-                if (piece != null && piece.Color == forColorB)
+                if (piece != null && piece.Color == currentColor)
                 {
                     foreach (var (targetRow, targetCol, move) in piece.GetAvailableActions(this, row, col))
                     {
