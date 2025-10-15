@@ -18,11 +18,13 @@ public class ChessView : ViewBase<ChessMove, PolicyB.ChessBoard>
         int stateSize = 400)
     {
         var bitmaps = transitions
-            .Select(f =>
+            .SelectMany(f =>
             {
-                var bmp = ComposeBoard(f.stateTo, stateSize);
-                StampMoveHighlight(bmp, f.action, Color.Red, stateSize);
-                return bmp;
+                var bmpFrom = ComposeBoard(f.stateFrom, stateSize);
+                StampMoveHighlight(bmpFrom, f.action, Color.OrangeRed, stateSize);
+                var bmpTo = ComposeBoard(f.stateTo, stateSize);
+                StampMoveHighlight(bmpTo, f.action, Color.Red, stateSize);
+                return new[] { bmpFrom, bmpTo };
             })
             .ToList();
 
@@ -45,10 +47,14 @@ public class ChessView : ViewBase<ChessMove, PolicyB.ChessBoard>
 
     public override byte[] RenderTransitionGif(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, ChessMove action, int stateSize = 400)
     {
+        using var bmpFrom = ComposeBoard(stateFrom, stateSize);
+        StampMoveHighlight(bmpFrom, action, Color.OrangeRed, stateSize);
+        using var bmpTo = ComposeBoard(stateTo, stateSize);
+        StampMoveHighlight(bmpTo, action, Color.Red, stateSize);
         var frames = new[]
         {
-            ComposeBoard(stateFrom, stateSize),
-            ComposeBoard(stateTo, stateSize)
+            bmpFrom,
+            bmpTo
         }.ToList();
 
         return Renders.GifComposer.Combine(frames);
