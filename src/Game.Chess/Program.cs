@@ -4,7 +4,7 @@ namespace Game.Chess
     {
         static void Main(string[] args)
         {
-            var state = new ChessBoard();
+            var state = new ChessBoard_Old();
             var policy = new ChessRules();
             var actions = policy.GetAvailableActions(state);
 

@@ -9,7 +9,7 @@ public class ChessPolicyTests
     [Trait("Feature", "PawnMovement")]
     public void GetAvailableActions_PawnInitialPosition_IncludesDoubleMove()
     {
-        var s = new ChessBoard();
+        var s = new ChessBoard_Old();
         var policy = new ChessRules();
 
         // White pawn at (1,0) should have move to (2,0) and (3,0)
@@ -26,7 +26,7 @@ public class ChessPolicyTests
     [Trait("Feature", "PawnCapture")]
     public void GetAvailableActions_PawnCapture_GeneratesCaptureAction()
     {
-        var s = new ChessBoard();
+        var s = new ChessBoard_Old();
         // place a black pawn diagonally in front of white pawn
         s.Board[2, 1] = new Piece(PieceColor.Black, PieceType.Pawn);
 
@@ -43,7 +43,7 @@ public class ChessPolicyTests
     [Trait("Feature", "Initialization")]
     public void GetAvailableActions_InitialBoard_Has20Actions()
     {
-        var s = new ChessBoard();
+        var s = new ChessBoard_Old();
         var policy = new ChessRules();
 
         var actions = policy.GetAvailableActions(s)

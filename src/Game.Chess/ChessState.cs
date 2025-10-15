@@ -8,21 +8,21 @@ public enum PieceType { Pawn, Rook, Knight, Bishop, Queen, King }
 
 public sealed record Piece(PieceColor Color, PieceType Type);
 
-public sealed class ChessBoard : IState<ChessMove, ChessBoard>
+public sealed class ChessBoard_Old : IState<ChessMove, ChessBoard_Old>
 {
     // 8x8 board: [row, col]
     public Piece?[,] Board { get; }
     // Number of half-moves (plies) that have been played so far. Even = White to move, Odd = Black to move.
     public int TurnCount { get; }
 
-    public ChessBoard()
+    public ChessBoard_Old()
     {
         Board = new Piece?[8, 8];
         TurnCount = 0;
         SetupInitialPosition();
     }
 
-    private ChessBoard(Piece?[,] board, int turnCount = 0)
+    private ChessBoard_Old(Piece?[,] board, int turnCount = 0)
     {
         Board = board;
         TurnCount = turnCount;
@@ -59,18 +59,18 @@ public sealed class ChessBoard : IState<ChessMove, ChessBoard>
         Board[7, 7] = new Piece(PieceColor.Black, PieceType.Rook);
     }
 
-    public ChessBoard Clone()
+    public ChessBoard_Old Clone()
     {
         var copy = new Piece?[8, 8];
         for (int r = 0; r < 8; r++)
             for (int c = 0; c < 8; c++)
                 copy[r, c] = Board[r, c];
-        return new ChessBoard(copy, TurnCount);
+        return new ChessBoard_Old(copy, TurnCount);
     }
 
     public Piece? PieceAt(Position p) => p.IsValid ? Board[p.Row, p.Col] : null;
 
-    public ChessBoard Apply(ChessMove m)
+    public ChessBoard_Old Apply(ChessMove m)
     {
         if (!m.From.IsValid || !m.To.IsValid) throw new ArgumentException("Invalid positions.");
         var clone = Clone();
@@ -78,10 +78,10 @@ public sealed class ChessBoard : IState<ChessMove, ChessBoard>
         clone.Board[m.From.Row, m.From.Col] = null;
         clone.Board[m.To.Row, m.To.Col] = piece;
         // Advance turn count (one ply played)
-        return new ChessBoard(clone.Board, TurnCount + 1);
+        return new ChessBoard_Old(clone.Board, TurnCount + 1);
     }
 
-    ChessBoard IState<ChessMove, ChessBoard>.Apply(ChessMove m)
+    ChessBoard_Old IState<ChessMove, ChessBoard_Old>.Apply(ChessMove m)
     {
         return Apply(m);
     }

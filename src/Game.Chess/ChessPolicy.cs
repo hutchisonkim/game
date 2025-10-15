@@ -11,9 +11,9 @@ namespace Game.Chess;
 /// - King: one-square moves (no castling implemented)
 /// This is intentionally minimal but complete for basic legal move generation.
 /// </summary>
-public sealed class ChessRules : IPolicy<ChessBoard, ChessMove>
+public sealed class ChessRules : IPolicy<ChessBoard_Old, ChessMove>
 {
-    public IEnumerable<ChessMove> GetAvailableActions(ChessBoard state)
+    public IEnumerable<ChessMove> GetAvailableActions(ChessBoard_Old state)
     {
         // Determine side to move from TurnCount: even -> White, odd -> Black
         var sideToMove = (state.TurnCount % 2 == 0) ? PieceColor.White : PieceColor.Black;
@@ -35,7 +35,7 @@ public sealed class ChessRules : IPolicy<ChessBoard, ChessMove>
         }
     }
 
-    private static IEnumerable<ChessMove> GetMovesForPiece(ChessBoard state, Position from, Piece piece)
+    private static IEnumerable<ChessMove> GetMovesForPiece(ChessBoard_Old state, Position from, Piece piece)
     {
         return piece.Type switch
         {
@@ -53,7 +53,7 @@ public sealed class ChessRules : IPolicy<ChessBoard, ChessMove>
 
     #region Move Generators
 
-    private static IEnumerable<ChessMove> PatternMoves(ChessBoard state, Position from, Piece piece, IMovePattern pattern)
+    private static IEnumerable<ChessMove> PatternMoves(ChessBoard_Old state, Position from, Piece piece, IMovePattern pattern)
     {
         foreach (var (dr, dc) in pattern.GetVectors())
         {
@@ -97,7 +97,7 @@ public sealed class ChessRules : IPolicy<ChessBoard, ChessMove>
 
     // Knight and King move logic is handled by PatternMoves with MovePatterns.Knight and MovePatterns.King.
 
-    private static IEnumerable<ChessMove> PawnMoves(ChessBoard state, Position from, Piece piece)
+    private static IEnumerable<ChessMove> PawnMoves(ChessBoard_Old state, Position from, Piece piece)
     {
         int dir = piece.Color == PieceColor.White ? +1 : -1;
         int startRow = piece.Color == PieceColor.White ? 1 : 6;

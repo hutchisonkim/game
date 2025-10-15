@@ -9,7 +9,7 @@ public class ChessStateTests
     [Trait("Feature", "InitialPosition")]
     public void Constructor_InitialPosition_HasCorrectPieces()
     {
-        var s = new ChessBoard();
+        var s = new ChessBoard_Old();
 
         // Pawns
         for (int c = 0; c < 8; c++)
@@ -31,7 +31,7 @@ public class ChessStateTests
     [Trait("Feature", "ApplyMove")]
     public void ApplyMove_TwoSquarePawnMove_MovesPiece()
     {
-        var s = new ChessBoard();
+        var s = new ChessBoard_Old();
         var from = new Position(1, 0); // white pawn
         var to = new Position(3, 0);   // two squares forward
 

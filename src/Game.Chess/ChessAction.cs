@@ -23,13 +23,13 @@ public sealed class ChessMove(Position from, Position to) : IAction
         }
     }
 
-    public IStateDelta<ChessBoard> CreateDelta(ChessBoard state)
+    public IStateDelta<ChessBoard_Old> CreateDelta(ChessBoard_Old state)
     {
         // Create a simple delta that when applied will move the piece.
         return new MoveDelta(From, To);
     }
 
-    private sealed class MoveDelta : IStateDelta<ChessBoard>
+    private sealed class MoveDelta : IStateDelta<ChessBoard_Old>
     {
         private readonly Position _from;
         private readonly Position _to;
@@ -40,7 +40,7 @@ public sealed class ChessMove(Position from, Position to) : IAction
             _to = to;
         }
 
-        public ChessBoard Apply(ChessBoard state)
+        public ChessBoard_Old Apply(ChessBoard_Old state)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
             if (!_from.IsValid || !_to.IsValid) throw new ArgumentException("Invalid positions.");

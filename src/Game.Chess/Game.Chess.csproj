@@ -10,4 +10,8 @@
     <ProjectReference Include="..\Game.Core\Game.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Spark" Version="2.3.0" />
+  </ItemGroup>
+
 </Project>
