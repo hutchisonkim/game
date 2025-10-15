@@ -115,10 +115,11 @@ public abstract class Piece
                     }
                     else
                     {
-                        //log the target
                         if (target.Color != Color && (move.Captures != Move.CaptureBehavior.MoveOnly))
+                        {
                             Console.WriteLine($"Moving piece from {row},{col} to {y},{x}: {Type} {Color} capturing {target.Type} {target.Color}");
                             yield return (y, x, move);
+                        }
                         break; // cannot jump over except knights
                     }
 
