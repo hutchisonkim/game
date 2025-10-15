@@ -85,7 +85,7 @@ public class RenderStatePngTests
         Assert.True(File.Exists(beforeOutputPath));
         Assert.True(File.Exists(afterOutputPath));
     }
-    
+
     [Fact]
     [Trait("Feature", "GifRendering")]
     public void RenderTimelineGif_64Turns_ProducesGifUsingTransitionPngPairs()
@@ -134,4 +134,5 @@ public class RenderStatePngTests
 
         Assert.True(File.Exists(outputPath));
     }
+
 }

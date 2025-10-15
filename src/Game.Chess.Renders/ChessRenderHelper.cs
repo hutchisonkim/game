@@ -10,8 +10,8 @@ public static class ChessRenderHelper
     {
         if (string.IsNullOrWhiteSpace(fen)) throw new ArgumentNullException(nameof(fen));
 
-        var board = ChessView.ParseFen(fen);
-        using var bmp = ChessView.RenderBoardBitmap(board, stateSize);
+        var board = ChessBoardParser.ParseFen(fen);
+        using var bmp = ChessBitmapRenderer.RenderBoardBitmap(board, stateSize);
         using var ms = new MemoryStream();
         bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
         return ms.ToArray();
@@ -61,8 +61,8 @@ public static class ChessRenderHelper
     {
         if (string.IsNullOrWhiteSpace(fen)) throw new ArgumentNullException(nameof(fen));
 
-        var board = ChessView.ParseFen(fen);
-        using var bmp = ChessView.RenderBoardBitmap(board, stateSize);
+        var board = ChessBoardParser.ParseFen(fen);
+        using var bmp = ChessBitmapRenderer.RenderBoardBitmap(board, stateSize);
         using var outBmp = new Bitmap(bmp.Width, bmp.Height);
         using var g = Graphics.FromImage(outBmp);
         using var ms = new MemoryStream();
@@ -131,9 +131,24 @@ public static class ChessRenderHelper
         outBmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
         return ms.ToArray();
     }
-
-    public static byte[] RenderTimelineGifUsingPngPairs(List<(byte[], byte[])> transitionPngPairs, int v)
+    
+    public static byte[] RenderTimelineGifUsingPngPairs(List<(byte[], byte[])> transitionPngPairs, int stateSize = 400)
     {
-        return ChessView.RenderTimelineGifUsingPngPairs(transitionPngPairs, v);
+        if (transitionPngPairs == null || transitionPngPairs.Count == 0)
+            throw new ArgumentNullException(nameof(transitionPngPairs));
+
+        var bitmaps = new List<Bitmap>();
+        foreach (var (fromPng, toPng) in transitionPngPairs)
+        {
+            var fromStream = new MemoryStream(fromPng);
+            var toStream = new MemoryStream(toPng);
+            var fromBmp = new Bitmap(fromStream);
+            var toBmp = new Bitmap(toStream);
+
+            bitmaps.Add(fromBmp);
+            bitmaps.Add(toBmp);
+        }
+
+        return GifComposer.CombinePngPairsToGif([.. transitionPngPairs.Select(p => (p.Item1, p.Item2))]);
     }
 }
