@@ -76,7 +76,7 @@ public abstract class Piece
     public PieceColor Color { get; }
     public abstract PieceType Type { get; }
     public abstract PiecePolicy Policy { get; }
-    public int ForwardAxis => Color == PieceColor.White ? 1 : -1;
+    public int ForwardAxis => Color == PieceColor.White ? -1 : 1;
 
     protected Piece(PieceColor color) => Color = color;
 
@@ -115,7 +115,9 @@ public abstract class Piece
                     }
                     else
                     {
+                        //log the target
                         if (target.Color != Color && (move.Captures != Move.CaptureBehavior.MoveOnly))
+                            Console.WriteLine($"Moving piece from {row},{col} to {y},{x}: {Type} {Color} capturing {target.Type} {target.Color}");
                             yield return (y, x, move);
                         break; // cannot jump over except knights
                     }
@@ -151,8 +153,8 @@ public class Pawn : Piece
     public override PieceType Type => PieceType.Pawn;
     public override PiecePolicy Policy { get; }
 
-    public static readonly PiecePolicy Transformable = new(PieceType.Pawn);
-    public static readonly PiecePolicy Unmoved = new(PieceType.Pawn, new[] { Transformable });
+    public static readonly PiecePolicy Standard = new(PieceType.Pawn);
+    public static readonly PiecePolicy Unmoved = new(PieceType.Pawn, new[] { Standard });
 
     public Pawn(PieceColor color) : base(color) => Policy = Unmoved;
 
@@ -170,7 +172,8 @@ public class Rook : Piece
     public override PiecePolicy Policy { get; }
 
     public static readonly PiecePolicy Castled = new(PieceType.Rook);
-    public static readonly PiecePolicy Unmoved = new(PieceType.Rook, new[] { Castled });
+    public static readonly PiecePolicy Standard = new(PieceType.Rook, new[] { Castled });
+    public static readonly PiecePolicy Unmoved = new(PieceType.Rook, new[] { Standard });
 
     public Rook(PieceColor color) : base(color) => Policy = Unmoved;
 
@@ -183,9 +186,9 @@ public class Rook : Piece
 public class Knight : Piece
 {
     public override PieceType Type => PieceType.Knight;
-    public override PiecePolicy Policy => Transformable;
+    public override PiecePolicy Policy => Standard;
 
-    public static readonly PiecePolicy Transformable = new(PieceType.Knight);
+    public static readonly PiecePolicy Standard = new(PieceType.Knight);
 
     public Knight(PieceColor color) : base(color) { }
 
@@ -198,9 +201,9 @@ public class Knight : Piece
 public class Bishop : Piece
 {
     public override PieceType Type => PieceType.Bishop;
-    public override PiecePolicy Policy => Transformable;
+    public override PiecePolicy Policy => Standard;
 
-    public static readonly PiecePolicy Transformable = new(PieceType.Bishop);
+    public static readonly PiecePolicy Standard = new(PieceType.Bishop);
 
     public Bishop(PieceColor color) : base(color) { }
 
@@ -213,9 +216,9 @@ public class Bishop : Piece
 public class Queen : Piece
 {
     public override PieceType Type => PieceType.Queen;
-    public override PiecePolicy Policy => Transformable;
+    public override PiecePolicy Policy => Standard;
 
-    public static readonly PiecePolicy Transformable = new(PieceType.Queen);
+    public static readonly PiecePolicy Standard = new(PieceType.Queen);
 
     public Queen(PieceColor color) : base(color) { }
 
@@ -232,7 +235,8 @@ public class King : Piece
     public override PiecePolicy Policy { get; }
 
     public static readonly PiecePolicy Castled = new(PieceType.King);
-    public static readonly PiecePolicy Unmoved = new(PieceType.King, new[] { Castled });
+    public static readonly PiecePolicy Standard = new(PieceType.King, new[] { Castled });
+    public static readonly PiecePolicy Unmoved = new(PieceType.King, new[] { Standard });
 
     public King(PieceColor color) : base(color) => Policy = Unmoved;
 
