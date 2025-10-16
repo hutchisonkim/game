@@ -383,13 +383,182 @@ public class ChessBoard : IState<PositionDelta, ChessBoard>
         return new AvailableActionsResult(pieceMoves);
     }
 
-    public static IEnumerable<Position> GetCheckedPositions(ChessBoard board, PieceColor checkedColor)
+    public class BoardCell
     {
-        return board.GetAvailableActionsDetailed()
-            .ChessMoves
-            .Where(m => m.Piece.Color != checkedColor && m.Piece.Type != PieceType.King)
-            .Select(m => m.PositionDelta.To)
-            .Distinct();
+        public int Row { get; }
+        public int Col { get; }
+        public Piece? OccupyingPiece { get; }
+
+        public BoardCell(int row, int col, Piece? occupyingPiece = null)
+        {
+            Row = row;
+            Col = col;
+            OccupyingPiece = occupyingPiece;
+        }
+    }
+
+    public class AttackedCell : BoardCell
+    {
+        public IEnumerable<PieceMove> AttackingMoves { get; }
+
+        public AttackedCell(int row, int col, Piece? occupyingPiece, IEnumerable<PieceMove> attackingMoves)
+            : base(row, col, occupyingPiece)
+        {
+            AttackingMoves = attackingMoves;
+        }
+    }
+
+    public IEnumerable<AttackedCell> GetAttackedCells(PieceColor attackedColor)
+    {
+        var cellsDict = new Dictionary<(int, int), List<PieceMove>>();
+        foreach (var move in GetAvailableActionsDetailed().ChessMoves)
+        {
+            if (move.Piece.Color == attackedColor) continue;
+
+            var toPos = move.PositionDelta.To;
+            var attackedPosition = (toPos.Row, toPos.Col);
+
+            if (!cellsDict.TryGetValue(attackedPosition, out List<PieceMove>? attackingMoves))
+            {
+                attackingMoves = [];
+                cellsDict[attackedPosition] = attackingMoves;
+            }
+
+            attackingMoves.Add(move);
+        }
+        return [.. cellsDict.Select(kvp => new AttackedCell(
+            row: kvp.Key.Item1,
+            col: kvp.Key.Item2,
+            occupyingPiece: this[kvp.Key.Item1, kvp.Key.Item2],
+            attackingMoves: kvp.Value
+        ))];
+    }
+
+
+    public IEnumerable<BoardCell> GetThreatenedCells(PieceColor threatenedColor) => GetAttackedCells(threatenedColor)
+        .Where(c => c.OccupyingPiece != null && c.OccupyingPiece.Color == threatenedColor);
+
+    public IEnumerable<BoardCell> GetCheckedCells(PieceColor checkedColor)
+    {
+        var kingPositions = GetPiecesByType(checkedColor, PieceType.King);
+        if (kingPositions.Count != 1) return Enumerable.Empty<BoardCell>();
+
+        var kingPos = kingPositions.First();
+        var attackedCells = GetAttackedCells(checkedColor);
+
+        return attackedCells.Where(c => c.Row == kingPos.Row && c.Col == kingPos.Col);
+    }
+
+    public IEnumerable<BoardCell> GetEmptyCells()
+    {
+        var emptyCells = new List<BoardCell>();
+        for (int row = 0; row < 8; row++)
+        {
+            for (int col = 0; col < 8; col++)
+            {
+                if (this[row, col] == null)
+                {
+                    emptyCells.Add(new BoardCell(row, col));
+                }
+            }
+        }
+        return emptyCells;
+    }
+
+    public IEnumerable<BoardCell> GetOccupiedCells()
+    {
+        var occupiedCells = new List<BoardCell>();
+        for (int row = 0; row < 8; row++)
+        {
+            for (int col = 0; col < 8; col++)
+            {
+                var piece = this[row, col];
+                if (piece != null)
+                {
+                    occupiedCells.Add(new BoardCell(row, col, piece));
+                }
+            }
+        }
+        return occupiedCells;
+    }
+
+    public IEnumerable<BoardCell> GetBlockedCells(PieceColor currentTurnColor)
+    {
+        // start by getting all available actions for the current turn color and record their "from" position
+        // then find all cells that are occupied by pieces of the same color
+        // then find the cells that are occupied by pieces of the opposite color and are not in the "from" position of any available action
+        // those are the blocked cells
+        var availableActions = GetAvailableActionsDetailed().ChessMoves
+            .Where(m => m.Piece.Color == currentTurnColor)
+            .Select(m => m.PositionDelta.From)
+            .ToHashSet();
+        var blockedCells = new List<BoardCell>();
+        for (int row = 0; row < 8; row++)
+        {
+            for (int col = 0; col < 8; col++)
+            {
+                var piece = this[row, col];
+                if (piece != null && piece.Color != currentTurnColor && !availableActions.Contains(new Position(row, col)))
+                {
+                    blockedCells.Add(new BoardCell(row, col, piece));
+                }
+            }
+        }
+        return blockedCells;
+    }
+
+    public IEnumerable<BoardCell> GetPinnedCells(PieceColor pinnedColor)
+    {
+        // start by getting the king position for the pinned color
+        // then get all available actions for the opposite color
+        // then, for each action, simulate the move and see if it results in a check on the king
+        // flag each action with this information
+        // then, for each cell occupied by a piece of the pinned color, flag the cell as pinned if all actions from that cell result in a check on the king
+        var kingPositions = GetPiecesByType(pinnedColor, PieceType.King);
+        if (kingPositions.Count != 1) return Enumerable.Empty<BoardCell>();
+        var kingPos = kingPositions.First();
+        var oppositeColor = pinnedColor == PieceColor.White ? PieceColor.Black : PieceColor.White;
+        var oppositeActions = GetAvailableActionsDetailed().ChessMoves
+            .Where(m => m.Piece.Color == oppositeColor)
+            .ToList();
+        var pinnedCells = new List<BoardCell>();
+        for (int row = 0; row < 8; row++)
+        {
+            for (int col = 0; col < 8; col++)
+            {
+                var piece = this[row, col];
+                if (piece != null && piece.Color == pinnedColor)
+                {
+                    var actionsFromCell = oppositeActions
+                        .Where(m => m.PositionDelta.From.Row == row && m.PositionDelta.From.Col == col)
+                        .ToList();
+                    if (actionsFromCell.Count > 0 && actionsFromCell.All(a => GetNextState(a).GetCheckedCells(pinnedColor).Any()))
+                    {
+                        pinnedCells.Add(new BoardCell(row, col, piece));
+                    }
+                }
+            }
+        }
+        return pinnedCells;
+    }
+
+
+
+    public IReadOnlyCollection<Position> GetPiecesByType(PieceColor pieceColor, PieceType pieceType)
+    {
+        var positions = new List<Position>();
+        for (int row = 0; row < 8; row++)
+        {
+            for (int col = 0; col < 8; col++)
+            {
+                var piece = this[row, col];
+                if (piece != null && piece.Color == pieceColor && piece.Type == pieceType)
+                {
+                    positions.Add(new Position(row, col));
+                }
+            }
+        }
+        return positions;
     }
 
     public class PieceMove
