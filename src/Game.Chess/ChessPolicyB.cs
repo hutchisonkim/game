@@ -263,7 +263,7 @@ public static class PieceFactory
 }
 
 // 🔹 Chess Board
-public class ChessBoard : IState<ChessMove, ChessBoard>
+public class ChessBoard : IState<PositionDelta, ChessBoard>
 {
     private readonly Piece?[,] _board = new Piece?[8, 8];
 
@@ -315,7 +315,7 @@ public class ChessBoard : IState<ChessMove, ChessBoard>
         return newBoard;
     }
 
-    public ChessBoard Apply(ChessMove action)
+    public ChessBoard Apply(PositionDelta action)
     {
         if (!IsInside(action.From.Row, action.From.Col) || !IsInside(action.To.Row, action.To.Col))
             throw new ArgumentException("Invalid move positions.");
@@ -336,27 +336,71 @@ public class ChessBoard : IState<ChessMove, ChessBoard>
         return newBoard;
     }
 
-    public IEnumerable<ChessMove> GetAvailableActions()
+    public IEnumerable<PositionDelta> GetAvailableActions()
     {
         var currentColor = (TurnCount % 2 == 0) ? PieceColor.White : PieceColor.Black;
+        return GetAvailableActionsDetailed().ChessMoves
+            .Where(m => m.Piece.Color == currentColor)
+            .Select(m => m.PositionDelta);
+    }
+
+    public record AvailableActionsResult(
+        IEnumerable<PieceMove> ChessMoves
+    );
+
+    //implement ChessGame.GetAvailableActions and ChessPlayer.GetAvailableActions
+    //have each entity implement a markup for tagging moves as forbidden.
+    // for example, the chess game can mark as disabled the moves of the player whose turn it is not.
+    // similarly, a player can mark as disabled moves from pieces that are not theirs.
+    // similarly, the board can mark as disabled moves that would place pieces outside the 8x8 grid.
+    // similarly, the board can mark as disabled moves that would place a piece on a square occupied by a piece of the same color.
+    // similarly, the board can mark as disabled moves that would place a piece on a square occupied by a piece of the opposite color, unless the move is a capture move.
+    // the chess actions (board delta) could be perceived as either create, move, delete, or transform.
+    // in chess, the environment is the game > board, while the actors are the players > factions > pieces.
+
+    public ChessBoard GetNextState(PieceMove move) => Apply(move.PositionDelta);
+    public AvailableActionsResult GetNextAvailableActionsDetailed(PieceMove move) => GetNextState(move).GetAvailableActionsDetailed();
+
+    public AvailableActionsResult GetAvailableActionsDetailed()
+    {
+
+        var pieceMoves = new List<PieceMove>();
 
         for (int row = 0; row < 8; row++)
         {
             for (int col = 0; col < 8; col++)
             {
                 var piece = this[row, col];
-                if (piece != null && piece.Color == currentColor)
-                {
-                    foreach (var (targetRow, targetCol, move) in piece.GetAvailableActions(this, row, col))
-                    {
-                        yield return new ChessMove(
-                            new Position(row, col),
-                            new Position(targetRow, targetCol)
-                        );
-                    }
-                }
+                if (piece == null) continue;
+
+                var actions = piece.GetAvailableActions(this, row, col)
+                    .Select(t => new PositionDelta(new Position(row, col), new Position(t.row, t.col)));
+
+                pieceMoves.AddRange(actions.Select(a => new PieceMove(a, piece)));
             }
         }
+
+        return new AvailableActionsResult(pieceMoves);
     }
 
+    public static IEnumerable<Position> GetCheckedPositions(ChessBoard board, PieceColor checkedColor)
+    {
+        return board.GetAvailableActionsDetailed()
+            .ChessMoves
+            .Where(m => m.Piece.Color != checkedColor && m.Piece.Type != PieceType.King)
+            .Select(m => m.PositionDelta.To)
+            .Distinct();
+    }
+
+    public class PieceMove
+    {
+        public PositionDelta PositionDelta { get; }
+        public Piece Piece { get; }
+        public PieceMove(PositionDelta positionDelta, Piece piece)
+        {
+            PositionDelta = positionDelta;
+            Piece = piece;
+        }
+    }
 }
+

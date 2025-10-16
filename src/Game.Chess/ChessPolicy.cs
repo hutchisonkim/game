@@ -11,9 +11,9 @@ namespace Game.Chess;
 /// - King: one-square moves (no castling implemented)
 /// This is intentionally minimal but complete for basic legal move generation.
 /// </summary>
-public sealed class ChessRules : IPolicy<ChessBoard_Old, ChessMove>
+public sealed class ChessRules : IPolicy<ChessBoard_Old, PositionDelta>
 {
-    public IEnumerable<ChessMove> GetAvailableActions(ChessBoard_Old state)
+    public IEnumerable<PositionDelta> GetAvailableActions(ChessBoard_Old state)
     {
         // Determine side to move from TurnCount: even -> White, odd -> Black
         var sideToMove = (state.TurnCount % 2 == 0) ? PieceColor.White : PieceColor.Black;
@@ -35,7 +35,7 @@ public sealed class ChessRules : IPolicy<ChessBoard_Old, ChessMove>
         }
     }
 
-    private static IEnumerable<ChessMove> GetMovesForPiece(ChessBoard_Old state, Position from, Piece piece)
+    private static IEnumerable<PositionDelta> GetMovesForPiece(ChessBoard_Old state, Position from, Piece piece)
     {
         return piece.Type switch
         {
@@ -53,7 +53,7 @@ public sealed class ChessRules : IPolicy<ChessBoard_Old, ChessMove>
 
     #region Move Generators
 
-    private static IEnumerable<ChessMove> PatternMoves(ChessBoard_Old state, Position from, Piece piece, IMovePattern pattern)
+    private static IEnumerable<PositionDelta> PatternMoves(ChessBoard_Old state, Position from, Piece piece, IMovePattern pattern)
     {
         foreach (var (dr, dc) in pattern.GetVectors())
         {
@@ -67,24 +67,24 @@ public sealed class ChessRules : IPolicy<ChessBoard_Old, ChessMove>
                 if (pattern.MoveOnly)
                 {
                     if (target == null)
-                        yield return new ChessMove(from, to);
+                        yield return new PositionDelta(from, to);
                     else
                         break; // blocked
                 }
                 else if (pattern.CaptureOnly)
                 {
                     if (target != null && target.Color != piece.Color)
-                        yield return new ChessMove(from, to);
+                        yield return new PositionDelta(from, to);
                     if (target != null) break;
                 }
                 else
                 {
                     if (target == null)
-                        yield return new ChessMove(from, to);
+                        yield return new PositionDelta(from, to);
                     else
                     {
                         if (target.Color != piece.Color)
-                            yield return new ChessMove(from, to);
+                            yield return new PositionDelta(from, to);
                         break; // blocked by any piece
                     }
                 }
@@ -97,7 +97,7 @@ public sealed class ChessRules : IPolicy<ChessBoard_Old, ChessMove>
 
     // Knight and King move logic is handled by PatternMoves with MovePatterns.Knight and MovePatterns.King.
 
-    private static IEnumerable<ChessMove> PawnMoves(ChessBoard_Old state, Position from, Piece piece)
+    private static IEnumerable<PositionDelta> PawnMoves(ChessBoard_Old state, Position from, Piece piece)
     {
         int dir = piece.Color == PieceColor.White ? +1 : -1;
         int startRow = piece.Color == PieceColor.White ? 1 : 6;
@@ -106,12 +106,12 @@ public sealed class ChessRules : IPolicy<ChessBoard_Old, ChessMove>
         var oneFwd = new Position(from.Row + dir, from.Col);
         if (oneFwd.IsValid && state.PieceAt(oneFwd) == null)
         {
-            yield return new ChessMove(from, oneFwd);
+            yield return new PositionDelta(from, oneFwd);
 
             // two-forward from starting rank (no obstruction)
             var twoFwd = new Position(from.Row + 2 * dir, from.Col);
             if (from.Row == startRow && twoFwd.IsValid && state.PieceAt(twoFwd) == null)
-                yield return new ChessMove(from, twoFwd);
+                yield return new PositionDelta(from, twoFwd);
         }
 
         // captures
@@ -122,13 +122,13 @@ public sealed class ChessRules : IPolicy<ChessBoard_Old, ChessMove>
         {
             var t = state.PieceAt(diagLeft);
             if (t != null && t.Color != piece.Color)
-                yield return new ChessMove(from, diagLeft);
+                yield return new PositionDelta(from, diagLeft);
         }
         if (diagRight.IsValid)
         {
             var t = state.PieceAt(diagRight);
             if (t != null && t.Color != piece.Color)
-                yield return new ChessMove(from, diagRight);
+                yield return new PositionDelta(from, diagRight);
         }
     }
 

@@ -5,7 +5,7 @@ using Game.Core.Renders;
 namespace Game.Chess.RendersB;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-public class ChessView : ViewBase<ChessMove, PolicyB.ChessBoard>
+public class ChessView : ViewBase<PositionDelta, PolicyB.ChessBoard>
 {
     public override byte[] RenderStatePng(PolicyB.ChessBoard state, int stateSize = 400)
     {
@@ -14,7 +14,7 @@ public class ChessView : ViewBase<ChessMove, PolicyB.ChessBoard>
     }
 
     public override byte[] RenderTransitionSequenceGif(
-        IEnumerable<(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, ChessMove action)> transitions,
+        IEnumerable<(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, PositionDelta action)> transitions,
         int stateSize = 400)
     {
         var bitmaps = transitions
@@ -31,21 +31,21 @@ public class ChessView : ViewBase<ChessMove, PolicyB.ChessBoard>
         return Renders.GifComposer.Combine(bitmaps);
     }
 
-    public override byte[] RenderPreTransitionPng(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, ChessMove action, int stateSize = 400)
+    public override byte[] RenderPreTransitionPng(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, PositionDelta action, int stateSize = 400)
     {
         using var bmp = ComposeBoard(stateFrom, stateSize);
         StampMoveHighlight(bmp, action, Color.OrangeRed, stateSize);
         return ToPng(bmp);
     }
 
-    public override byte[] RenderPostTransitionPng(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, ChessMove action, int stateSize = 400)
+    public override byte[] RenderPostTransitionPng(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, PositionDelta action, int stateSize = 400)
     {
         using var bmp = ComposeBoard(stateTo, stateSize);
         StampMoveHighlight(bmp, action, Color.Red, stateSize);
         return ToPng(bmp);
     }
 
-    public override byte[] RenderTransitionGif(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, ChessMove action, int stateSize = 400)
+    public override byte[] RenderTransitionGif(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, PositionDelta action, int stateSize = 400)
     {
         using var bmpFrom = ComposeBoard(stateFrom, stateSize);
         StampMoveHighlight(bmpFrom, action, Color.OrangeRed, stateSize);
@@ -78,7 +78,7 @@ public class ChessView : ViewBase<ChessMove, PolicyB.ChessBoard>
         return baseLayer;
     }
 
-    private static void StampMoveHighlight(Bitmap bmp, ChessMove move, Color color, int stateSize)
+    private static void StampMoveHighlight(Bitmap bmp, PositionDelta move, Color color, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);

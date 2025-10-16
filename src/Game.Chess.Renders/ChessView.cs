@@ -5,7 +5,7 @@ using Game.Core.Renders;
 namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-public class ChessView : ViewBase<ChessMove, ChessBoard_Old>
+public class ChessView : ViewBase<PositionDelta, ChessBoard_Old>
 {
     public override byte[] RenderStatePng(ChessBoard_Old state, int stateSize = 400)
     {
@@ -14,7 +14,7 @@ public class ChessView : ViewBase<ChessMove, ChessBoard_Old>
     }
 
     public override byte[] RenderTransitionSequenceGif(
-        IEnumerable<(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, ChessMove action)> transitions,
+        IEnumerable<(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, PositionDelta action)> transitions,
         int stateSize = 400)
     {
         var bitmaps = transitions
@@ -29,21 +29,21 @@ public class ChessView : ViewBase<ChessMove, ChessBoard_Old>
         return GifComposer.Combine(bitmaps);
     }
 
-    public override byte[] RenderPreTransitionPng(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, ChessMove action, int stateSize = 400)
+    public override byte[] RenderPreTransitionPng(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, PositionDelta action, int stateSize = 400)
     {
         using var bmp = ComposeBoard(stateFrom, stateSize);
         StampMoveHighlight(bmp, action, Color.OrangeRed, stateSize);
         return ToPng(bmp);
     }
 
-    public override byte[] RenderPostTransitionPng(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, ChessMove action, int stateSize = 400)
+    public override byte[] RenderPostTransitionPng(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, PositionDelta action, int stateSize = 400)
     {
         using var bmp = ComposeBoard(stateTo, stateSize);
         StampMoveHighlight(bmp, action, Color.Red, stateSize);
         return ToPng(bmp);
     }
 
-    public override byte[] RenderTransitionGif(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, ChessMove action, int stateSize = 400)
+    public override byte[] RenderTransitionGif(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, PositionDelta action, int stateSize = 400)
     {
         var frames = new[]
         {
@@ -72,7 +72,7 @@ public class ChessView : ViewBase<ChessMove, ChessBoard_Old>
         return baseLayer;
     }
 
-    private static void StampMoveHighlight(Bitmap bmp, ChessMove move, Color color, int stateSize)
+    private static void StampMoveHighlight(Bitmap bmp, PositionDelta move, Color color, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
