@@ -31,18 +31,19 @@ internal static class GifComposer
         using var first = bitmaps[0];
         using var ms = new MemoryStream();
 
-        // Create a proto PropertyItem from a dummy JPEG
-        PropertyItem proto;
-        using (var tmp = new Bitmap(1, 1))
-        using (var tmpStream = new MemoryStream())
-        {
-            tmp.Save(tmpStream, ImageFormat.Jpeg);
-            using var tmpImg = new Bitmap(tmpStream);
-            proto = tmpImg.PropertyItems.First();
-        }
 
         try
         {
+            // Create a proto PropertyItem from a dummy JPEG
+            PropertyItem proto;
+            using (var tmp = new Bitmap(1, 1))
+            using (var tmpStream = new MemoryStream())
+            {
+                tmp.Save(tmpStream, ImageFormat.Jpeg);
+                using var tmpImg = new Bitmap(tmpStream);
+                proto = tmpImg.PropertyItems.First();
+            }
+            
             // Loop forever
             var loopProp = proto;
             loopProp.Id = 0x5101;
@@ -51,9 +52,26 @@ internal static class GifComposer
             loopProp.Len = loopProp.Value.Length;
             first.SetPropertyItem(loopProp);
 
+        }
+        catch
+        {
+            // throw new InvalidOperationException("Failed to set GIF properties.");
+        }
+        try
+        {
+            // Create a proto PropertyItem from a dummy JPEG
+            PropertyItem proto;
+            using (var tmp = new Bitmap(1, 1))
+            using (var tmpStream = new MemoryStream())
+            {
+                tmp.Save(tmpStream, ImageFormat.Jpeg);
+                using var tmpImg = new Bitmap(tmpStream);
+                proto = tmpImg.PropertyItems.First();
+            }
+
             // Frame delays
             int frameCount = bitmaps.Count;
-            short baseDelay = 24 * 4;
+            short baseDelay = 12 * 4;
             var delays = new byte[4 * frameCount];
             for (int i = 0; i < frameCount; i++)
             {
