@@ -1,12 +1,12 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using Game.Core.Renders;
-using static Game.Chess.PolicyB.ChessBoard;
+using static Game.Chess.Policy.ChessState;
 
-namespace Game.Chess.RendersB;
+namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-public class ChessView : ViewBase<BaseMove, PolicyB.ChessBoard>
+public class ChessView : ViewBase<BaseAction, Policy.ChessState>
 {
     // add constructor arguments for potentially rendering attacked cells, threatened cells, and checked cells.
     private readonly bool _renderAttackedCells;
@@ -24,9 +24,9 @@ public class ChessView : ViewBase<BaseMove, PolicyB.ChessBoard>
         _renderBlockedCells = renderBlockedCells;
     }
 
-    public override byte[] RenderStatePng(PolicyB.ChessBoard state, int stateSize = 400)
+    public override byte[] RenderStatePng(Policy.ChessState state, int stateSize = 400)
     {
-        var currentTurnColor = state.TurnCount % 2 == 0 ? PieceColor.White : PieceColor.Black;
+        var currentTurnColor = state.CurrentTurnColor;
         var otherColor = currentTurnColor == PieceColor.White ? PieceColor.Black : PieceColor.White;
         using var bmp = ComposeBoard(state, stateSize);
         if (_renderBlockedCells)
@@ -46,15 +46,15 @@ public class ChessView : ViewBase<BaseMove, PolicyB.ChessBoard>
     }
 
     public override byte[] RenderTransitionSequenceGif(
-        IEnumerable<(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, BaseMove action)> transitions,
+        IEnumerable<(Policy.ChessState fromState, Policy.ChessState toState, BaseAction action)> transitions,
         int stateSize = 400)
     {
         var bitmaps = transitions
             .SelectMany(f =>
             {
-                var bmpFrom = ComposeBoard(f.stateFrom, stateSize);
+                var bmpFrom = ComposeBoard(f.fromState, stateSize);
                 StampMoveHighlight(bmpFrom, f.action, Color.OrangeRed, stateSize);
-                var bmpTo = ComposeBoard(f.stateTo, stateSize);
+                var bmpTo = ComposeBoard(f.toState, stateSize);
                 StampMoveHighlight(bmpTo, f.action, Color.Red, stateSize);
                 return new[] { bmpFrom, bmpTo };
             })
@@ -63,25 +63,25 @@ public class ChessView : ViewBase<BaseMove, PolicyB.ChessBoard>
         return Renders.GifComposer.Combine(bitmaps);
     }
 
-    public override byte[] RenderPreTransitionPng(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, BaseMove action, int stateSize = 400)
+    public override byte[] RenderPreTransitionPng(Policy.ChessState fromState, Policy.ChessState toState, BaseAction action, int stateSize = 400)
     {
-        using var bmp = ComposeBoard(stateFrom, stateSize);
+        using var bmp = ComposeBoard(fromState, stateSize);
         StampMoveHighlight(bmp, action, Color.OrangeRed, stateSize);
         return ToPng(bmp);
     }
 
-    public override byte[] RenderPostTransitionPng(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, BaseMove action, int stateSize = 400)
+    public override byte[] RenderPostTransitionPng(Policy.ChessState fromState, Policy.ChessState toState, BaseAction action, int stateSize = 400)
     {
-        using var bmp = ComposeBoard(stateTo, stateSize);
+        using var bmp = ComposeBoard(toState, stateSize);
         StampMoveHighlight(bmp, action, Color.Red, stateSize);
         return ToPng(bmp);
     }
 
-    public override byte[] RenderTransitionGif(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, BaseMove action, int stateSize = 400)
+    public override byte[] RenderTransitionGif(Policy.ChessState fromState, Policy.ChessState toState, BaseAction action, int stateSize = 400)
     {
-        using var bmpFrom = ComposeBoard(stateFrom, stateSize);
+        using var bmpFrom = ComposeBoard(fromState, stateSize);
         StampMoveHighlight(bmpFrom, action, Color.OrangeRed, stateSize);
-        using var bmpTo = ComposeBoard(stateTo, stateSize);
+        using var bmpTo = ComposeBoard(toState, stateSize);
         StampMoveHighlight(bmpTo, action, Color.Red, stateSize);
         var frames = new[]
         {
@@ -96,7 +96,7 @@ public class ChessView : ViewBase<BaseMove, PolicyB.ChessBoard>
     // COMPOSITION LAYER HELPERS
     // ─────────────────────────────────────────────────────────────
 
-    private static Bitmap ComposeBoard(PolicyB.ChessBoard state, int stateSize)
+    private static Bitmap ComposeBoard(Policy.ChessState state, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
 
@@ -110,13 +110,13 @@ public class ChessView : ViewBase<BaseMove, PolicyB.ChessBoard>
         return baseLayer;
     }
 
-    private static void StampPieces(Bitmap bmp, PolicyB.Piece?[,] board, int cell, float opacity = 1.0f)
+    private static void StampPieces(Bitmap bmp, Policy.Piece?[,] board, int cell, float opacity = 1.0f)
     {
         using var g = Graphics.FromImage(bmp);
         ChessBoardStamps.StampPieces(g, board, cell, opacity);
     }
 
-    private static void StampMoveHighlight(Bitmap bmp, BaseMove move, Color color, int stateSize)
+    private static void StampMoveHighlight(Bitmap bmp, BaseAction move, Color color, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);

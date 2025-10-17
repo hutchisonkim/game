@@ -1,5 +1,6 @@
 using Xunit;
 
+using Game.Chess.Policy;
 namespace Game.Chess.Renders.Tests.Unit;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
@@ -19,7 +20,7 @@ public class PolicyEnforcementTests
     public void RenderDetailedCellsPng_InitialSetup_ProducesPng()
     {
         // Arrange
-        var state = new PolicyB.ChessBoard(); // Initial chess position
+        var state = new ChessState(); // Initial chess position
 
         // Act
         var renderAttackedCells = true;
@@ -27,7 +28,7 @@ public class PolicyEnforcementTests
         var renderCheckedCells = true;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
-        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
         byte[] pngBytes = chessView.RenderStatePng(state, 400);
 
         // Assert
@@ -53,9 +54,9 @@ public class PolicyEnforcementTests
     public void RenderDetailedCellsPng_InitialSetupB_ProducesPng()
     {
         // Arrange
-        var state = new PolicyB.ChessBoard(); // Initial chess position
+        var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new BaseMove(new Position(1, 0), new Position(3, 0))); // a2 to a4
+        var newState = state.Apply(new BaseAction(new Position(1, 0), new Position(3, 0))); // a2 to a4
 
         // Act
         var renderAttackedCells = true;
@@ -63,7 +64,7 @@ public class PolicyEnforcementTests
         var renderCheckedCells = true;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
-        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
         byte[] pngBytes = chessView.RenderStatePng(newState, 400);
 
         // Assert
@@ -89,9 +90,9 @@ public class PolicyEnforcementTests
     public void RenderDetailedCellsPng_InitialSetupC_ProducesPng()
     {
         // Arrange
-        var state = new PolicyB.ChessBoard(); // Initial chess position
+        var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new BaseMove(new Position(0, 5), new Position(3, 5))); // f1 to f4
+        var newState = state.Apply(new BaseAction(new Position(0, 5), new Position(3, 5))); // f1 to f4
 
         // Act
         var renderAttackedCells = true;
@@ -99,7 +100,7 @@ public class PolicyEnforcementTests
         var renderCheckedCells = true;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
-        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
         byte[] pngBytes = chessView.RenderStatePng(newState, 400);
 
         // Assert
@@ -125,9 +126,9 @@ public class PolicyEnforcementTests
     public void RenderDetailedCellsPng_InitialSetupD_ProducesPng()
     {
         // Arrange
-        var state = new PolicyB.ChessBoard(); // Initial chess position
+        var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new BaseMove(new Position(0, 3), new Position(3, 3))); // d1 to d4
+        var newState = state.Apply(new BaseAction(new Position(0, 3), new Position(3, 3))); // d1 to d4
 
         // Act
         var renderAttackedCells = true;
@@ -135,7 +136,7 @@ public class PolicyEnforcementTests
         var renderCheckedCells = true;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
-        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
         byte[] pngBytes = chessView.RenderStatePng(newState, 400);
 
         // Assert
@@ -160,9 +161,9 @@ public class PolicyEnforcementTests
     public void RenderDetailedCellsPng_InitialSetupE_ProducesPng()
     {
         // Arrange
-        var state = new PolicyB.ChessBoard(); // Initial chess position
+        var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new BaseMove(new Position(0, 4), new Position(3, 4))); // e1 to e4
+        var newState = state.Apply(new BaseAction(new Position(0, 4), new Position(3, 4))); // e1 to e4
 
         // Act
         var renderAttackedCells = true;
@@ -170,7 +171,7 @@ public class PolicyEnforcementTests
         var renderCheckedCells = true;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
-        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
         byte[] pngBytes = chessView.RenderStatePng(newState, 400);
 
         // Assert

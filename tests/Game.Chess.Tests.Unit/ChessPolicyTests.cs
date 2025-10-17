@@ -1,55 +1,58 @@
 using Xunit;
+using Game.Chess.Policy;
 
 namespace Game.Chess.Tests.Unit;
 
 [Trait("Category", "Unit")]
+[Trait("Feature", "GetAvailableActions")]
 public class ChessPolicyTests
 {
     [Fact]
-    [Trait("Feature", "PawnMovement")]
-    public void GetAvailableActions_PawnInitialPosition_IncludesDoubleMove()
+    public void GetAvailableActions_Turns64Seed1234_MatchingCount()
     {
-        var s = new ChessBoard_Old();
-        var policy = new ChessRules();
-
-        // White pawn at (1,0) should have move to (2,0) and (3,0)
-        var moves = policy.GetAvailableActions(s)
-            .Where(m => m.From.Row == 1 && m.From.Col == 0)
-            .Select(m => (m.To.Row, m.To.Col))
-            .ToArray();
-
-        Assert.Contains((2, 0), moves);
-        Assert.Contains((3, 0), moves);
+        Assert.Equal(20, GetActionsCount(turnCount: 1, seed: 1234));
+        Assert.Equal(22, GetActionsCount(turnCount: 2, seed: 1234));
+        Assert.Equal(21, GetActionsCount(turnCount: 4, seed: 1234));
+        Assert.Equal(31, GetActionsCount(turnCount: 8, seed: 1234));
     }
 
     [Fact]
-    [Trait("Feature", "PawnCapture")]
-    public void GetAvailableActions_PawnCapture_GeneratesCaptureAction()
+    public void GetAvailableActions_Turns64Seed2345_MatchingCount()
     {
-        var s = new ChessBoard_Old();
-        // place a black pawn diagonally in front of white pawn
-        s.Board[2, 1] = new Piece(PieceColor.Black, PieceType.Pawn);
-
-        var policy = new ChessRules();
-        var moves = policy.GetAvailableActions(s)
-            .Where(m => m.From.Row == 1 && m.From.Col == 0)
-            .Select(m => (m.To.Row, m.To.Col))
-            .ToArray();
-
-        Assert.Contains((2, 1), moves);
+        Assert.Equal(20, GetActionsCount(turnCount: 1, seed: 2345));
+        Assert.Equal(22, GetActionsCount(turnCount: 2, seed: 2345));
+        Assert.Equal(21, GetActionsCount(turnCount: 4, seed: 2345));
+        Assert.Equal(31, GetActionsCount(turnCount: 8, seed: 2345));
     }
 
     [Fact]
-    [Trait("Feature", "Initialization")]
-    public void GetAvailableActions_InitialBoard_Has20Actions()
+    public void GetAvailableActions_Turns64Seed3456_MatchingCount()
     {
-        var s = new ChessBoard_Old();
-        var policy = new ChessRules();
+        Assert.Equal(20, GetActionsCount(turnCount: 1, seed: 3456));
+        Assert.Equal(20, GetActionsCount(turnCount: 2, seed: 3456));
+        Assert.Equal(27, GetActionsCount(turnCount: 4, seed: 3456));
+        Assert.Equal(28, GetActionsCount(turnCount: 8, seed: 3456));
+    }
 
-        var actions = policy.GetAvailableActions(s)
-            .ToArray();
+    [Fact]
+    public void GetAvailableActions_Turns64Seed4567_MatchingCount()
+    {
+        Assert.Equal(20, GetActionsCount(turnCount: 1, seed: 4567));
+        Assert.Equal(30, GetActionsCount(turnCount: 2, seed: 4567));
+        Assert.Equal(29, GetActionsCount(turnCount: 4, seed: 4567));
+        Assert.Equal(45, GetActionsCount(turnCount: 8, seed: 4567));
+    }
 
-        // At the initial position, White (starting side) should have 20 legal moves
-        Assert.Equal(20, actions.Length);
+    internal static int GetActionsCount(int turnCount, int seed)
+    {
+        ChessState state = new();
+        Random rng = new(seed);
+        List<BaseAction> actions = [.. state.GetAvailableActions()];
+        for (int i = 0; i < turnCount; i++)
+        {
+            state = state.Apply(actions[rng.Next(actions.Count)]);
+            actions = [.. state.GetAvailableActions()];
+        }
+        return actions.Count;
     }
 }

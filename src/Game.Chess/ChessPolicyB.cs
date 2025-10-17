@@ -1,10 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using Game.Core;
 
-namespace Game.Chess.PolicyB;
+namespace Game.Chess.Policy;
 
 // 🔹 Lightweight value object for move vectors
 public readonly struct Vector2
@@ -85,7 +82,7 @@ public abstract class Piece
     public abstract IEnumerable<Pattern> GetPatterns();
 
     // Returns all legal moves given the board and current position
-    public IEnumerable<(int row, int col, Pattern move)> GetAvailableActions(ChessBoard board, int row, int col, bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
+    public IEnumerable<(int row, int col, Pattern move)> GetAvailableActions(ChessState board, int row, int col, bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
     {
         foreach (var basePatterns in GetPatterns())
         {
@@ -282,7 +279,7 @@ public static class PieceFactory
 }
 
 // 🔹 Chess Board
-public class ChessBoard : IState<BaseMove, ChessBoard>
+public class ChessState : IState<BaseAction, ChessState>
 {
     private readonly Piece?[,] _board = new Piece?[8, 8];
 
@@ -290,7 +287,7 @@ public class ChessBoard : IState<BaseMove, ChessBoard>
     public int TurnCount { get; private set; }
     public bool UpsTurns { get; set; } = true;
 
-    public ChessBoard()
+    public ChessState()
     {
         TurnCount = 0;
 
@@ -354,18 +351,18 @@ public class ChessBoard : IState<BaseMove, ChessBoard>
 
     public bool IsInside(int row, int col) => row >= 0 && row < 8 && col >= 0 && col < 8;
 
-    public ChessBoard Clone()
+    public ChessState Clone()
     {
         var copy = new Piece?[8, 8];
         Array.Copy(_board, copy, _board.Length);
-        var newBoard = new ChessBoard();
+        var newBoard = new ChessState();
         Array.Copy(copy, newBoard._board, copy.Length);
         newBoard.TurnCount = TurnCount;
         newBoard.UpsTurns = UpsTurns;
         return newBoard;
     }
 
-    public ChessBoard Apply(BaseMove action)
+    public ChessState Apply(BaseAction action)
     {
         if (!IsInside(action.From.Row, action.From.Col) || !IsInside(action.To.Row, action.To.Col))
             throw new ArgumentException("Invalid move positions.");
@@ -374,7 +371,7 @@ public class ChessBoard : IState<BaseMove, ChessBoard>
         if (piece == null)
             throw new InvalidOperationException("No piece at the source position.");
 
-        var newBoard = new ChessBoard();
+        var newBoard = new ChessState();
         Array.Copy(_board, newBoard._board, _board.Length);
 
         // Move the piece
@@ -384,15 +381,15 @@ public class ChessBoard : IState<BaseMove, ChessBoard>
         if (UpsTurns)
         {
             newBoard.TurnCount = this.TurnCount + 1;
-            Console.WriteLine($"Turn: {newBoard.TurnCount}");
         }
 
         return newBoard;
     }
+    public PieceColor CurrentTurnColor => (TurnCount % 2 == 0) ? PieceColor.White : PieceColor.Black;
 
-    public IEnumerable<BaseMove> GetAvailableActions()
+    public IEnumerable<BaseAction> GetAvailableActions()
     {
-        var currentColor = (TurnCount % 2 == 0) ? PieceColor.White : PieceColor.Black;
+        var currentColor = CurrentTurnColor;
         return GetAvailableActionsDetailed().ChessMoves
             .Where(m => m.Piece.Color == currentColor)
             .Select(m => m.BaseMove);
@@ -412,7 +409,7 @@ public class ChessBoard : IState<BaseMove, ChessBoard>
     // the chess actions (board delta) could be perceived as either create, move, delete, or transform.
     // in chess, the environment is the game > board, while the actors are the players > factions > pieces.
 
-    public ChessBoard GetNextState(PieceMove move) => Apply(move.BaseMove);
+    public ChessState GetNextState(PieceMove move) => Apply(move.BaseMove);
     public AvailableActionsResult GetNextAvailableActionsDetailed(PieceMove move, bool forceIncludeCaptures = false, bool forceExcludeMoves = false) => GetNextState(move).GetAvailableActionsDetailed(forceIncludeCaptures, forceExcludeMoves);
 
     public AvailableActionsResult GetAvailableActionsDetailed(bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
@@ -429,7 +426,7 @@ public class ChessBoard : IState<BaseMove, ChessBoard>
 
                 IEnumerable<(int row, int col, Pattern pattern)> actionsA = piece.GetAvailableActions(this, row, col, forceIncludeCaptures, forceExcludeMoves);
 
-                IEnumerable<BaseMove> baseMoves = actionsA.Select(t => new BaseMove(new Position(row, col), new Position(t.row, t.col)));
+                IEnumerable<BaseAction> baseMoves = actionsA.Select(t => new BaseAction(new Position(row, col), new Position(t.row, t.col)));
 
                 pieceMoves.AddRange(baseMoves.Select(baseMove => new PieceMove(baseMove, piece)));
             }
@@ -545,7 +542,6 @@ public class ChessBoard : IState<BaseMove, ChessBoard>
         // then find all cells that are occupied by pieces of the same color
         // then find the cells that are occupied by pieces of the opposite color and are not in the "from" position of any available action
         // those are the blocked cells
-        PrintBoard();
         var availableActions = GetAvailableActionsDetailed().ChessMoves
             .Where(m => m.Piece.Color == currentTurnColor)
             .Select(m => (m.BaseMove.From.Row, m.BaseMove.From.Col))
@@ -559,7 +555,6 @@ public class ChessBoard : IState<BaseMove, ChessBoard>
                 if (piece != null && piece.Color == currentTurnColor)
                 {
                     //print
-                    Console.WriteLine($"Occupied by currentTurnColor at ({row}, {col}): {piece.Color} {piece.Type}");
                     if (!availableActions.Contains((row, col)))
                     {
                         blockedCells.Add(new BoardCell(row, col, piece));
@@ -626,9 +621,9 @@ public class ChessBoard : IState<BaseMove, ChessBoard>
 
     public class PieceMove
     {
-        public BaseMove BaseMove { get; }
+        public BaseAction BaseMove { get; }
         public Piece Piece { get; }
-        public PieceMove(BaseMove baseMove, Piece piece)
+        public PieceMove(BaseAction baseMove, Piece piece)
         {
             BaseMove = baseMove;
             Piece = piece;

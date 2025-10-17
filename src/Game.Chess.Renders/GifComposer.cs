@@ -8,7 +8,7 @@ using System.Drawing.Imaging;
 namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-internal static class GifComposer
+public static class GifComposer
 {
     /// <summary>
     /// Combine a list of bitmaps into a single animated GIF.

@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace Game.Chess.RendersB;
+namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal static class ChessBoardStamps
@@ -8,7 +8,7 @@ internal static class ChessBoardStamps
     // ─────────────────────────────────────────────────────────────
     // MAIN ENTRY POINT — returns a ready board layer with pieces
     // ─────────────────────────────────────────────────────────────
-    internal static Bitmap StampBoard(PolicyB.ChessBoard state, int boardSize, bool includePieces = true)
+    internal static Bitmap StampBoard(Policy.ChessState state, int boardSize, bool includePieces = true)
     {
         if (state is null)
             throw new ArgumentNullException(nameof(state));
@@ -58,7 +58,7 @@ internal static class ChessBoardStamps
     // ─────────────────────────────────────────────────────────────
     // PIECES
     // ─────────────────────────────────────────────────────────────
-    internal static void StampPieces(Graphics g, PolicyB.Piece?[,] board, int cell, float opacity = 1.0f)
+    internal static void StampPieces(Graphics g, Policy.Piece?[,] board, int cell, float opacity = 1.0f)
     {
         for (int r = 0; r < 8; r++)
             for (int f = 0; f < 8; f++)
@@ -73,7 +73,7 @@ internal static class ChessBoardStamps
             }
     }
 
-    internal static Bitmap StampPiecesLayer(PolicyB.Piece?[,] board, int cell, float opacity = 1.0f)
+    internal static Bitmap StampPiecesLayer(Policy.Piece?[,] board, int cell, float opacity = 1.0f)
     {
         var bmp = new Bitmap(cell * 8, cell * 8);
         using var g = Graphics.FromImage(bmp);
@@ -81,7 +81,7 @@ internal static class ChessBoardStamps
         return bmp;
     }
 
-    internal static void StampPiece(Graphics g, Rectangle rect, PolicyB.Piece piece, int cell, float opacity = 1.0f)
+    internal static void StampPiece(Graphics g, Rectangle rect, Policy.Piece piece, int cell, float opacity = 1.0f)
     {
         string symbol = GetPieceSymbol(piece);
         float fontSize = cell * 0.75f;
@@ -162,7 +162,7 @@ internal static class ChessBoardStamps
         catch { return null; }
     }
 
-    private static string GetPieceSymbol(PolicyB.Piece piece)
+    private static string GetPieceSymbol(Policy.Piece piece)
     {
         return piece switch
         {
