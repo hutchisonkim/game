@@ -14,13 +14,14 @@ public readonly struct Vector2
 
     public Vector2(int x, int y) => (X, Y) = (x, y);
 
+    public static readonly Vector2 OneByZero = new(1, 0);
     public static readonly Vector2 ZeroByOne = new(0, 1);
     public static readonly Vector2 OneByOne = new(1, 1);
     public static readonly Vector2 OneByTwo = new(1, 2);
 }
 
 // 🔹 Move rules
-public class Move
+public class Pattern
 {
     [Flags]
     public enum MirrorBehavior { None = 0, Horizontal = 1, Vertical = 2, All = Horizontal | Vertical }
@@ -34,7 +35,7 @@ public class Move
     public bool ForwardOnly { get; }
     public bool Jumps { get; }
 
-    public Move(MoveOptions options)
+    public Pattern(PatternOptions options)
     {
         Vector = options.Vector;
         Mirrors = options.Mirrors;
@@ -44,7 +45,7 @@ public class Move
         Jumps = options.Jumps;
     }
 
-    public record MoveOptions(
+    public record PatternOptions(
         Vector2 Vector,
         MirrorBehavior Mirrors = MirrorBehavior.All,
         RepeatBehavior Repeats = RepeatBehavior.Repeatable,
@@ -76,24 +77,24 @@ public abstract class Piece
     public PieceColor Color { get; }
     public abstract PieceType Type { get; }
     public abstract PiecePolicy Policy { get; }
-    public int ForwardAxis => Color == PieceColor.White ? -1 : 1;
+    public int ForwardAxis => Color == PieceColor.White ? 1 : -1;
 
     protected Piece(PieceColor color) => Color = color;
 
     // Returns all abstract moves for the piece
-    public abstract IEnumerable<Move> GetMoves();
+    public abstract IEnumerable<Pattern> GetPatterns();
 
     // Returns all legal moves given the board and current position
-    public IEnumerable<(int row, int col, Move move)> GetAvailableActions(ChessBoard board, int row, int col)
+    public IEnumerable<(int row, int col, Pattern move)> GetAvailableActions(ChessBoard board, int row, int col, bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
     {
-        foreach (var move in GetMoves())
+        foreach (var basePatterns in GetPatterns())
         {
-            var directions = GetMirroredVectors(move);
+            var directions = GetMirroredVectors(basePatterns);
 
-            foreach (var dir in directions)
+            foreach (var direction in directions)
             {
-                int dx = dir.X;
-                int dy = dir.Y * ForwardAxis;
+                int dx = direction.X;
+                int dy = direction.Y * ForwardAxis;
                 int x = col;
                 int y = row;
 
@@ -106,25 +107,40 @@ public abstract class Piece
 
                     if (!board.IsInside(y, x)) break;
 
-                    var target = board[y, x];
+                    Piece? pieceTo = board[y, x];
 
-                    if (target == null)
+                    if (pieceTo == null)
                     {
-                        if (move.Captures != Move.CaptureBehavior.CaptureOnly)
-                            yield return (y, x, move);
+                        if (basePatterns.Captures == Pattern.CaptureBehavior.MoveOnly || basePatterns.Captures == Pattern.CaptureBehavior.MoveOrCapture)
+                        {
+                            if (!forceExcludeMoves)
+                            {
+                                yield return (y, x, basePatterns);
+                            }
+                        }
+                        if (forceIncludeCaptures)
+                        {
+                            if (basePatterns.Captures == Pattern.CaptureBehavior.CaptureOnly || basePatterns.Captures == Pattern.CaptureBehavior.MoveOrCapture)
+                            {
+                                yield return (y, x, basePatterns);
+                            }
+                        }
                     }
                     else
                     {
-                        if (target.Color != Color && (move.Captures != Move.CaptureBehavior.MoveOnly))
+                        if (pieceTo.Color != Color)
                         {
-                            yield return (y, x, move);
+                            if (basePatterns.Captures == Pattern.CaptureBehavior.CaptureOnly || basePatterns.Captures == Pattern.CaptureBehavior.MoveOrCapture)
+                            {
+                                yield return (y, x, basePatterns);
+                            }
                         }
                         break; // cannot jump over except knights
                     }
 
-                    if (move.Repeats == Move.RepeatBehavior.NotRepeatable ||
-                        (move.Repeats == Move.RepeatBehavior.RepeatableOnce && steps == 1) ||
-                        move.Jumps)
+                    if (basePatterns.Repeats == Pattern.RepeatBehavior.NotRepeatable ||
+                        (basePatterns.Repeats == Pattern.RepeatBehavior.RepeatableOnce && steps == 1) ||
+                        basePatterns.Jumps)
                         break;
 
                 } while (true);
@@ -132,18 +148,18 @@ public abstract class Piece
         }
     }
 
-    private IEnumerable<Vector2> GetMirroredVectors(Move move)
+    private IEnumerable<Vector2> GetMirroredVectors(Pattern pattern)
     {
-        yield return new Vector2(move.Vector.X, move.Vector.Y);
+        yield return new Vector2(pattern.Vector.X, pattern.Vector.Y);
 
-        if (move.Mirrors.HasFlag(Move.MirrorBehavior.Horizontal) && move.Vector.X != 0)
-            yield return new Vector2(-move.Vector.X, move.Vector.Y);
+        if (pattern.Mirrors.HasFlag(Pattern.MirrorBehavior.Horizontal) && pattern.Vector.X != 0)
+            yield return new Vector2(-pattern.Vector.X, pattern.Vector.Y);
 
-        if (move.Mirrors.HasFlag(Move.MirrorBehavior.Vertical) && move.Vector.Y != 0)
-            yield return new Vector2(move.Vector.X, -move.Vector.Y);
+        if (pattern.Mirrors.HasFlag(Pattern.MirrorBehavior.Vertical) && pattern.Vector.Y != 0)
+            yield return new Vector2(pattern.Vector.X, -pattern.Vector.Y);
 
-        if (move.Mirrors.HasFlag(Move.MirrorBehavior.All) && move.Vector.X != 0 && move.Vector.Y != 0)
-            yield return new Vector2(-move.Vector.X, -move.Vector.Y);
+        if (pattern.Mirrors.HasFlag(Pattern.MirrorBehavior.All) && pattern.Vector.X != 0 && pattern.Vector.Y != 0)
+            yield return new Vector2(-pattern.Vector.X, -pattern.Vector.Y);
     }
 }
 
@@ -158,11 +174,11 @@ public class Pawn : Piece
 
     public Pawn(PieceColor color) : base(color) => Policy = Unmoved;
 
-    public override IEnumerable<Move> GetMoves() => new[]
+    public override IEnumerable<Pattern> GetPatterns() => new[]
     {
-        new Move(new Move.MoveOptions(Vector2.ZeroByOne, Mirrors: Move.MirrorBehavior.Horizontal, Repeats: Move.RepeatBehavior.NotRepeatable, Captures: Move.CaptureBehavior.MoveOnly, ForwardOnly: true)),
-        new Move(new Move.MoveOptions(Vector2.ZeroByOne, Mirrors: Move.MirrorBehavior.Horizontal, Repeats: Move.RepeatBehavior.RepeatableOnce, Captures: Move.CaptureBehavior.MoveOnly, ForwardOnly: true)),
-        new Move(new Move.MoveOptions(Vector2.OneByOne, Mirrors: Move.MirrorBehavior.Horizontal, Repeats: Move.RepeatBehavior.NotRepeatable, Captures: Move.CaptureBehavior.CaptureOnly, ForwardOnly: true))
+        new Pattern(new Pattern.PatternOptions(Vector2.ZeroByOne, Mirrors: Pattern.MirrorBehavior.Horizontal, Repeats: Pattern.RepeatBehavior.NotRepeatable, Captures: Pattern.CaptureBehavior.MoveOnly, ForwardOnly: true)),
+        new Pattern(new Pattern.PatternOptions(Vector2.ZeroByOne, Mirrors: Pattern.MirrorBehavior.Horizontal, Repeats: Pattern.RepeatBehavior.RepeatableOnce, Captures: Pattern.CaptureBehavior.MoveOnly, ForwardOnly: true)),
+        new Pattern(new Pattern.PatternOptions(Vector2.OneByOne, Mirrors: Pattern.MirrorBehavior.Horizontal, Repeats: Pattern.RepeatBehavior.NotRepeatable, Captures: Pattern.CaptureBehavior.CaptureOnly, ForwardOnly: true))
     };
 }
 
@@ -177,9 +193,10 @@ public class Rook : Piece
 
     public Rook(PieceColor color) : base(color) => Policy = Unmoved;
 
-    public override IEnumerable<Move> GetMoves() => new[]
+    public override IEnumerable<Pattern> GetPatterns() => new[]
     {
-        new Move(new Move.MoveOptions(Vector2.ZeroByOne))
+        new Pattern(new Pattern.PatternOptions(Vector2.ZeroByOne)),
+        new Pattern(new Pattern.PatternOptions(Vector2.OneByZero))
     };
 }
 
@@ -192,9 +209,9 @@ public class Knight : Piece
 
     public Knight(PieceColor color) : base(color) { }
 
-    public override IEnumerable<Move> GetMoves() => new[]
+    public override IEnumerable<Pattern> GetPatterns() => new[]
     {
-        new Move(new Move.MoveOptions(Vector2.OneByTwo, Repeats: Move.RepeatBehavior.NotRepeatable, Jumps: true))
+        new Pattern(new Pattern.PatternOptions(Vector2.OneByTwo, Repeats: Pattern.RepeatBehavior.NotRepeatable, Jumps: true))
     };
 }
 
@@ -207,9 +224,9 @@ public class Bishop : Piece
 
     public Bishop(PieceColor color) : base(color) { }
 
-    public override IEnumerable<Move> GetMoves() => new[]
+    public override IEnumerable<Pattern> GetPatterns() => new[]
     {
-        new Move(new Move.MoveOptions(Vector2.OneByOne))
+        new Pattern(new Pattern.PatternOptions(Vector2.OneByOne))
     };
 }
 
@@ -222,10 +239,11 @@ public class Queen : Piece
 
     public Queen(PieceColor color) : base(color) { }
 
-    public override IEnumerable<Move> GetMoves() => new[]
+    public override IEnumerable<Pattern> GetPatterns() => new[]
     {
-        new Move(new Move.MoveOptions(Vector2.ZeroByOne)),
-        new Move(new Move.MoveOptions(Vector2.OneByOne))
+        new Pattern(new Pattern.PatternOptions(Vector2.ZeroByOne)),
+        new Pattern(new Pattern.PatternOptions(Vector2.OneByZero)),
+        new Pattern(new Pattern.PatternOptions(Vector2.OneByOne))
     };
 }
 
@@ -240,10 +258,11 @@ public class King : Piece
 
     public King(PieceColor color) : base(color) => Policy = Unmoved;
 
-    public override IEnumerable<Move> GetMoves() => new[]
+    public override IEnumerable<Pattern> GetPatterns() => new[]
     {
-        new Move(new Move.MoveOptions(Vector2.ZeroByOne, Repeats: Move.RepeatBehavior.NotRepeatable)),
-        new Move(new Move.MoveOptions(Vector2.OneByOne, Repeats: Move.RepeatBehavior.NotRepeatable))
+        new Pattern(new Pattern.PatternOptions(Vector2.ZeroByOne, Repeats: Pattern.RepeatBehavior.NotRepeatable)),
+        new Pattern(new Pattern.PatternOptions(Vector2.OneByZero, Repeats: Pattern.RepeatBehavior.NotRepeatable)),
+        new Pattern(new Pattern.PatternOptions(Vector2.OneByOne, Repeats: Pattern.RepeatBehavior.NotRepeatable))
     };
 }
 
@@ -263,42 +282,72 @@ public static class PieceFactory
 }
 
 // 🔹 Chess Board
-public class ChessBoard : IState<PositionDelta, ChessBoard>
+public class ChessBoard : IState<BaseMove, ChessBoard>
 {
     private readonly Piece?[,] _board = new Piece?[8, 8];
 
     public Piece?[,] Board => _board;
     public int TurnCount { get; private set; }
+    public bool UpsTurns { get; set; } = true;
 
     public ChessBoard()
     {
         TurnCount = 0;
 
+        InitializeBoard();
+        // PrintBoard();
+    }
+
+    public void InitializeBoard()
+    {
+
         for (int x = 0; x < 8; x++)
         {
-            _board[1, x] = PieceFactory.Create(PieceType.Pawn, PieceColor.Black);
-            _board[6, x] = PieceFactory.Create(PieceType.Pawn, PieceColor.White);
+            _board[1, x] = PieceFactory.Create(PieceType.Pawn, PieceColor.White);
+            _board[6, x] = PieceFactory.Create(PieceType.Pawn, PieceColor.Black);
         }
 
         // Rooks
-        _board[0, 0] = _board[0, 7] = PieceFactory.Create(PieceType.Rook, PieceColor.Black);
-        _board[7, 0] = _board[7, 7] = PieceFactory.Create(PieceType.Rook, PieceColor.White);
+        _board[0, 0] = _board[0, 7] = PieceFactory.Create(PieceType.Rook, PieceColor.White);
+        _board[7, 0] = _board[7, 7] = PieceFactory.Create(PieceType.Rook, PieceColor.Black);
 
         // Knights
-        _board[0, 1] = _board[0, 6] = PieceFactory.Create(PieceType.Knight, PieceColor.Black);
-        _board[7, 1] = _board[7, 6] = PieceFactory.Create(PieceType.Knight, PieceColor.White);
+        _board[0, 1] = _board[0, 6] = PieceFactory.Create(PieceType.Knight, PieceColor.White);
+        _board[7, 1] = _board[7, 6] = PieceFactory.Create(PieceType.Knight, PieceColor.Black);
 
         // Bishops
-        _board[0, 2] = _board[0, 5] = PieceFactory.Create(PieceType.Bishop, PieceColor.Black);
-        _board[7, 2] = _board[7, 5] = PieceFactory.Create(PieceType.Bishop, PieceColor.White);
+        _board[0, 2] = _board[0, 5] = PieceFactory.Create(PieceType.Bishop, PieceColor.White);
+        _board[7, 2] = _board[7, 5] = PieceFactory.Create(PieceType.Bishop, PieceColor.Black);
 
         // Queens
-        _board[0, 3] = PieceFactory.Create(PieceType.Queen, PieceColor.Black);
-        _board[7, 3] = PieceFactory.Create(PieceType.Queen, PieceColor.White);
+        _board[0, 3] = PieceFactory.Create(PieceType.Queen, PieceColor.White);
+        _board[7, 3] = PieceFactory.Create(PieceType.Queen, PieceColor.Black);
 
         // Kings
-        _board[0, 4] = PieceFactory.Create(PieceType.King, PieceColor.Black);
-        _board[7, 4] = PieceFactory.Create(PieceType.King, PieceColor.White);
+        _board[0, 4] = PieceFactory.Create(PieceType.King, PieceColor.White);
+        _board[7, 4] = PieceFactory.Create(PieceType.King, PieceColor.Black);
+
+    }
+
+    public void PrintBoard()
+    {
+        for (int row = 7; row >= 0; row--)
+        {
+            for (int col = 7; col >= 0; col--)
+            {
+                var piece = _board[row, col];
+                if (piece == null)
+                {
+                    Console.Write(". ");
+                }
+                else
+                {
+                    Console.WriteLine($"({row}, {col}): {piece.Color} {piece.Type}");
+                }
+            }
+            Console.WriteLine();
+        }
+        Console.WriteLine();
     }
 
     public Piece? this[int row, int col] => _board[row, col];
@@ -312,10 +361,11 @@ public class ChessBoard : IState<PositionDelta, ChessBoard>
         var newBoard = new ChessBoard();
         Array.Copy(copy, newBoard._board, copy.Length);
         newBoard.TurnCount = TurnCount;
+        newBoard.UpsTurns = UpsTurns;
         return newBoard;
     }
 
-    public ChessBoard Apply(PositionDelta action)
+    public ChessBoard Apply(BaseMove action)
     {
         if (!IsInside(action.From.Row, action.From.Col) || !IsInside(action.To.Row, action.To.Col))
             throw new ArgumentException("Invalid move positions.");
@@ -331,17 +381,21 @@ public class ChessBoard : IState<PositionDelta, ChessBoard>
         newBoard._board[action.To.Row, action.To.Col] = piece;
         newBoard._board[action.From.Row, action.From.Col] = null;
 
-        newBoard.TurnCount = this.TurnCount + 1;
+        if (UpsTurns)
+        {
+            newBoard.TurnCount = this.TurnCount + 1;
+            Console.WriteLine($"Turn: {newBoard.TurnCount}");
+        }
 
         return newBoard;
     }
 
-    public IEnumerable<PositionDelta> GetAvailableActions()
+    public IEnumerable<BaseMove> GetAvailableActions()
     {
         var currentColor = (TurnCount % 2 == 0) ? PieceColor.White : PieceColor.Black;
         return GetAvailableActionsDetailed().ChessMoves
             .Where(m => m.Piece.Color == currentColor)
-            .Select(m => m.PositionDelta);
+            .Select(m => m.BaseMove);
     }
 
     public record AvailableActionsResult(
@@ -358,10 +412,10 @@ public class ChessBoard : IState<PositionDelta, ChessBoard>
     // the chess actions (board delta) could be perceived as either create, move, delete, or transform.
     // in chess, the environment is the game > board, while the actors are the players > factions > pieces.
 
-    public ChessBoard GetNextState(PieceMove move) => Apply(move.PositionDelta);
-    public AvailableActionsResult GetNextAvailableActionsDetailed(PieceMove move) => GetNextState(move).GetAvailableActionsDetailed();
+    public ChessBoard GetNextState(PieceMove move) => Apply(move.BaseMove);
+    public AvailableActionsResult GetNextAvailableActionsDetailed(PieceMove move, bool forceIncludeCaptures = false, bool forceExcludeMoves = false) => GetNextState(move).GetAvailableActionsDetailed(forceIncludeCaptures, forceExcludeMoves);
 
-    public AvailableActionsResult GetAvailableActionsDetailed()
+    public AvailableActionsResult GetAvailableActionsDetailed(bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
     {
 
         var pieceMoves = new List<PieceMove>();
@@ -373,10 +427,11 @@ public class ChessBoard : IState<PositionDelta, ChessBoard>
                 var piece = this[row, col];
                 if (piece == null) continue;
 
-                var actions = piece.GetAvailableActions(this, row, col)
-                    .Select(t => new PositionDelta(new Position(row, col), new Position(t.row, t.col)));
+                IEnumerable<(int row, int col, Pattern pattern)> actionsA = piece.GetAvailableActions(this, row, col, forceIncludeCaptures, forceExcludeMoves);
 
-                pieceMoves.AddRange(actions.Select(a => new PieceMove(a, piece)));
+                IEnumerable<BaseMove> baseMoves = actionsA.Select(t => new BaseMove(new Position(row, col), new Position(t.row, t.col)));
+
+                pieceMoves.AddRange(baseMoves.Select(baseMove => new PieceMove(baseMove, piece)));
             }
         }
 
@@ -411,11 +466,13 @@ public class ChessBoard : IState<PositionDelta, ChessBoard>
     public IEnumerable<AttackedCell> GetAttackedCells(PieceColor attackedColor)
     {
         var cellsDict = new Dictionary<(int, int), List<PieceMove>>();
-        foreach (var move in GetAvailableActionsDetailed().ChessMoves)
-        {
-            if (move.Piece.Color == attackedColor) continue;
+        var availableActions = GetAvailableActionsDetailed(forceIncludeCaptures: true, forceExcludeMoves: true).ChessMoves;
 
-            var toPos = move.PositionDelta.To;
+        foreach (var move in availableActions)
+        {
+            if (move.Piece.Color != attackedColor) continue; // keep only attacking moves
+
+            var toPos = move.BaseMove.To;
             var attackedPosition = (toPos.Row, toPos.Col);
 
             if (!cellsDict.TryGetValue(attackedPosition, out List<PieceMove>? attackingMoves))
@@ -488,19 +545,25 @@ public class ChessBoard : IState<PositionDelta, ChessBoard>
         // then find all cells that are occupied by pieces of the same color
         // then find the cells that are occupied by pieces of the opposite color and are not in the "from" position of any available action
         // those are the blocked cells
+        PrintBoard();
         var availableActions = GetAvailableActionsDetailed().ChessMoves
             .Where(m => m.Piece.Color == currentTurnColor)
-            .Select(m => m.PositionDelta.From)
+            .Select(m => (m.BaseMove.From.Row, m.BaseMove.From.Col))
             .ToHashSet();
         var blockedCells = new List<BoardCell>();
         for (int row = 0; row < 8; row++)
         {
             for (int col = 0; col < 8; col++)
             {
-                var piece = this[row, col];
-                if (piece != null && piece.Color != currentTurnColor && !availableActions.Contains(new Position(row, col)))
+                var piece = _board[row, col];
+                if (piece != null && piece.Color == currentTurnColor)
                 {
-                    blockedCells.Add(new BoardCell(row, col, piece));
+                    //print
+                    Console.WriteLine($"Occupied by currentTurnColor at ({row}, {col}): {piece.Color} {piece.Type}");
+                    if (!availableActions.Contains((row, col)))
+                    {
+                        blockedCells.Add(new BoardCell(row, col, piece));
+                    }
                 }
             }
         }
@@ -530,7 +593,7 @@ public class ChessBoard : IState<PositionDelta, ChessBoard>
                 if (piece != null && piece.Color == pinnedColor)
                 {
                     var actionsFromCell = oppositeActions
-                        .Where(m => m.PositionDelta.From.Row == row && m.PositionDelta.From.Col == col)
+                        .Where(m => m.BaseMove.From.Row == row && m.BaseMove.From.Col == col)
                         .ToList();
                     if (actionsFromCell.Count > 0 && actionsFromCell.All(a => GetNextState(a).GetCheckedCells(pinnedColor).Any()))
                     {
@@ -563,11 +626,11 @@ public class ChessBoard : IState<PositionDelta, ChessBoard>
 
     public class PieceMove
     {
-        public PositionDelta PositionDelta { get; }
+        public BaseMove BaseMove { get; }
         public Piece Piece { get; }
-        public PieceMove(PositionDelta positionDelta, Piece piece)
+        public PieceMove(BaseMove baseMove, Piece piece)
         {
-            PositionDelta = positionDelta;
+            BaseMove = baseMove;
             Piece = piece;
         }
     }

@@ -1,0 +1,193 @@
+using Xunit;
+
+namespace Game.Chess.Renders.Tests.Unit;
+
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+[Trait("Category", "Unit")]
+public class PolicyEnforcementTests
+{
+
+    private static string SquareFromPosition(Position p)
+    {
+        char file = (char)('a' + p.Col);
+        char rank = (char)('1' + (7 - p.Row));
+        return string.Concat(file, rank);
+    }
+
+    [Fact]
+    [Trait("Feature", "PngRendering")]
+    public void RenderDetailedCellsPng_InitialSetup_ProducesPng()
+    {
+        // Arrange
+        var state = new PolicyB.ChessBoard(); // Initial chess position
+
+        // Act
+        var renderAttackedCells = true;
+        var renderThreatenedCells = true;
+        var renderCheckedCells = true;
+        var renderPinnedCells = true;
+        var renderBlockedCells = true;
+        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        byte[] pngBytes = chessView.RenderStatePng(state, 400);
+
+        // Assert
+        Assert.NotNull(pngBytes);
+        Assert.True(pngBytes.Length > 0);
+
+        // Save for manual inspection (optional)
+        string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
+        string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
+        string outputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderDetailedCellsPng_InitialSetup_ProducesPng.png");
+        string? directory = Path.GetDirectoryName(outputPath);
+        if (directory != null)
+        {
+            Directory.CreateDirectory(directory);
+        }
+        File.WriteAllBytes(outputPath, pngBytes);
+
+        Assert.True(File.Exists(outputPath));
+    }
+
+    [Fact]
+    [Trait("Feature", "PngRendering")]
+    public void RenderDetailedCellsPng_InitialSetupB_ProducesPng()
+    {
+        // Arrange
+        var state = new PolicyB.ChessBoard(); // Initial chess position
+        state.UpsTurns = false;
+        var newState = state.Apply(new BaseMove(new Position(1, 0), new Position(3, 0))); // a2 to a4
+
+        // Act
+        var renderAttackedCells = true;
+        var renderThreatenedCells = true;
+        var renderCheckedCells = true;
+        var renderPinnedCells = true;
+        var renderBlockedCells = true;
+        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        byte[] pngBytes = chessView.RenderStatePng(newState, 400);
+
+        // Assert
+        Assert.NotNull(pngBytes);
+        Assert.True(pngBytes.Length > 0);
+
+        // Save for manual inspection (optional)
+        string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
+        string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
+        string outputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderDetailedCellsPng_InitialSetupB_ProducesPng.png");
+        string? directory = Path.GetDirectoryName(outputPath);
+        if (directory != null)
+        {
+            Directory.CreateDirectory(directory);
+        }
+        File.WriteAllBytes(outputPath, pngBytes);
+
+        Assert.True(File.Exists(outputPath));
+    }
+
+    [Fact]
+    [Trait("Feature", "PngRendering")]
+    public void RenderDetailedCellsPng_InitialSetupC_ProducesPng()
+    {
+        // Arrange
+        var state = new PolicyB.ChessBoard(); // Initial chess position
+        state.UpsTurns = false;
+        var newState = state.Apply(new BaseMove(new Position(0, 5), new Position(3, 5))); // f1 to f4
+
+        // Act
+        var renderAttackedCells = true;
+        var renderThreatenedCells = true;
+        var renderCheckedCells = true;
+        var renderPinnedCells = true;
+        var renderBlockedCells = true;
+        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        byte[] pngBytes = chessView.RenderStatePng(newState, 400);
+
+        // Assert
+        Assert.NotNull(pngBytes);
+        Assert.True(pngBytes.Length > 0);
+
+        // Save for manual inspection (optional)
+        string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
+        string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
+        string outputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderDetailedCellsPng_InitialSetupC_ProducesPng.png");
+        string? directory = Path.GetDirectoryName(outputPath);
+        if (directory != null)
+        {
+            Directory.CreateDirectory(directory);
+        }
+        File.WriteAllBytes(outputPath, pngBytes);
+
+        Assert.True(File.Exists(outputPath));
+    }
+
+    [Fact]
+    [Trait("Feature", "PngRendering")]
+    public void RenderDetailedCellsPng_InitialSetupD_ProducesPng()
+    {
+        // Arrange
+        var state = new PolicyB.ChessBoard(); // Initial chess position
+        state.UpsTurns = false;
+        var newState = state.Apply(new BaseMove(new Position(0, 3), new Position(3, 3))); // d1 to d4
+
+        // Act
+        var renderAttackedCells = true;
+        var renderThreatenedCells = true;
+        var renderCheckedCells = true;
+        var renderPinnedCells = true;
+        var renderBlockedCells = true;
+        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        byte[] pngBytes = chessView.RenderStatePng(newState, 400);
+
+        // Assert
+        Assert.NotNull(pngBytes);
+        Assert.True(pngBytes.Length > 0);
+
+        // Save for manual inspection (optional)
+        string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
+        string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
+        string outputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderDetailedCellsPng_InitialSetupD_ProducesPng.png");
+        string? directory = Path.GetDirectoryName(outputPath);
+        if (directory != null)
+        {
+            Directory.CreateDirectory(directory);
+        }
+        File.WriteAllBytes(outputPath, pngBytes);
+
+        Assert.True(File.Exists(outputPath));
+    }
+    [Fact]
+    [Trait("Feature", "PngRendering")]
+    public void RenderDetailedCellsPng_InitialSetupE_ProducesPng()
+    {
+        // Arrange
+        var state = new PolicyB.ChessBoard(); // Initial chess position
+        state.UpsTurns = false;
+        var newState = state.Apply(new BaseMove(new Position(0, 4), new Position(3, 4))); // e1 to e4
+
+        // Act
+        var renderAttackedCells = true;
+        var renderThreatenedCells = true;
+        var renderCheckedCells = true;
+        var renderPinnedCells = true;
+        var renderBlockedCells = true;
+        var chessView = new Game.Chess.RendersB.ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
+        byte[] pngBytes = chessView.RenderStatePng(newState, 400);
+
+        // Assert
+        Assert.NotNull(pngBytes);
+        Assert.True(pngBytes.Length > 0);
+
+        // Save for manual inspection (optional)
+        string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
+        string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
+        string outputPath = Path.Combine(rootDir, "TestResults", "Renders", "RenderDetailedCellsPng_InitialSetupE_ProducesPng.png");
+        string? directory = Path.GetDirectoryName(outputPath);
+        if (directory != null)
+        {
+            Directory.CreateDirectory(directory);
+        }
+        File.WriteAllBytes(outputPath, pngBytes);
+
+        Assert.True(File.Exists(outputPath));
+    }
+}

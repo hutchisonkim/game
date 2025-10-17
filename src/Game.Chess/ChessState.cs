@@ -8,7 +8,7 @@ public enum PieceType { Pawn, Rook, Knight, Bishop, Queen, King }
 
 public sealed record Piece(PieceColor Color, PieceType Type);
 
-public sealed class ChessBoard_Old : IState<PositionDelta, ChessBoard_Old>
+public sealed class ChessBoard_Old : IState<BaseMove, ChessBoard_Old>
 {
     // 8x8 board: [row, col]
     public Piece?[,] Board { get; }
@@ -70,7 +70,7 @@ public sealed class ChessBoard_Old : IState<PositionDelta, ChessBoard_Old>
 
     public Piece? PieceAt(Position p) => p.IsValid ? Board[p.Row, p.Col] : null;
 
-    public ChessBoard_Old Apply(PositionDelta m)
+    public ChessBoard_Old Apply(BaseMove m)
     {
         if (!m.From.IsValid || !m.To.IsValid) throw new ArgumentException("Invalid positions.");
         var clone = Clone();
@@ -81,7 +81,7 @@ public sealed class ChessBoard_Old : IState<PositionDelta, ChessBoard_Old>
         return new ChessBoard_Old(clone.Board, TurnCount + 1);
     }
 
-    ChessBoard_Old IState<PositionDelta, ChessBoard_Old>.Apply(PositionDelta m)
+    ChessBoard_Old IState<BaseMove, ChessBoard_Old>.Apply(BaseMove m)
     {
         return Apply(m);
     }

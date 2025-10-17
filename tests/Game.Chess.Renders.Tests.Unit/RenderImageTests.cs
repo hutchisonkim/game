@@ -166,7 +166,7 @@ public class RenderStatePngTests
         // Arrange
         var board = new ChessBoard_Old();
         var policy = new ChessRules();
-        var transitions = new List<(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, PositionDelta action)>();
+        var transitions = new List<(ChessBoard_Old stateFrom, ChessBoard_Old stateTo, BaseMove action)>();
         var rng = new Random(12345);
         var chessView = new ChessView();
         var currentBoard = board;
@@ -209,7 +209,7 @@ public class RenderStatePngTests
     {
         // Arrange
         var board = new PolicyB.ChessBoard();
-        var transitions = new List<(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, PositionDelta action)>();
+        var transitions = new List<(PolicyB.ChessBoard stateFrom, PolicyB.ChessBoard stateTo, BaseMove action)>();
         var rng = new Random(12345);
         var chessView = new RendersB.ChessView();
         var currentBoard = board;

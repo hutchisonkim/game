@@ -8,7 +8,7 @@ public readonly record struct Position(int Row, int Col)
     public override string ToString() => $"({Row},{Col})";
 }
 
-public sealed class PositionDelta(Position from, Position to) : IAction
+public sealed class BaseMove(Position from, Position to) : IAction
 {
     public Position From { get; } = from;
     public Position To { get; } = to;
@@ -44,7 +44,7 @@ public sealed class PositionDelta(Position from, Position to) : IAction
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
             if (!_from.IsValid || !_to.IsValid) throw new ArgumentException("Invalid positions.");
-            return state.Apply(new PositionDelta(_from, _to));
+            return state.Apply(new BaseMove(_from, _to));
         }
     }
 }

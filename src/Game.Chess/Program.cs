@@ -10,7 +10,7 @@ namespace Game.Chess
 
             var actionCount = 0;
             Console.WriteLine("Initial legal moves:");
-            foreach (PositionDelta? action in actions)
+            foreach (BaseMove? action in actions)
             {
                 var pieceFrom = state.PieceAt(action.From);
                 var pieceTo = state.PieceAt(action.To);

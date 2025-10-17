@@ -35,7 +35,7 @@ public class ChessStateTests
         var from = new Position(1, 0); // white pawn
         var to = new Position(3, 0);   // two squares forward
 
-        var moved = s.Apply(new PositionDelta(from, to));
+        var moved = s.Apply(new BaseMove(from, to));
 
         Assert.Null(moved.PieceAt(from));
         var piece = moved.PieceAt(to);
