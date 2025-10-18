@@ -1,3 +1,5 @@
+//tests\Game.Chess.Renders.Tests.Unit\ChessPolicyRenderTests.cs
+
 using Xunit;
 using Game.Chess.Policy;
 
@@ -8,75 +10,62 @@ namespace Game.Chess.Renders.Tests.Unit;
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class ChessPolicyRenderTests
 {
+
     [Fact]
-    public void RenderAvailableActions_Turns64Seed1234_ValidGif()
+    public void RenderAvailableActions_Turns64Seed1234_MatchingGif() =>
+        RenderAvailableActions_TurnsXSeedY_MatchingGif(64, 1234);
+    [Fact]
+    public void RenderAvailableActions_Turns64Seed2345_MatchingGif() =>
+        RenderAvailableActions_TurnsXSeedY_MatchingGif(64, 2345);
+    [Fact]
+    public void RenderAvailableActions_Turns64Seed3456_MatchingGif() =>
+        RenderAvailableActions_TurnsXSeedY_MatchingGif(64, 3456);
+
+    private static void RenderAvailableActions_TurnsXSeedY_MatchingGif(int turnCount, int seed)
     {
         // Arrange
-        string fileName = $"{nameof(RenderAvailableActions_Turns64Seed1234_ValidGif)}.gif";
+        string fileName = $"RenderAvailableActions_Turns{turnCount}Seed{seed}_MatchingGif.gif";
 
         // Act
-        byte[] gifBytes = GenerateTimelineGif(seed: 1234, turnCount: 64);
+        byte[] gifBytes = GenerateTimelineGif(seed: seed, turnCount: turnCount);
 
         // Assert
         Assert.NotNull(gifBytes);
         Assert.True(gifBytes.Length > 0);
 
-        // Save for manual inspection (optional)
-        string outputPath = SaveGifToFile(gifBytes, fileName);
+        string outputPath = GetOutputPath(fileName);
+        string referencePath = GetOutputPath(fileName, asReference: true);
+
+        SaveGifToFile(gifBytes, outputPath);
 
         Assert.True(File.Exists(outputPath));
+        Assert.True(File.Exists(referencePath));
+
+        byte[] referenceGifBytes = ReadGifFromFile(referencePath);
+
+        Assert.True(referenceGifBytes.SequenceEqual(gifBytes));
     }
 
-    [Fact]
-    public void RenderAvailableActions_Turns64Seed2345_ValidGif()
-    {
-        // Arrange
-        string fileName = $"{nameof(RenderAvailableActions_Turns64Seed2345_ValidGif)}.gif";
-
-        // Act
-        byte[] gifBytes = GenerateTimelineGif(seed: 2345, turnCount: 64);
-
-        // Assert
-        Assert.NotNull(gifBytes);
-        Assert.True(gifBytes.Length > 0);
-
-        // Save for manual inspection (optional)
-        string outputPath = SaveGifToFile(gifBytes, fileName);
-
-        Assert.True(File.Exists(outputPath));
-    }
-
-    [Fact]
-    public void RenderAvailableActions_Turns64Seed3456_ValidGif()
-    {
-        // Arrange
-        string fileName = $"{nameof(RenderAvailableActions_Turns64Seed3456_ValidGif)}.gif";
-
-        // Act
-        byte[] gifBytes = GenerateTimelineGif(seed: 3456, turnCount: 64);
-
-        // Assert
-        Assert.NotNull(gifBytes);
-        Assert.True(gifBytes.Length > 0);
-
-        // Save for manual inspection (optional)
-        string outputPath = SaveGifToFile(gifBytes, fileName);
-
-        Assert.True(File.Exists(outputPath));
-    }
-
-    private static string SaveGifToFile(byte[] gifBytes, string fileName)
+    private static string GetOutputPath(string fileName, bool asReference = false)
     {
         string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
         string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
-        string outputPath = Path.Combine(rootDir, "TestResults", "Game.Chess.Renders", fileName);
+        return Path.Combine(rootDir, asReference ? "TestResultsReference" : "TestResults", "Game.Chess.Renders", fileName);
+    }
+
+    private static void SaveGifToFile(byte[] gifBytes, string outputPath)
+    {
         string? directory = Path.GetDirectoryName(outputPath);
         if (directory != null)
         {
             Directory.CreateDirectory(directory);
         }
         File.WriteAllBytes(outputPath, gifBytes);
-        return outputPath;
+    }
+
+    private static byte[] ReadGifFromFile(string inputPath)
+    {
+        return File.ReadAllBytes(inputPath);
     }
 
     private static byte[] GenerateTimelineGif(int seed, int turnCount)

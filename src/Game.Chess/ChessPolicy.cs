@@ -1,3 +1,5 @@
+//src\Game.Chess\ChessPolicy.cs
+
 using System.Collections.ObjectModel;
 using Game.Core;
 
