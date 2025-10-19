@@ -80,7 +80,7 @@ internal static class ChessPolicySimulator
             ChessState.PieceAction pieceAction = pieceActions.ElementAt(rng.Next(pieceActions.Count()));
             ChessState nextState = state.Apply(pieceAction.ChessAction);
 
-            transitions.Add(pieceAction.ChessAction.Description.ToString());
+            transitions.Add($"{pieceAction.ChessAction.Description}:");
             state = nextState;
         }
 
@@ -90,14 +90,21 @@ internal static class ChessPolicySimulator
     public static List<string> GenerateBoardInitializationSequence()
     {
         ChessState state = new();
-        List<string> transitions = [];
-        IEnumerable<ChessState.PieceAction> pieceActions = state.GetAvailableActionsDetailed().PieceMoves;
-        foreach (ChessState.PieceAction pieceAction in pieceActions)
+        List<string> actions = [];
+        Policy.Piece?[,] board = state.Board;
+        for (int row = 0; row < 8; row++)
         {
-            string fromPositionDescription = pieceAction.ChessAction.From.ToString();
-            string pieceTypeDescription = pieceAction.Piece.PieceTypeDescription;
-            transitions.Add($":{fromPositionDescription}:{pieceTypeDescription}");
+            for (int col = 1; col < 8; col++)
+            {
+                Policy.Piece? piece = board[row, col];
+                if (piece == null) continue;
+                string toPositionDescription = new Position(row, col).ToString();
+                string pieceTypeDescription = piece.PieceTypeDescription;
+                actions.Add($":{toPositionDescription}:{pieceTypeDescription}");
+            }
         }
+        string transition = string.Join(";", actions);
+        List<string> transitions = [transition];
         return transitions;
     }
 }

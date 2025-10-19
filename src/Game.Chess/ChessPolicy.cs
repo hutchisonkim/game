@@ -104,17 +104,17 @@ public abstract class Piece
     {
         char fenChar;
 
-        if ((type & PieceType.Pawn) == PieceType.Pawn)
+        if (type == PieceType.Pawn)
             fenChar = 'P';
-        else if ((type & PieceType.Rook) == PieceType.Rook)
+        else if (type == PieceType.Rook)
             fenChar = 'R';
-        else if ((type & PieceType.King) == PieceType.King)
+        else if (type == PieceType.King)
             fenChar = 'K';
-        else if ((type & PieceType.Queen) == PieceType.Queen)
+        else if (type == PieceType.Queen)
             fenChar = 'Q';
-        else if ((type & PieceType.Bishop) == PieceType.Bishop)
+        else if (type == PieceType.Bishop)
             fenChar = 'B';
-        else if ((type & PieceType.Knight) == PieceType.Knight)
+        else if (type == PieceType.Knight)
             fenChar = 'N';
         else
             throw new ArgumentOutOfRangeException(nameof(type));
