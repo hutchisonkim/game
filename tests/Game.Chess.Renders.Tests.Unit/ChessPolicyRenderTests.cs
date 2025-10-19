@@ -12,16 +12,16 @@ public class ChessPolicyRenderTests
 {
 
     [Fact]
-    public void RenderAvailableActions_Turns64Seed1234_MatchesReference() =>
-        RenderAvailableActions_TurnsXSeedY_MatchesReference(64, 1234);
+    public void RenderActionsTimeline_Turns64Seed1234_MatchesReference() =>
+        AvailableActionsTimeline_TurnsXSeedY_MatchesReference(64, 1234);
     [Fact]
-    public void RenderAvailableActions_Turns64Seed2345_MatchesReference() =>
-        RenderAvailableActions_TurnsXSeedY_MatchesReference(64, 2345);
+    public void AvailableActionsTimeline_Turns64Seed2345_MatchesReference() =>
+        AvailableActionsTimeline_TurnsXSeedY_MatchesReference(64, 2345);
     [Fact]
-    public void RenderAvailableActions_Turns64Seed3456_MatchesReference() =>
-        RenderAvailableActions_TurnsXSeedY_MatchesReference(64, 3456);
+    public void AvailableActionsTimeline_Turns64Seed3456_MatchesReference() =>
+        AvailableActionsTimeline_TurnsXSeedY_MatchesReference(64, 3456);
 
-    private static void RenderAvailableActions_TurnsXSeedY_MatchesReference(int turnCount, int seed)
+    private static void AvailableActionsTimeline_TurnsXSeedY_MatchesReference(int turnCount, int seed)
     {
         // Arrange
         string fileName = $"RenderAvailableActions_Turns{turnCount}Seed{seed}_MatchesReference.gif";
@@ -90,5 +90,9 @@ public class ChessPolicyRenderTests
         // Act
         byte[] gifBytes = view.RenderTransitionSequenceGif(transitions, 200);
         return gifBytes;
+    }
+    private static byte[] ReadTimelineGif(string path)
+    {
+        return File.ReadAllBytes(path);
     }
 }

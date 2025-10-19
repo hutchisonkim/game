@@ -1,4 +1,4 @@
-// tests/Game.Chess.Renders.Tests.Unit/TestFileHelper.cs
+// tests/Game.Chess.Tests.Unit/TestFileHelper.cs
 
 using System.IO;
 
@@ -11,7 +11,7 @@ public static class TestFileHelper
         string assemblyDir = Path.GetDirectoryName(typeof(TestFileHelper).Assembly.Location)!;
         string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
         string subFolder = asReference ? "TestResultsReference" : "TestResults";
-        return Path.Combine(rootDir, subFolder, "Game.Chess.Renders", fileName);
+        return Path.Combine(rootDir, subFolder, "Game.Chess", fileName);
     }
 
     public static void SaveBytesToFile(byte[] bytes, string outputPath)
