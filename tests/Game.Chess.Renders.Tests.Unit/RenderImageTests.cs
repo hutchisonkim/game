@@ -94,7 +94,7 @@ public class RenderStatePngTests
     {
         // Arrange
         var board = new Policy.ChessState();
-        var transitions = new List<(Policy.ChessState fromState, Policy.ChessState toState, BaseAction action)>();
+        var transitions = new List<(Policy.ChessState fromState, Policy.ChessState toState, ChessAction action)>();
         var rng = new Random(12345);
         var chessView = new ChessView();
         var currentBoard = board;

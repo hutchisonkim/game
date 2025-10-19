@@ -73,8 +73,58 @@ public class PiecePolicy
 // 🔹 Base piece class
 public abstract class Piece
 {
+    // public static char ToFenCharNew(PieceType type, PieceColor color)
+    // {
+    //     char fenChar;
+
+    //     if ((type & PieceType.MovedPawn) == PieceType.MovedPawn)
+    //         fenChar = 'X';
+    //     else if ((type & PieceType.MovedRook) == PieceType.MovedRook)
+    //         fenChar = 'Y';
+    //     else if ((type & PieceType.MovedKing) == PieceType.MovedKing)
+    //         fenChar = 'Z';
+    //     else if ((type & PieceType.Pawn) == PieceType.Pawn)
+    //         fenChar = 'P';
+    //     else if ((type & PieceType.Rook) == PieceType.Rook)
+    //         fenChar = 'R';
+    //     else if ((type & PieceType.King) == PieceType.King)
+    //         fenChar = 'K';
+    //     else if ((type & PieceType.Queen) == PieceType.Queen)
+    //         fenChar = 'Q';
+    //     else if ((type & PieceType.Bishop) == PieceType.Bishop)
+    //         fenChar = 'B';
+    //     else if ((type & PieceType.Knight) == PieceType.Knight)
+    //         fenChar = 'N';
+    //     else
+    //         throw new ArgumentOutOfRangeException(nameof(type));
+
+    //     return color == PieceColor.White ? fenChar : char.ToLower(fenChar);
+    // }
+    public static char ToFenChar(PieceType type, PieceColor color)
+    {
+        char fenChar;
+
+        if ((type & PieceType.Pawn) == PieceType.Pawn)
+            fenChar = 'P';
+        else if ((type & PieceType.Rook) == PieceType.Rook)
+            fenChar = 'R';
+        else if ((type & PieceType.King) == PieceType.King)
+            fenChar = 'K';
+        else if ((type & PieceType.Queen) == PieceType.Queen)
+            fenChar = 'Q';
+        else if ((type & PieceType.Bishop) == PieceType.Bishop)
+            fenChar = 'B';
+        else if ((type & PieceType.Knight) == PieceType.Knight)
+            fenChar = 'N';
+        else
+            throw new ArgumentOutOfRangeException(nameof(type));
+
+        return color == PieceColor.White ? fenChar : char.ToLower(fenChar);
+    }
+
     public PieceColor Color { get; }
     public abstract PieceType Type { get; }
+    public string PieceTypeDescription => $"{ToFenChar(Type, Color)}";
     public abstract PiecePolicy Policy { get; }
     public int ForwardAxis => Color == PieceColor.White ? 1 : -1;
 
@@ -281,7 +331,7 @@ public static class PieceFactory
 }
 
 // 🔹 Chess Board
-public class ChessState : IState<BaseAction, ChessState>
+public class ChessState : IState<ChessAction, ChessState>
 {
     private readonly Piece?[,] _board = new Piece?[8, 8];
 
@@ -364,21 +414,21 @@ public class ChessState : IState<BaseAction, ChessState>
         return newBoard;
     }
 
-    public ChessState Apply(BaseAction action)
+    public ChessState Apply(ChessAction chessAction)
     {
-        if (!IsInside(action.From.Row, action.From.Col) || !IsInside(action.To.Row, action.To.Col))
+        if (!IsInside(chessAction.From.Row, chessAction.From.Col) || !IsInside(chessAction.To.Row, chessAction.To.Col))
             throw new ArgumentException("Invalid move positions.");
 
-        var piece = _board[action.From.Row, action.From.Col];
+        Piece? piece = _board[chessAction.From.Row, chessAction.From.Col];
         if (piece == null)
             throw new InvalidOperationException("No piece at the source position.");
 
-        var newBoard = new ChessState();
+        ChessState newBoard = new ChessState();
         Array.Copy(_board, newBoard._board, _board.Length);
 
         // Move the piece
-        newBoard._board[action.To.Row, action.To.Col] = piece;
-        newBoard._board[action.From.Row, action.From.Col] = null;
+        newBoard._board[chessAction.To.Row, chessAction.To.Col] = piece;
+        newBoard._board[chessAction.From.Row, chessAction.From.Col] = null;
 
         if (UpsTurns)
         {
@@ -389,16 +439,16 @@ public class ChessState : IState<BaseAction, ChessState>
     }
     public PieceColor CurrentTurnColor => (TurnCount % 2 == 0) ? PieceColor.White : PieceColor.Black;
 
-    public IEnumerable<BaseAction> GetAvailableActions()
+    public IEnumerable<ChessAction> GetAvailableActions()
     {
         var currentColor = CurrentTurnColor;
-        return GetAvailableActionsDetailed().ChessMoves
+        return GetAvailableActionsDetailed().PieceMoves
             .Where(m => m.Piece.Color == currentColor)
-            .Select(m => m.BaseMove);
+            .Select(m => m.ChessAction);
     }
 
     public record AvailableActionsResult(
-        IEnumerable<PieceMove> ChessMoves
+        IEnumerable<PieceAction> PieceMoves
     );
 
     //implement ChessGame.GetAvailableActions and ChessPlayer.GetAvailableActions
@@ -411,13 +461,13 @@ public class ChessState : IState<BaseAction, ChessState>
     // the chess actions (board delta) could be perceived as either create, move, delete, or transform.
     // in chess, the environment is the game > board, while the actors are the players > factions > pieces.
 
-    public ChessState GetNextState(PieceMove move) => Apply(move.BaseMove);
-    public AvailableActionsResult GetNextAvailableActionsDetailed(PieceMove move, bool forceIncludeCaptures = false, bool forceExcludeMoves = false) => GetNextState(move).GetAvailableActionsDetailed(forceIncludeCaptures, forceExcludeMoves);
+    public ChessState GetNextState(PieceAction pieceAction) => Apply(pieceAction.ChessAction);
+    public AvailableActionsResult GetNextAvailableActionsDetailed(PieceAction pieceAction, bool forceIncludeCaptures = false, bool forceExcludeMoves = false) => GetNextState(pieceAction).GetAvailableActionsDetailed(forceIncludeCaptures, forceExcludeMoves);
 
     public AvailableActionsResult GetAvailableActionsDetailed(bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
     {
 
-        var pieceMoves = new List<PieceMove>();
+        var pieceActions = new List<PieceAction>();
 
         for (int row = 0; row < 8; row++)
         {
@@ -428,13 +478,13 @@ public class ChessState : IState<BaseAction, ChessState>
 
                 IEnumerable<(int row, int col, Pattern pattern)> actionsA = piece.GetAvailableActions(this, row, col, forceIncludeCaptures, forceExcludeMoves);
 
-                IEnumerable<BaseAction> baseMoves = actionsA.Select(t => new BaseAction(new Position(row, col), new Position(t.row, t.col)));
+                IEnumerable<ChessAction> chessActions = actionsA.Select(t => new ChessAction(new Position(row, col), new Position(t.row, t.col)));
 
-                pieceMoves.AddRange(baseMoves.Select(baseMove => new PieceMove(baseMove, piece)));
+                pieceActions.AddRange(chessActions.Select(chessAction => new PieceAction(chessAction, piece)));
             }
         }
 
-        return new AvailableActionsResult(pieceMoves);
+        return new AvailableActionsResult(pieceActions);
     }
 
     public class BoardCell
@@ -453,28 +503,28 @@ public class ChessState : IState<BaseAction, ChessState>
 
     public class AttackedCell : BoardCell
     {
-        public IEnumerable<PieceMove> AttackingMoves { get; }
+        public IEnumerable<PieceAction> AttackingPieceActions { get; }
 
-        public AttackedCell(int row, int col, Piece? occupyingPiece, IEnumerable<PieceMove> attackingMoves)
+        public AttackedCell(int row, int col, Piece? occupyingPiece, IEnumerable<PieceAction> attackingMoves)
             : base(row, col, occupyingPiece)
         {
-            AttackingMoves = attackingMoves;
+            AttackingPieceActions = attackingMoves;
         }
     }
 
     public IEnumerable<AttackedCell> GetAttackedCells(PieceColor attackedColor)
     {
-        var cellsDict = new Dictionary<(int, int), List<PieceMove>>();
-        var availableActions = GetAvailableActionsDetailed(forceIncludeCaptures: true, forceExcludeMoves: true).ChessMoves;
+        var cellsDict = new Dictionary<(int, int), List<PieceAction>>();
+        var availableActions = GetAvailableActionsDetailed(forceIncludeCaptures: true, forceExcludeMoves: true).PieceMoves;
 
         foreach (var move in availableActions)
         {
             if (move.Piece.Color != attackedColor) continue; // keep only attacking moves
 
-            var toPos = move.BaseMove.To;
+            var toPos = move.ChessAction.To;
             var attackedPosition = (toPos.Row, toPos.Col);
 
-            if (!cellsDict.TryGetValue(attackedPosition, out List<PieceMove>? attackingMoves))
+            if (!cellsDict.TryGetValue(attackedPosition, out List<PieceAction>? attackingMoves))
             {
                 attackingMoves = [];
                 cellsDict[attackedPosition] = attackingMoves;
@@ -544,9 +594,9 @@ public class ChessState : IState<BaseAction, ChessState>
         // then find all cells that are occupied by pieces of the same color
         // then find the cells that are occupied by pieces of the opposite color and are not in the "from" position of any available action
         // those are the blocked cells
-        var availableActions = GetAvailableActionsDetailed().ChessMoves
+        var availableActions = GetAvailableActionsDetailed().PieceMoves
             .Where(m => m.Piece.Color == currentTurnColor)
-            .Select(m => (m.BaseMove.From.Row, m.BaseMove.From.Col))
+            .Select(m => (m.ChessAction.From.Row, m.ChessAction.From.Col))
             .ToHashSet();
         var blockedCells = new List<BoardCell>();
         for (int row = 0; row < 8; row++)
@@ -578,7 +628,7 @@ public class ChessState : IState<BaseAction, ChessState>
         if (kingPositions.Count != 1) return Enumerable.Empty<BoardCell>();
         var kingPos = kingPositions.First();
         var oppositeColor = pinnedColor == PieceColor.White ? PieceColor.Black : PieceColor.White;
-        var oppositeActions = GetAvailableActionsDetailed().ChessMoves
+        var oppositeActions = GetAvailableActionsDetailed().PieceMoves
             .Where(m => m.Piece.Color == oppositeColor)
             .ToList();
         var pinnedCells = new List<BoardCell>();
@@ -590,7 +640,7 @@ public class ChessState : IState<BaseAction, ChessState>
                 if (piece != null && piece.Color == pinnedColor)
                 {
                     var actionsFromCell = oppositeActions
-                        .Where(m => m.BaseMove.From.Row == row && m.BaseMove.From.Col == col)
+                        .Where(m => m.ChessAction.From.Row == row && m.ChessAction.From.Col == col)
                         .ToList();
                     if (actionsFromCell.Count > 0 && actionsFromCell.All(a => GetNextState(a).GetCheckedCells(pinnedColor).Any()))
                     {
@@ -621,13 +671,13 @@ public class ChessState : IState<BaseAction, ChessState>
         return positions;
     }
 
-    public class PieceMove
+    public class PieceAction
     {
-        public BaseAction BaseMove { get; }
+        public ChessAction ChessAction { get; }
         public Piece Piece { get; }
-        public PieceMove(BaseAction baseMove, Piece piece)
+        public PieceAction(ChessAction chessAction, Piece piece)
         {
-            BaseMove = baseMove;
+            ChessAction = chessAction;
             Piece = piece;
         }
     }

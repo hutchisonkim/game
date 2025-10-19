@@ -47,7 +47,7 @@ public class ChessPolicyTests
     {
         ChessState state = new();
         Random rng = new(seed);
-        List<BaseAction> actions = [.. state.GetAvailableActions()];
+        List<ChessAction> actions = [.. state.GetAvailableActions()];
         for (int i = 0; i < turnCount; i++)
         {
             state = state.Apply(actions[rng.Next(actions.Count)]);

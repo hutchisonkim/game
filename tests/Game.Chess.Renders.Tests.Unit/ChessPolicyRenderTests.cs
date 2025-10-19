@@ -12,19 +12,19 @@ public class ChessPolicyRenderTests
 {
 
     [Fact]
-    public void RenderAvailableActions_Turns64Seed1234_MatchingGif() =>
-        RenderAvailableActions_TurnsXSeedY_MatchingGif(64, 1234);
+    public void RenderAvailableActions_Turns64Seed1234_MatchesReference() =>
+        RenderAvailableActions_TurnsXSeedY_MatchesReference(64, 1234);
     [Fact]
-    public void RenderAvailableActions_Turns64Seed2345_MatchingGif() =>
-        RenderAvailableActions_TurnsXSeedY_MatchingGif(64, 2345);
+    public void RenderAvailableActions_Turns64Seed2345_MatchesReference() =>
+        RenderAvailableActions_TurnsXSeedY_MatchesReference(64, 2345);
     [Fact]
-    public void RenderAvailableActions_Turns64Seed3456_MatchingGif() =>
-        RenderAvailableActions_TurnsXSeedY_MatchingGif(64, 3456);
+    public void RenderAvailableActions_Turns64Seed3456_MatchesReference() =>
+        RenderAvailableActions_TurnsXSeedY_MatchesReference(64, 3456);
 
-    private static void RenderAvailableActions_TurnsXSeedY_MatchingGif(int turnCount, int seed)
+    private static void RenderAvailableActions_TurnsXSeedY_MatchesReference(int turnCount, int seed)
     {
         // Arrange
-        string fileName = $"RenderAvailableActions_Turns{turnCount}Seed{seed}_MatchingGif.gif";
+        string fileName = $"RenderAvailableActions_Turns{turnCount}Seed{seed}_MatchesReference.gif";
 
         // Act
         byte[] gifBytes = GenerateTimelineGif(seed: seed, turnCount: turnCount);
@@ -73,14 +73,14 @@ public class ChessPolicyRenderTests
         Random rng = new(seed);
         ChessView view = new();
         ChessState state = new();
-        List<(ChessState fromState, ChessState toState, BaseAction action)> transitions = [];
+        List<(ChessState fromState, ChessState toState, ChessAction action)> transitions = [];
 
         for (int turn = 0; turn < turnCount; turn++)
         {
-            List<BaseAction> actions = [.. state.GetAvailableActions()];
+            List<ChessAction> actions = [.. state.GetAvailableActions()];
             if (actions.Count == 0) break;
 
-            BaseAction randomAction = actions[rng.Next(actions.Count)];
+            ChessAction randomAction = actions[rng.Next(actions.Count)];
             ChessState nextState = state.Apply(randomAction);
 
             transitions.Add((state, nextState, randomAction));

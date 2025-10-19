@@ -56,7 +56,7 @@ public class PolicyEnforcementTests
         // Arrange
         var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new BaseAction(new Position(1, 0), new Position(3, 0))); // a2 to a4
+        var newState = state.Apply(new ChessAction(new Position(1, 0), new Position(3, 0))); // a2 to a4
 
         // Act
         var renderAttackedCells = true;
@@ -92,7 +92,7 @@ public class PolicyEnforcementTests
         // Arrange
         var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new BaseAction(new Position(0, 5), new Position(3, 5))); // f1 to f4
+        var newState = state.Apply(new ChessAction(new Position(0, 5), new Position(3, 5))); // f1 to f4
 
         // Act
         var renderAttackedCells = true;
@@ -128,7 +128,7 @@ public class PolicyEnforcementTests
         // Arrange
         var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new BaseAction(new Position(0, 3), new Position(3, 3))); // d1 to d4
+        var newState = state.Apply(new ChessAction(new Position(0, 3), new Position(3, 3))); // d1 to d4
 
         // Act
         var renderAttackedCells = true;
@@ -163,7 +163,7 @@ public class PolicyEnforcementTests
         // Arrange
         var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new BaseAction(new Position(0, 4), new Position(3, 4))); // e1 to e4
+        var newState = state.Apply(new ChessAction(new Position(0, 4), new Position(3, 4))); // e1 to e4
 
         // Act
         var renderAttackedCells = true;
