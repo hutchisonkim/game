@@ -73,33 +73,6 @@ public class PiecePolicy
 // 🔹 Base piece class
 public abstract class Piece
 {
-    // public static char ToFenCharNew(PieceType type, PieceColor color)
-    // {
-    //     char fenChar;
-
-    //     if ((type & PieceType.MovedPawn) == PieceType.MovedPawn)
-    //         fenChar = 'X';
-    //     else if ((type & PieceType.MovedRook) == PieceType.MovedRook)
-    //         fenChar = 'Y';
-    //     else if ((type & PieceType.MovedKing) == PieceType.MovedKing)
-    //         fenChar = 'Z';
-    //     else if ((type & PieceType.Pawn) == PieceType.Pawn)
-    //         fenChar = 'P';
-    //     else if ((type & PieceType.Rook) == PieceType.Rook)
-    //         fenChar = 'R';
-    //     else if ((type & PieceType.King) == PieceType.King)
-    //         fenChar = 'K';
-    //     else if ((type & PieceType.Queen) == PieceType.Queen)
-    //         fenChar = 'Q';
-    //     else if ((type & PieceType.Bishop) == PieceType.Bishop)
-    //         fenChar = 'B';
-    //     else if ((type & PieceType.Knight) == PieceType.Knight)
-    //         fenChar = 'N';
-    //     else
-    //         throw new ArgumentOutOfRangeException(nameof(type));
-
-    //     return color == PieceColor.White ? fenChar : char.ToLower(fenChar);
-    // }
     public static char ToFenChar(PieceType type, PieceColor color)
     {
         char fenChar;
@@ -450,16 +423,6 @@ public class ChessState : IState<ChessAction, ChessState>
     public record AvailableActionsResult(
         IEnumerable<PieceAction> PieceMoves
     );
-
-    //implement ChessGame.GetAvailableActions and ChessPlayer.GetAvailableActions
-    //have each entity implement a markup for tagging moves as forbidden.
-    // for example, the chess game can mark as disabled the moves of the player whose turn it is not.
-    // similarly, a player can mark as disabled moves from pieces that are not theirs.
-    // similarly, the board can mark as disabled moves that would place pieces outside the 8x8 grid.
-    // similarly, the board can mark as disabled moves that would place a piece on a square occupied by a piece of the same color.
-    // similarly, the board can mark as disabled moves that would place a piece on a square occupied by a piece of the opposite color, unless the move is a capture move.
-    // the chess actions (board delta) could be perceived as either create, move, delete, or transform.
-    // in chess, the environment is the game > board, while the actors are the players > factions > pieces.
 
     public ChessState GetNextState(PieceAction pieceAction) => Apply(pieceAction.ChessAction);
     public AvailableActionsResult GetNextAvailableActionsDetailed(PieceAction pieceAction, bool forceIncludeCaptures = false, bool forceExcludeMoves = false) => GetNextState(pieceAction).GetAvailableActionsDetailed(forceIncludeCaptures, forceExcludeMoves);

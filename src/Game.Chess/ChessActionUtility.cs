@@ -10,7 +10,7 @@ public static class ActionsTimeline
     {
         var rng = new Random(seed);
         var state = new ChessState();
-        var transitions = new List<string>();
+        var actionsTimeline = new List<string>();
 
         for (int turn = 0; turn < turnCount; turn++)
         {
@@ -20,11 +20,11 @@ public static class ActionsTimeline
             ChessState.PieceAction pieceAction = pieceActions.ElementAt(rng.Next(pieceActions.Count()));
             ChessState nextState = state.Apply(pieceAction.ChessAction);
 
-            transitions.Add($"{pieceAction.ChessAction.Description}:");
+            actionsTimeline.Add($"{pieceAction.ChessAction.Description}:");
             state = nextState;
         }
 
-        return transitions;
+        return actionsTimeline;
     }
 
     public static List<string> GenerateInitial()
@@ -43,8 +43,8 @@ public static class ActionsTimeline
                 actions.Add($":{toPositionDescription}:{pieceTypeDescription}");
             }
         }
-        string transition = string.Join(";", actions);
-        List<string> transitions = [transition];
-        return transitions;
+        string actionsString = string.Join(";", actions);
+        List<string> actionsTimeline = [actionsString];
+        return actionsTimeline;
     }
 }

@@ -21,19 +21,21 @@ public class ChessPolicySimulationTests
         string outputPath = TestFileHelper.GetOutputPath(fileName);
         string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
 
-        var transitions = ActionsTimeline.GenerateRandom(turnCount, seed);
-        string json = JsonSerializer.Serialize(transitions, new JsonSerializerOptions { WriteIndented = true });
+        List<string> actionsTimeline = ActionsTimeline.GenerateRandom(turnCount, seed);
+        string json = JsonSerializer.Serialize(actionsTimeline, new JsonSerializerOptions { WriteIndented = true });
 
         // Act
         TestFileHelper.SaveTextToFile(json, outputPath);
 
         // Assert
         Assert.True(File.Exists(outputPath), $"Output file missing: {outputPath}");
+        Assert.True(File.Exists(referencePath), $"Reference file missing: {referencePath}");
+
+        // Act
+        string referenceJson = File.ReadAllText(referencePath);
 
         // Assert
-        // Assert.True(File.Exists(referencePath), $"Reference file missing: {referencePath}");
-        // string referenceJson = File.ReadAllText(referencePath);
-        // Assert.Equal(referenceJson, json);
+        Assert.Equal(referenceJson, json);
     }
 
     [Fact]
@@ -52,10 +54,12 @@ public class ChessPolicySimulationTests
 
         // Assert
         Assert.True(File.Exists(outputPath), $"Output file missing: {outputPath}");
+        Assert.True(File.Exists(referencePath), $"Reference file missing: {referencePath}");
+
+        // Act
+        string referenceJson = File.ReadAllText(referencePath);
 
         // Assert
-        // Assert.True(File.Exists(referencePath), $"Reference file missing: {referencePath}");
-        // string referenceJson = File.ReadAllText(referencePath);
-        // Assert.Equal(referenceJson, json);
+        Assert.Equal(referenceJson, json);
     }
 }
