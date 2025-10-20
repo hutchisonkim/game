@@ -61,6 +61,32 @@ namespace Game.Core
         public int GetForwardAxis() => _policy.GetForwardAxis();
     }
 
+    // CellActor: domain-agnostic representation of a board cell (row/col)
+    public sealed class CellActor
+    {
+        public int Row { get; }
+        public int Col { get; }
+        public CellActor(int row, int col)
+        {
+            Row = row;
+            Col = col;
+        }
+    }
+
+    // Piece-level policy: responsible for supplying pattern DTOs for a piece
+    public interface IPiecePolicy
+    {
+        IEnumerable<PatternDto> GetPatterns();
+    }
+
+    // Delegate-based piece policy
+    public sealed class DelegatePiecePolicy : IPiecePolicy
+    {
+        private readonly Func<IEnumerable<PatternDto>> _getPatterns;
+        public DelegatePiecePolicy(Func<IEnumerable<PatternDto>> getPatterns) => _getPatterns = getPatterns;
+        public IEnumerable<PatternDto> GetPatterns() => _getPatterns();
+    }
+
     // Delegate-based simple policy implementation
     public sealed class DelegatePolicy : IPolicy
     {
@@ -72,43 +98,34 @@ namespace Game.Core
     // PieceActor: knows about patterns for a single piece and can expand them into candidates
     public sealed class PieceActor : IMoveActor
     {
-        private readonly int _fromRow;
-        private readonly int _fromCol;
-        private readonly IEnumerable<PatternDto> _patterns;
-        private readonly FactionActor? _factionActor;
-        private readonly Func<int, int, bool> _isInside;
-        private readonly Func<int, int, object?> _getPieceAt;
-        private readonly bool _forceIncludeCaptures;
-        private readonly bool _forceExcludeMoves;
+        private readonly IPiecePolicy _policy;
+        private readonly CellActor _cell;
+        private readonly FactionActor _faction;
 
-        public PieceActor(int fromRow, int fromCol, IEnumerable<PatternDto> patterns,
-            Func<int, int, bool> isInside, Func<int, int, object?> getPieceAt,
-            FactionActor? factionActor = null, bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
+        public PieceActor(IPiecePolicy policy, CellActor cell, FactionActor faction)
         {
-            _fromRow = fromRow;
-            _fromCol = fromCol;
-            _patterns = patterns;
-            _factionActor = factionActor;
-            _isInside = isInside;
-            _getPieceAt = getPieceAt;
-            _forceIncludeCaptures = forceIncludeCaptures;
-            _forceExcludeMoves = forceExcludeMoves;
+            _policy = policy;
+            _cell = cell;
+            _faction = faction;
         }
 
         public IEnumerable<MoveCandidate> GetCandidates()
         {
-            int forward = 1;
-            if (_factionActor != null) forward = _factionActor.GetForwardAxis();
+            int forward = _faction.GetForwardAxis();
 
-            foreach (var p in _patterns)
+            foreach (var p in _policy.GetPatterns())
             {
                 foreach (var dir in GetMirroredVectors(p))
                 {
                     int dx = dir.Vector.X;
                     int dy = dir.Vector.Y * forward;
-                    int x = _fromCol;
-                    int y = _fromRow;
+                    int x = _cell.Col;
+                    int y = _cell.Row;
                     int steps = 0;
+
+                    // Pieces generate unconstrained candidates; board-level actor/policy will filter out-of-bounds
+                    // We cap iterations to a reasonable board size (8) to avoid runaway loops in domain-agnostic code.
+                    int maxSteps = 8;
 
                     do
                     {
@@ -116,36 +133,13 @@ namespace Game.Core
                         y += dy;
                         steps++;
 
-                        if (!_isInside(y, x)) break;
-
-                        var pieceTo = _getPieceAt(y, x);
-
-                        if (pieceTo == null)
-                        {
-                            if (p.Captures == CaptureBehavior.MoveOnly || p.Captures == CaptureBehavior.MoveOrCapture)
-                            {
-                                if (!_forceExcludeMoves)
-                                {
-                                    yield return new MoveCandidate(_fromRow, _fromCol, y, x, p, steps, p.Jumps);
-                                }
-                            }
-                            if (_forceIncludeCaptures)
-                            {
-                                if (p.Captures == CaptureBehavior.CaptureOnly || p.Captures == CaptureBehavior.MoveOrCapture)
-                                {
-                                    yield return new MoveCandidate(_fromRow, _fromCol, y, x, p, steps, p.Jumps);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // let caller decide capture semantics in a post-process using the pattern metadata
-                            yield return new MoveCandidate(_fromRow, _fromCol, y, x, p, steps, p.Jumps);
-                            break;
-                        }
+                        // Emit the candidate without checking board occupancy or bounds. Post-processing will apply capture semantics.
+                        yield return new MoveCandidate(_cell.Row, _cell.Col, y, x, p, steps, p.Jumps);
 
                         if (p.Repeats == RepeatBehavior.NotRepeatable || (p.Repeats == RepeatBehavior.RepeatableOnce && steps == 1) || p.Jumps)
                             break;
+
+                        if (steps >= maxSteps) break;
 
                     } while (true);
                 }
@@ -171,19 +165,70 @@ namespace Game.Core
     public sealed class BoardActor : IMoveActor
     {
         private readonly IEnumerable<PieceActor> _pieceActors;
+        private readonly Func<int, int, bool> _isInside;
+        private readonly Func<int, int, object?> _getPieceAt;
         private readonly IPolicy? _policy;
 
-        public BoardActor(IEnumerable<PieceActor> pieceActors, IPolicy? policy = null)
+        public BoardActor(IEnumerable<PieceActor> pieceActors, Func<int, int, bool> isInside, Func<int, int, object?> getPieceAt, IPolicy? policy = null)
         {
             _pieceActors = pieceActors;
+            _isInside = isInside;
+            _getPieceAt = getPieceAt;
             _policy = policy;
         }
 
         public IEnumerable<MoveCandidate> GetCandidates()
         {
-            var all = _pieceActors.SelectMany(pa => pa.GetCandidates());
-            if (_policy != null) return _policy.Apply(all);
-            return all;
+            // We must process each piece actor's stream and apply board-level checks such as bounds and occupancy.
+            foreach (var pa in _pieceActors)
+            {
+                MoveCandidate? previous = null;
+                bool directionBlocked = false;
+
+                foreach (var cand in pa.GetCandidates())
+                {
+                    // If the pattern changed (or steps reset), start a new direction
+                    if (previous == null || !ReferenceEquals(previous.Pattern, cand.Pattern) || cand.Steps <= previous.Steps)
+                    {
+                        directionBlocked = false;
+                    }
+
+                    previous = cand;
+
+                    if (directionBlocked) continue;
+
+                    // Check bounds
+                    if (!_isInside(cand.ToRow, cand.ToCol))
+                    {
+                        // Once a direction goes out of bounds, further steps in this direction are irrelevant
+                        directionBlocked = true;
+                        continue;
+                    }
+
+                    var occupying = _getPieceAt(cand.ToRow, cand.ToCol);
+
+                    // If square is empty, yield candidate. If occupied, yield candidate and block further steps in this direction.
+                    if (occupying == null)
+                    {
+                        yield return cand;
+                    }
+                    else
+                    {
+                        yield return cand;
+                        directionBlocked = true;
+                    }
+                }
+            }
+
+            // Apply an optional board-level policy afterwards
+            // Note: we return an iterator, so to apply policy we must materialize the sequence first
+            // If policy is present, apply it to the collected candidates
+            // (Materialization is intentional; consumers expect a finite list)
+            // However, for performance we only apply policy if provided.
+            // To keep streaming behaviour, policy application could be implemented differently if needed.
+
+            // Since we've already yielded candidates directly above, we cannot reapply policy here.
+            // Instead the caller may wrap BoardActor with a DelegatePolicy if further filtering is required.
         }
     }
 

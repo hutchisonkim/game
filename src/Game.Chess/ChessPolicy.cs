@@ -97,6 +97,7 @@ public class ChessState : IState<ChessAction, ChessState>
 
         return newBoard;
     }
+
     // Current turn represented as a color flag
     public PieceAttribute CurrentTurnColorFlag => (TurnCount % 2 == 0) ? PieceAttribute.White : PieceAttribute.Black;
 
@@ -113,9 +114,9 @@ public class ChessState : IState<ChessAction, ChessState>
     );
 
     public ChessState GetNextState(PieceAction pieceAction) => Apply(pieceAction.ChessAction);
-    public AvailableActionsResult GetNextAvailableActionsDetailed(PieceAction pieceAction, bool forceIncludeCaptures = false, bool forceExcludeMoves = false) => GetNextState(pieceAction).GetAvailableActionsDetailed(forceIncludeCaptures, forceExcludeMoves);
+    public AvailableActionsResult GetNextAvailableActionsDetailed(PieceAction pieceAction) => GetNextState(pieceAction).GetAvailableActionsDetailed();
 
-    public AvailableActionsResult GetAvailableActionsDetailed(bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
+    public AvailableActionsResult GetAvailableActionsDetailed()
     {
 
         var pieceActions = new List<PieceAction>();
@@ -132,15 +133,13 @@ public class ChessState : IState<ChessAction, ChessState>
                 var factionPolicy = new Game.Core.DelegateFactionPolicy(() => PieceBehavior.ForwardAxis(piece));
                 var factionActor = new Game.Core.FactionActor(factionPolicy);
 
+                var cellActor = new Game.Core.CellActor(row, col);
+                var piecePolicy = new Game.Core.DelegatePiecePolicy(() => PieceBehavior.GetPatternDtosFor(piece));
+
                 var pieceActor = new Game.Core.PieceActor(
-                    fromRow: row,
-                    fromCol: col,
-                    patterns: PieceBehavior.GetPatternDtosFor(piece),
-                    isInside: (r, c) => IsInside(r, c),
-                    getPieceAt: (r, c) => this[r, c],
-                    factionActor: factionActor,
-                    forceIncludeCaptures: forceIncludeCaptures,
-                    forceExcludeMoves: forceExcludeMoves
+                    cell: cellActor,
+                    policy: piecePolicy,
+                    faction: factionActor
                 );
 
                 pieceActorsForBoard.Add(pieceActor);
@@ -149,9 +148,7 @@ public class ChessState : IState<ChessAction, ChessState>
 
         // After collecting all PieceActors for the board, expand them via a BoardActor
         var allPieceActors = pieceActorsForBoard;
-        // Board-level policy: ensure destination is inside board (defensive) - MoveQuery already checks this
-        var boardPolicy = new Game.Core.DelegatePolicy(c => IsInside(c.ToRow, c.ToCol));
-        var boardActor = new Game.Core.BoardActor(allPieceActors, boardPolicy);
+        var boardActor = new Game.Core.BoardActor(allPieceActors, isInside: (r, c) => IsInside(r, c), getPieceAt: (r, c) => this[r, c]);
 
         // Do not apply game-level filtering here - return all board candidates.
         // The higher-level `GetAvailableActions` wrapper applies turn-based filtering when needed.
@@ -219,7 +216,7 @@ public class ChessState : IState<ChessAction, ChessState>
     public IEnumerable<AttackedCell> GetAttackedCells(PieceAttribute attackedColorFlag)
     {
         var cellsDict = new Dictionary<(int, int), List<PieceAction>>();
-        var availableActions = GetAvailableActionsDetailed(forceIncludeCaptures: true, forceExcludeMoves: true).PieceMoves;
+        var availableActions = GetAvailableActionsDetailed().PieceMoves;
 
         foreach (var move in availableActions)
         {
