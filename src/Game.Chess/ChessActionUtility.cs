@@ -30,21 +30,21 @@ public static class ActionsTimeline
     public static List<string> GenerateInitial()
     {
         ChessState state = new();
-        List<string> actions = [];
-        Policy.Piece?[,] board = state.Board;
+        var actions = new List<string>();
+        Piece?[,] board = state.Board;
         for (int row = 0; row < 8; row++)
         {
             for (int col = 1; col < 8; col++)
             {
-                Policy.Piece? piece = board[row, col];
+                Piece? piece = board[row, col];
                 if (piece == null) continue;
                 string toPositionDescription = new Position(row, col).ToString();
-                string pieceTypeDescription = piece.PieceTypeDescription;
+                string pieceTypeDescription = Game.Chess.Policy.PieceBehavior.PieceTypeDescription(piece);
                 actions.Add($":{toPositionDescription}:{pieceTypeDescription}");
             }
         }
         string actionsString = string.Join(";", actions);
-        List<string> actionsTimeline = [actionsString];
+        var actionsTimeline = new List<string> { actionsString };
         return actionsTimeline;
     }
 }

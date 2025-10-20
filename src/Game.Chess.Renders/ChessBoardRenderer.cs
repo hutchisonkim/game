@@ -1,4 +1,5 @@
 using System.Drawing;
+using Game.Chess;
 
 namespace Game.Chess.Renders;
 
@@ -58,7 +59,7 @@ internal static class ChessBoardStamps
     // ─────────────────────────────────────────────────────────────
     // PIECES
     // ─────────────────────────────────────────────────────────────
-    internal static void StampPieces(Graphics g, Policy.Piece?[,] board, int cell, float opacity = 1.0f)
+    internal static void StampPieces(Graphics g, Piece?[,] board, int cell, float opacity = 1.0f)
     {
         for (int r = 0; r < 8; r++)
             for (int f = 0; f < 8; f++)
@@ -73,7 +74,7 @@ internal static class ChessBoardStamps
             }
     }
 
-    internal static Bitmap StampPiecesLayer(Policy.Piece?[,] board, int cell, float opacity = 1.0f)
+    internal static Bitmap StampPiecesLayer(Piece?[,] board, int cell, float opacity = 1.0f)
     {
         var bmp = new Bitmap(cell * 8, cell * 8);
         using var g = Graphics.FromImage(bmp);
@@ -81,7 +82,7 @@ internal static class ChessBoardStamps
         return bmp;
     }
 
-    internal static void StampPiece(Graphics g, Rectangle rect, Policy.Piece piece, int cell, float opacity = 1.0f)
+    internal static void StampPiece(Graphics g, Rectangle rect, Piece piece, int cell, float opacity = 1.0f)
     {
         string symbol = GetPieceSymbol(piece);
         float fontSize = cell * 0.75f;
@@ -162,24 +163,28 @@ internal static class ChessBoardStamps
         catch { return null; }
     }
 
-    private static string GetPieceSymbol(Policy.Piece piece)
+    private static string GetPieceSymbol(Piece piece)
     {
-        return piece switch
+        var t = piece.TypeFlag;
+        if (piece.IsWhite)
         {
-            { Type: PieceType.King, Color: PieceColor.White } => "♔",
-            { Type: PieceType.Queen, Color: PieceColor.White } => "♕",
-            { Type: PieceType.Rook, Color: PieceColor.White } => "♖",
-            { Type: PieceType.Bishop, Color: PieceColor.White } => "♗",
-            { Type: PieceType.Knight, Color: PieceColor.White } => "♘",
-            { Type: PieceType.Pawn, Color: PieceColor.White } => "♙",
-            { Type: PieceType.King, Color: PieceColor.Black } => "♚",
-            { Type: PieceType.Queen, Color: PieceColor.Black } => "♛",
-            { Type: PieceType.Rook, Color: PieceColor.Black } => "♜",
-            { Type: PieceType.Bishop, Color: PieceColor.Black } => "♝",
-            { Type: PieceType.Knight, Color: PieceColor.Black } => "♞",
-            { Type: PieceType.Pawn, Color: PieceColor.Black } => "♟",
-            _ => "?"
-        };
+            if ((t & PieceAttribute.King) != 0) return "♔";
+            if ((t & PieceAttribute.Queen) != 0) return "♕";
+            if ((t & PieceAttribute.Rook) != 0) return "♖";
+            if ((t & PieceAttribute.Bishop) != 0) return "♗";
+            if ((t & PieceAttribute.Knight) != 0) return "♘";
+            if ((t & PieceAttribute.Pawn) != 0) return "♙";
+        }
+        else
+        {
+            if ((t & PieceAttribute.King) != 0) return "♚";
+            if ((t & PieceAttribute.Queen) != 0) return "♛";
+            if ((t & PieceAttribute.Rook) != 0) return "♜";
+            if ((t & PieceAttribute.Bishop) != 0) return "♝";
+            if ((t & PieceAttribute.Knight) != 0) return "♞";
+            if ((t & PieceAttribute.Pawn) != 0) return "♟";
+        }
+        return "?";
     }
 
     internal static void StampCells_InnerContour(Graphics g, int cell, List<(int, int, int, int)> positions, Color color, int thickness)
