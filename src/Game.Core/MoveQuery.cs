@@ -38,6 +38,29 @@ namespace Game.Core
         IEnumerable<MoveCandidate> Apply(IEnumerable<MoveCandidate> candidates);
     }
 
+    // Faction-level policy abstraction: used by FactionActor to provide faction-specific info
+    public interface IFactionPolicy
+    {
+        // Returns the forward axis multiplier for the faction (1 or -1)
+        int GetForwardAxis();
+    }
+
+    // Delegate-based faction policy
+    public sealed class DelegateFactionPolicy : IFactionPolicy
+    {
+        private readonly Func<int> _getForwardAxis;
+        public DelegateFactionPolicy(Func<int> getForwardAxis) => _getForwardAxis = getForwardAxis;
+        public int GetForwardAxis() => _getForwardAxis();
+    }
+
+    // FactionActor: encapsulates faction-specific behavior and uses an IFactionPolicy
+    public sealed class FactionActor
+    {
+        private readonly IFactionPolicy _policy;
+        public FactionActor(IFactionPolicy policy) => _policy = policy;
+        public int GetForwardAxis() => _policy.GetForwardAxis();
+    }
+
     // Delegate-based simple policy implementation
     public sealed class DelegatePolicy : IPolicy
     {
@@ -52,7 +75,7 @@ namespace Game.Core
         private readonly int _fromRow;
         private readonly int _fromCol;
         private readonly IEnumerable<PatternDto> _patterns;
-        private readonly Func<int>? _forwardAxisGetter;
+        private readonly FactionActor? _factionActor;
         private readonly Func<int, int, bool> _isInside;
         private readonly Func<int, int, object?> _getPieceAt;
         private readonly bool _forceIncludeCaptures;
@@ -60,12 +83,12 @@ namespace Game.Core
 
         public PieceActor(int fromRow, int fromCol, IEnumerable<PatternDto> patterns,
             Func<int, int, bool> isInside, Func<int, int, object?> getPieceAt,
-            Func<int>? forwardAxisGetter = null, bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
+            FactionActor? factionActor = null, bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
         {
             _fromRow = fromRow;
             _fromCol = fromCol;
             _patterns = patterns;
-            _forwardAxisGetter = forwardAxisGetter;
+            _factionActor = factionActor;
             _isInside = isInside;
             _getPieceAt = getPieceAt;
             _forceIncludeCaptures = forceIncludeCaptures;
@@ -75,7 +98,7 @@ namespace Game.Core
         public IEnumerable<MoveCandidate> GetCandidates()
         {
             int forward = 1;
-            if (_forwardAxisGetter != null) forward = _forwardAxisGetter();
+            if (_factionActor != null) forward = _factionActor.GetForwardAxis();
 
             foreach (var p in _patterns)
             {

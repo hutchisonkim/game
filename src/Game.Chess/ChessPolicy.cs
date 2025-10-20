@@ -129,13 +129,16 @@ public class ChessState : IState<ChessAction, ChessState>
                 if (piece == null) continue;
 
                 // Build a PieceActor for this piece; we'll collect all piece actors and let the board actor enumerate
+                var factionPolicy = new Game.Core.DelegateFactionPolicy(() => PieceBehavior.ForwardAxis(piece));
+                var factionActor = new Game.Core.FactionActor(factionPolicy);
+
                 var pieceActor = new Game.Core.PieceActor(
                     fromRow: row,
                     fromCol: col,
                     patterns: PieceBehavior.GetPatternDtosFor(piece),
                     isInside: (r, c) => IsInside(r, c),
                     getPieceAt: (r, c) => this[r, c],
-                    forwardAxisGetter: () => PieceBehavior.ForwardAxis(piece),
+                    factionActor: factionActor,
                     forceIncludeCaptures: forceIncludeCaptures,
                     forceExcludeMoves: forceExcludeMoves
                 );
