@@ -24,7 +24,7 @@ public static class PieceBehavior
 
     public static string PieceTypeDescription(Piece piece) => $"{ToFenChar(piece.TypeFlag, piece.IsWhite)}";
 
-    public static int ForwardAxis(Piece piece) => piece.IsWhite ? 1 : -1;
+    public static (int X, int Y) ForwardAxis(Piece piece) => (1, piece.IsWhite ? 1 : -1);
 
     public static class Vector2
     {
@@ -101,8 +101,9 @@ public static class PieceBehavior
 
             foreach (((int X, int Y) Vector, Pattern.MirrorBehavior Mirrors) direction in directions)
             {
-                int dx = direction.Vector.X;
-                int dy = direction.Vector.Y * ForwardAxis(piece);
+                (int X, int Y) forward = ForwardAxis(piece);
+                int dx = direction.Vector.X * forward.X;
+                int dy = direction.Vector.Y * forward.Y;
                 int x = col;
                 int y = row;
 

@@ -148,7 +148,7 @@ public class ChessState : IState<ChessAction, ChessState>
                 var piecePolicy = new DelegatePiecePolicy(() => PieceBehavior.GetPatternDtosFor(piece));
                 var pieceActor = new PieceActor(piecePolicy, factionActor);
 
-                cells[row, col].Piece = pieceActor;
+                cells[row, col].OccupyingPiece = pieceActor;
             }
         }
 
@@ -157,7 +157,7 @@ public class ChessState : IState<ChessAction, ChessState>
 
         // Do not apply game-level filtering here - return all board candidates.
         // The higher-level `GetAvailableActions` wrapper applies turn-based filtering when needed.
-        var candidatesAll = boardActor.GetCandidates();
+        var candidatesAll = boardActor.GetActionCandidates();
 
         foreach (var cand in candidatesAll)
         {
