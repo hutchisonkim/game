@@ -39,7 +39,7 @@ public static class ActionsTimeline
                 Piece? piece = board[row, col];
                 if (piece == null) continue;
                 string toPositionDescription = new Position(row, col).ToString();
-                string pieceTypeDescription = Game.Chess.Policy.PieceBehavior.PieceTypeDescription(piece);
+                string pieceTypeDescription = PieceBehavior.PieceTypeDescription(piece);
                 actions.Add($":{toPositionDescription}:{pieceTypeDescription}");
             }
         }

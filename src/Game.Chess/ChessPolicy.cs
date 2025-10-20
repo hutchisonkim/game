@@ -125,11 +125,47 @@ public class ChessState : IState<ChessAction, ChessState>
                 var piece = this[row, col];
                 if (piece == null) continue;
 
-                IEnumerable<(int row, int col, Pattern pattern)> actionsA = PieceBehavior.GetAvailableActions(piece, this, row, col, forceIncludeCaptures, forceExcludeMoves);
+                // Use core MoveQueryBuilder at the board level to expand piece patterns
+                var builder = new Game.Core.MoveQueryBuilder()
+                    .From(row, col)
+                    .WithPatterns(PieceBehavior.GetPatternDtosFor(piece))
+                    .WithForwardAxis(() => PieceBehavior.ForwardAxis(piece));
 
-                IEnumerable<ChessAction> chessActions = actionsA.Select(t => new ChessAction(new Position(row, col), new Position(t.row, t.col)));
+                var candidates = builder.Execute(
+                    isInside: (r, c) => IsInside(r, c),
+                    getPieceAt: (r, c) => this[r, c],
+                    forwardAxis: () => PieceBehavior.ForwardAxis(piece),
+                    forceIncludeCaptures: forceIncludeCaptures,
+                    forceExcludeMoves: forceExcludeMoves
+                );
 
-                pieceActions.AddRange(chessActions.Select(chessAction => new PieceAction(chessAction, piece)));
+                foreach (var cand in candidates)
+                {
+                    // Post-process capture behavior: accept move only if target occupancy matches pattern.Captures semantics
+                    var target = this[cand.ToRow, cand.ToCol];
+                    var captures = cand.Pattern.Captures;
+
+                    bool accept = false;
+                    if (target == null)
+                    {
+                        if (captures == Game.Core.CaptureBehavior.MoveOnly || captures == Game.Core.CaptureBehavior.MoveOrCapture)
+                            accept = true;
+                    }
+                    else
+                    {
+                        // target occupied; allow if owner differs
+                        if ((target.TypeFlag & this[row, col]!.TypeFlag) == 0 ? target.IsWhite != this[row, col]!.IsWhite : (target.ColorFlag & this[row, col]!.ColorFlag) == 0)
+                        {
+                            if (captures == Game.Core.CaptureBehavior.CaptureOnly || captures == Game.Core.CaptureBehavior.MoveOrCapture)
+                                accept = true;
+                        }
+                    }
+
+                    if (!accept) continue;
+
+                    var chessAction = new ChessAction(new Position(row, col), new Position(cand.ToRow, cand.ToCol));
+                    pieceActions.Add(new PieceAction(chessAction, piece));
+                }
             }
         }
 
