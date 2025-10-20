@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Game.Core
 {
@@ -22,41 +23,59 @@ namespace Game.Core
     {
     }
 
-    // A SQL-like fluent builder that expands pattern DTOs into MoveCandidates
-    // It is domain-agnostic: caller supplies IsInside, GetPieceAt and ForwardAxis functions.
-    public class MoveQueryBuilder
+    // Object-oriented actors for move expansion and filtering. These are domain-agnostic
+    // and operate using delegates supplied for board interrogation and faction info.
+
+    // A minimal interface for any actor that can produce move candidates
+    public interface IMoveActor
     {
-        private readonly List<PatternDto> _patterns = new();
-        private int _fromRow;
-        private int _fromCol;
-        private Func<int>? _forwardAxisGetter;
+        IEnumerable<MoveCandidate> GetCandidates();
+    }
 
-        public MoveQueryBuilder From(int row, int col)
-        {
-            _fromRow = row;
-            _fromCol = col;
-            return this;
-        }
+    // Policy abstraction: policies accept a candidate stream and return a (possibly filtered/modified) stream
+    public interface IPolicy
+    {
+        IEnumerable<MoveCandidate> Apply(IEnumerable<MoveCandidate> candidates);
+    }
 
-        public MoveQueryBuilder WithPatterns(IEnumerable<PatternDto> patterns)
-        {
-            _patterns.AddRange(patterns);
-            return this;
-        }
+    // Delegate-based simple policy implementation
+    public sealed class DelegatePolicy : IPolicy
+    {
+        private readonly Func<MoveCandidate, bool> _filter;
+        public DelegatePolicy(Func<MoveCandidate, bool> filter) => _filter = filter;
+        public IEnumerable<MoveCandidate> Apply(IEnumerable<MoveCandidate> candidates) => candidates.Where(_filter);
+    }
 
-        // optional override to determine forward direction multiplier (1 or -1)
-        public MoveQueryBuilder WithForwardAxis(Func<int> forwardAxisGetter)
+    // PieceActor: knows about patterns for a single piece and can expand them into candidates
+    public sealed class PieceActor : IMoveActor
+    {
+        private readonly int _fromRow;
+        private readonly int _fromCol;
+        private readonly IEnumerable<PatternDto> _patterns;
+        private readonly Func<int>? _forwardAxisGetter;
+        private readonly Func<int, int, bool> _isInside;
+        private readonly Func<int, int, object?> _getPieceAt;
+        private readonly bool _forceIncludeCaptures;
+        private readonly bool _forceExcludeMoves;
+
+        public PieceActor(int fromRow, int fromCol, IEnumerable<PatternDto> patterns,
+            Func<int, int, bool> isInside, Func<int, int, object?> getPieceAt,
+            Func<int>? forwardAxisGetter = null, bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
         {
+            _fromRow = fromRow;
+            _fromCol = fromCol;
+            _patterns = patterns;
             _forwardAxisGetter = forwardAxisGetter;
-            return this;
+            _isInside = isInside;
+            _getPieceAt = getPieceAt;
+            _forceIncludeCaptures = forceIncludeCaptures;
+            _forceExcludeMoves = forceExcludeMoves;
         }
 
-        // Expand into candidates using provided board query delegates
-        public IEnumerable<MoveCandidate> Execute(Func<int, int, bool> isInside, Func<int, int, object?> getPieceAt, Func<int>? forwardAxis = null, bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
+        public IEnumerable<MoveCandidate> GetCandidates()
         {
             int forward = 1;
             if (_forwardAxisGetter != null) forward = _forwardAxisGetter();
-            else if (forwardAxis != null) forward = forwardAxis();
 
             foreach (var p in _patterns)
             {
@@ -74,20 +93,20 @@ namespace Game.Core
                         y += dy;
                         steps++;
 
-                        if (!isInside(y, x)) break;
+                        if (!_isInside(y, x)) break;
 
-                        var pieceTo = getPieceAt(y, x);
+                        var pieceTo = _getPieceAt(y, x);
 
                         if (pieceTo == null)
                         {
                             if (p.Captures == CaptureBehavior.MoveOnly || p.Captures == CaptureBehavior.MoveOrCapture)
                             {
-                                if (!forceExcludeMoves)
+                                if (!_forceExcludeMoves)
                                 {
                                     yield return new MoveCandidate(_fromRow, _fromCol, y, x, p, steps, p.Jumps);
                                 }
                             }
-                            if (forceIncludeCaptures)
+                            if (_forceIncludeCaptures)
                             {
                                 if (p.Captures == CaptureBehavior.CaptureOnly || p.Captures == CaptureBehavior.MoveOrCapture)
                                 {
@@ -110,7 +129,7 @@ namespace Game.Core
             }
         }
 
-        private static IEnumerable<( (int X, int Y) Vector, MirrorBehavior Mirrors)> GetMirroredVectors(PatternDto pattern)
+        private static IEnumerable<((int X, int Y) Vector, MirrorBehavior Mirrors)> GetMirroredVectors(PatternDto pattern)
         {
             yield return (pattern.Vector, pattern.Mirrors);
 
@@ -124,4 +143,45 @@ namespace Game.Core
                 yield return ((-pattern.Vector.X, -pattern.Vector.Y), pattern.Mirrors);
         }
     }
+
+    // BoardActor: composes piece actors for every piece on the board and applies board-level filters
+    public sealed class BoardActor : IMoveActor
+    {
+        private readonly IEnumerable<PieceActor> _pieceActors;
+        private readonly IPolicy? _policy;
+
+        public BoardActor(IEnumerable<PieceActor> pieceActors, IPolicy? policy = null)
+        {
+            _pieceActors = pieceActors;
+            _policy = policy;
+        }
+
+        public IEnumerable<MoveCandidate> GetCandidates()
+        {
+            var all = _pieceActors.SelectMany(pa => pa.GetCandidates());
+            if (_policy != null) return _policy.Apply(all);
+            return all;
+        }
+    }
+
+    // GameActor: composes board actors and applies game-level policy such as turn filtering
+    public sealed class GameActor : IMoveActor
+    {
+        private readonly BoardActor _boardActor;
+        private readonly IPolicy? _policy;
+
+        public GameActor(BoardActor boardActor, IPolicy? policy = null)
+        {
+            _boardActor = boardActor;
+            _policy = policy;
+        }
+
+        public IEnumerable<MoveCandidate> GetCandidates()
+        {
+            var all = _boardActor.GetCandidates();
+            if (_policy != null) return _policy.Apply(all);
+            return all;
+        }
+    }
+
 }

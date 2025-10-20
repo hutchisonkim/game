@@ -1,6 +1,8 @@
 //src\Game.Chess\ChessPolicy.cs
 
+using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using Game.Core;
 using Game.Chess;
 
@@ -117,6 +119,7 @@ public class ChessState : IState<ChessAction, ChessState>
     {
 
         var pieceActions = new List<PieceAction>();
+        var pieceActorsForBoard = new List<Game.Core.PieceActor>();
 
         for (int row = 0; row < 8; row++)
         {
@@ -125,48 +128,61 @@ public class ChessState : IState<ChessAction, ChessState>
                 var piece = this[row, col];
                 if (piece == null) continue;
 
-                // Use core MoveQueryBuilder at the board level to expand piece patterns
-                var builder = new Game.Core.MoveQueryBuilder()
-                    .From(row, col)
-                    .WithPatterns(PieceBehavior.GetPatternDtosFor(piece))
-                    .WithForwardAxis(() => PieceBehavior.ForwardAxis(piece));
-
-                var candidates = builder.Execute(
+                // Build a PieceActor for this piece; we'll collect all piece actors and let the board actor enumerate
+                var pieceActor = new Game.Core.PieceActor(
+                    fromRow: row,
+                    fromCol: col,
+                    patterns: PieceBehavior.GetPatternDtosFor(piece),
                     isInside: (r, c) => IsInside(r, c),
                     getPieceAt: (r, c) => this[r, c],
-                    forwardAxis: () => PieceBehavior.ForwardAxis(piece),
+                    forwardAxisGetter: () => PieceBehavior.ForwardAxis(piece),
                     forceIncludeCaptures: forceIncludeCaptures,
                     forceExcludeMoves: forceExcludeMoves
                 );
 
-                foreach (var cand in candidates)
+                pieceActorsForBoard.Add(pieceActor);
+            }
+        }
+
+        // After collecting all PieceActors for the board, expand them via a BoardActor
+        var allPieceActors = pieceActorsForBoard;
+        // Board-level policy: ensure destination is inside board (defensive) - MoveQuery already checks this
+        var boardPolicy = new Game.Core.DelegatePolicy(c => IsInside(c.ToRow, c.ToCol));
+        var boardActor = new Game.Core.BoardActor(allPieceActors, boardPolicy);
+
+        // Do not apply game-level filtering here - return all board candidates.
+        // The higher-level `GetAvailableActions` wrapper applies turn-based filtering when needed.
+        var candidatesAll = boardActor.GetCandidates();
+
+        foreach (var cand in candidatesAll)
+        {
+            // identify the originating piece for this candidate
+            var fromPiece = this[cand.FromRow, cand.FromCol];
+            if (fromPiece == null) continue; // defensive
+
+            var target = this[cand.ToRow, cand.ToCol];
+            var captures = cand.Pattern.Captures;
+
+            bool accept = false;
+            if (target == null)
+            {
+                if (captures == Game.Core.CaptureBehavior.MoveOnly || captures == Game.Core.CaptureBehavior.MoveOrCapture)
+                    accept = true;
+            }
+            else
+            {
+                // target occupied; allow if owner differs
+                if (target.IsWhite != fromPiece.IsWhite)
                 {
-                    // Post-process capture behavior: accept move only if target occupancy matches pattern.Captures semantics
-                    var target = this[cand.ToRow, cand.ToCol];
-                    var captures = cand.Pattern.Captures;
-
-                    bool accept = false;
-                    if (target == null)
-                    {
-                        if (captures == Game.Core.CaptureBehavior.MoveOnly || captures == Game.Core.CaptureBehavior.MoveOrCapture)
-                            accept = true;
-                    }
-                    else
-                    {
-                        // target occupied; allow if owner differs
-                        if ((target.TypeFlag & this[row, col]!.TypeFlag) == 0 ? target.IsWhite != this[row, col]!.IsWhite : (target.ColorFlag & this[row, col]!.ColorFlag) == 0)
-                        {
-                            if (captures == Game.Core.CaptureBehavior.CaptureOnly || captures == Game.Core.CaptureBehavior.MoveOrCapture)
-                                accept = true;
-                        }
-                    }
-
-                    if (!accept) continue;
-
-                    var chessAction = new ChessAction(new Position(row, col), new Position(cand.ToRow, cand.ToCol));
-                    pieceActions.Add(new PieceAction(chessAction, piece));
+                    if (captures == Game.Core.CaptureBehavior.CaptureOnly || captures == Game.Core.CaptureBehavior.MoveOrCapture)
+                        accept = true;
                 }
             }
+
+            if (!accept) continue;
+
+            var chessAction = new ChessAction(new Position(cand.FromRow, cand.FromCol), new Position(cand.ToRow, cand.ToCol));
+            pieceActions.Add(new PieceAction(chessAction, fromPiece));
         }
 
         return new AvailableActionsResult(pieceActions);
