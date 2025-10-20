@@ -116,8 +116,8 @@ public class ChessState : IState<ChessAction, ChessState>
     public AvailableActionsResult GetAvailableActionsDetailed(bool forceIncludeCaptures = false, bool forceExcludeMoves = false)
     {
 
-        var pieceActions = new List<PieceAction>();
-
+        // PIECE LEVEL -> DTO list for Spark: each piece produces raw candidates from its patterns
+        var dtoList = new List<ChessActionDto>();
         for (int row = 0; row < 8; row++)
         {
             for (int col = 0; col < 8; col++)
@@ -125,15 +125,58 @@ public class ChessState : IState<ChessAction, ChessState>
                 var piece = this[row, col];
                 if (piece == null) continue;
 
-                IEnumerable<(int row, int col, Pattern pattern)> actionsA = PieceBehavior.GetAvailableActions(piece, this, row, col, forceIncludeCaptures, forceExcludeMoves);
-
-                IEnumerable<ChessAction> chessActions = actionsA.Select(t => new ChessAction(new Position(row, col), new Position(t.row, t.col)));
-
-                pieceActions.AddRange(chessActions.Select(chessAction => new PieceAction(chessAction, piece)));
+                var moves = PieceBehavior.GetAvailableActions(piece, this, row, col, forceIncludeCaptures, forceExcludeMoves);
+                foreach (var (toRow, toCol, pattern) in moves)
+                {
+                    var dest = this[toRow, toCol];
+                    int destColor = dest == null ? -1 : (int)dest.ColorFlag;
+                    dtoList.Add(new ChessActionDto(
+                        FromRow: row,
+                        FromCol: col,
+                        ToRow: toRow,
+                        ToCol: toCol,
+                        PieceColorFlag: (int)piece.ColorFlag,
+                        PieceTypeFlag: (int)piece.TypeFlag,
+                        PatternCaptures: (int)pattern.Captures,
+                        DestColorFlag: destColor
+                    ));
+                }
             }
         }
 
-        return new AvailableActionsResult(pieceActions);
+    // Prepare a spark session (lightweight GetOrCreate)
+    var spark = Microsoft.Spark.Sql.SparkSession.Builder().GetOrCreate();
+    var schema = ChessActionDtoExtensions.Schema();
+    var rows = dtoList.ToRows();
+    var query = new Game.Core.ActionQuerySpark(spark, schema, rows);
+
+        // expression: keep only in-bounds (redundant but explicit) and enforce capture/move semantics
+        var sql = @"FromRow >= 0 AND FromRow < 8 AND FromCol >= 0 AND FromCol < 8 AND ToRow >= 0 AND ToRow < 8 AND ToCol >= 0 AND ToCol < 8 AND ( (DestColorFlag = -1 AND (PatternCaptures = 0 OR PatternCaptures = 2)) OR (DestColorFlag != -1 AND DestColorFlag != PieceColorFlag AND (PatternCaptures = 1 OR PatternCaptures = 2)) )";
+        var rowsOut = query.WhereSql(sql).CollectRows();
+
+        // convert Row[] back into ChessActionDto
+        var filteredDtos = rowsOut.Select(r => new ChessActionDto(
+            FromRow: r.GetAs<int>("FromRow"),
+            FromCol: r.GetAs<int>("FromCol"),
+            ToRow: r.GetAs<int>("ToRow"),
+            ToCol: r.GetAs<int>("ToCol"),
+            PieceColorFlag: r.GetAs<int>("PieceColorFlag"),
+            PieceTypeFlag: r.GetAs<int>("PieceTypeFlag"),
+            PatternCaptures: r.GetAs<int>("PatternCaptures"),
+            DestColorFlag: r.GetAs<int>("DestColorFlag")
+        )).ToList();
+
+        // GAME LEVEL: filter by current turn color and convert back to PieceAction
+        var currentColorFlag = (int)CurrentTurnColorFlag;
+        var pieceActions = filteredDtos
+            .Where(d => (d.PieceColorFlag & currentColorFlag) != 0)
+            .Select(d => new PieceAction(new ChessAction(new Position(d.FromRow, d.FromCol), new Position(d.ToRow, d.ToCol)), this[d.FromRow, d.FromCol]!))
+            .ToList();
+
+        // POST-PROCESS: merge castling-like moves (simple heuristic: pair rook+king adjacent moves into single action)
+        var merged = MergeCastleLikeMoves(pieceActions);
+
+        return new AvailableActionsResult(merged);
     }
 
     public class Cell
@@ -330,6 +373,38 @@ public class ChessState : IState<ChessAction, ChessState>
             ChessAction = chessAction;
             Piece = piece;
         }
+    }
+
+    // Very small heuristic to merge a king move and rook move into a single castling-like action.
+    // Real chess castling has many preconditions; this implementation simply looks for two actions
+    // of the same color where one is a king move of two squares and another is a rook move that
+    // moves into the king's intermediate square; they are merged into a single PieceAction using
+    // the king's PieceAction as representative (payload Piece left as king).
+    private static List<PieceAction> MergeCastleLikeMoves(List<PieceAction> pieceActions)
+    {
+        var result = new List<PieceAction>(pieceActions);
+
+        // Find candidate king moves of length 2 horizontally
+        var kings = pieceActions.Where(p => (p.Piece.TypeFlag & PieceAttribute.King) != 0 && Math.Abs(p.ChessAction.To.Col - p.ChessAction.From.Col) == 2).ToList();
+        foreach (var kingAction in kings)
+        {
+            // find a rook action belonging to same color that moves into the square the king passes over
+            int dir = Math.Sign(kingAction.ChessAction.To.Col - kingAction.ChessAction.From.Col);
+            var kingIntermediateCol = kingAction.ChessAction.From.Col + dir;
+            var rookMatch = pieceActions.FirstOrDefault(p => (p.Piece.TypeFlag & PieceAttribute.Rook) != 0
+                                                            && ((p.Piece.ColorFlag & kingAction.Piece.ColorFlag) != 0)
+                                                            && p.ChessAction.To.Row == kingAction.ChessAction.From.Row
+                                                            && p.ChessAction.To.Col == kingIntermediateCol);
+            if (rookMatch != null)
+            {
+                // remove individual actions and add merged (use kingAction as representative)
+                result.Remove(kingAction);
+                result.Remove(rookMatch);
+                result.Add(kingAction);
+            }
+        }
+
+        return result;
     }
 }
 
