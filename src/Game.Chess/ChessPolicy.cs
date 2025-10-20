@@ -120,8 +120,21 @@ public class ChessState : IState<ChessAction, ChessState>
     {
 
         var pieceActions = new List<PieceAction>();
-        var pieceActorsForBoard = new List<Game.Core.PieceActor>();
 
+        // Build an 8x8 grid of CellActors
+        var cells = new CellActor[8, 8];
+        var cellList = new List<CellActor>();
+        for (int r = 0; r < 8; r++)
+        {
+            for (int c = 0; c < 8; c++)
+            {
+                var cell = new CellActor(r, c);
+                cells[r, c] = cell;
+                cellList.Add(cell);
+            }
+        }
+
+        // Create PieceActors and attach them to their respective CellActors
         for (int row = 0; row < 8; row++)
         {
             for (int col = 0; col < 8; col++)
@@ -129,26 +142,18 @@ public class ChessState : IState<ChessAction, ChessState>
                 var piece = this[row, col];
                 if (piece == null) continue;
 
-                // Build a PieceActor for this piece; we'll collect all piece actors and let the board actor enumerate
-                var factionPolicy = new Game.Core.DelegateFactionPolicy(() => PieceBehavior.ForwardAxis(piece));
-                var factionActor = new Game.Core.FactionActor(factionPolicy);
+                var factionPolicy = new DelegateFactionPolicy(() => PieceBehavior.ForwardAxis(piece));
+                var factionActor = new FactionActor(factionPolicy);
 
-                var cellActor = new Game.Core.CellActor(row, col);
-                var piecePolicy = new Game.Core.DelegatePiecePolicy(() => PieceBehavior.GetPatternDtosFor(piece));
+                var piecePolicy = new DelegatePiecePolicy(() => PieceBehavior.GetPatternDtosFor(piece));
+                var pieceActor = new PieceActor(piecePolicy, factionActor);
 
-                var pieceActor = new Game.Core.PieceActor(
-                    cell: cellActor,
-                    policy: piecePolicy,
-                    faction: factionActor
-                );
-
-                pieceActorsForBoard.Add(pieceActor);
+                cells[row, col].Piece = pieceActor;
             }
         }
 
-        // After collecting all PieceActors for the board, expand them via a BoardActor
-        var allPieceActors = pieceActorsForBoard;
-        var boardActor = new Game.Core.BoardActor(allPieceActors, isInside: (r, c) => IsInside(r, c), getPieceAt: (r, c) => this[r, c]);
+        // After collecting all CellActors for the board, expand them via a BoardActor
+        var boardActor = new BoardActor(cellList, isInside: (r, c) => IsInside(r, c), getPieceAt: (r, c) => this[r, c]);
 
         // Do not apply game-level filtering here - return all board candidates.
         // The higher-level `GetAvailableActions` wrapper applies turn-based filtering when needed.
