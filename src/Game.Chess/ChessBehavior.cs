@@ -1,4 +1,4 @@
-//src\Game.Chess\PieceBehavior.cs
+//src\Game.Chess\ChessBehavior.cs
 
 namespace Game.Chess.Policy;
 
@@ -8,22 +8,7 @@ public static class ChessBehavior
     public static (int X, int Y) ForwardAxis(Piece piece) => (1, piece.IsWhite ? 1 : -1); // determines the initial pattern direction that gets tiled (used for pawn movement that is forward-only)
     public static bool IsClockwise(Piece piece) => piece.IsWhite ? true : false; // determines the initial queen placement (white mirrors black)
 
-    internal static char ToFenChar(PieceAttribute typeFlag, bool isWhite)
-    {
-        char fenChar = typeFlag switch
-        {
-            var t when (t & PieceAttribute.Pawn) != 0 => 'P',
-            var t when (t & PieceAttribute.Rook) != 0 => 'R',
-            var t when (t & PieceAttribute.King) != 0 => 'K',
-            var t when (t & PieceAttribute.Queen) != 0 => 'Q',
-            var t when (t & PieceAttribute.Bishop) != 0 => 'B',
-            var t when (t & PieceAttribute.Knight) != 0 => 'N',
-            _ => throw new ArgumentOutOfRangeException(nameof(typeFlag))
-        };
-        return isWhite ? fenChar : char.ToLower(fenChar);
-    }
-
-    public static string PieceTypeDescription(Piece piece) => $"{ToFenChar(piece.TypeFlag, piece.IsWhite)}";
+    public static string PieceTypeDescription(Piece piece) => Serialization.ChessSerializer.PieceTypeDescription((int)piece.TypeFlag, piece.IsWhite);
 
 
     public static class Vector2

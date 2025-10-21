@@ -20,7 +20,7 @@ public static class ActionsTimeline
             ChessState.PieceAction pieceAction = pieceActions.ElementAt(rng.Next(pieceActions.Count()));
             ChessState nextState = state.Apply(pieceAction.ChessAction);
 
-            actionsTimeline.Add($"{pieceAction.ChessAction.Description}:");
+            actionsTimeline.Add(Serialization.ChessSerializer.SerializeActionDescription(pieceAction.ChessAction.Description));
             state = nextState;
         }
 
@@ -40,7 +40,7 @@ public static class ActionsTimeline
                 if (piece == null) continue;
                 string toPositionDescription = new Position(row, col).ToString();
                 string pieceTypeDescription = ChessBehavior.PieceTypeDescription(piece);
-                actions.Add($":{toPositionDescription}:{pieceTypeDescription}");
+                actions.Add(Serialization.ChessSerializer.SerializeInitialSquare(toPositionDescription, pieceTypeDescription));
             }
         }
         string actionsString = string.Join(";", actions);

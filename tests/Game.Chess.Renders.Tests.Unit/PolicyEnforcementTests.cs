@@ -8,13 +8,6 @@ namespace Game.Chess.Renders.Tests.Unit;
 public class PolicyEnforcementTests
 {
 
-    private static string SquareFromPosition(Position p)
-    {
-        char file = (char)('a' + p.Col);
-        char rank = (char)('1' + (7 - p.Row));
-        return string.Concat(file, rank);
-    }
-
     [Fact]
     [Trait("Feature", "PngRendering")]
     public void RenderDetailedCellsPng_InitialSetup_ProducesPng()

@@ -9,14 +9,6 @@ namespace Game.Chess.Renders.Tests.Unit;
 public class RenderStatePngTests
 {
 
-    private static string SquareFromPosition(Position p)
-    {
-        char file = (char)('a' + p.Col);
-        char rank = (char)('1' + (7 - p.Row));
-        return string.Concat(file, rank);
-    }
-
-
     [Fact]
     [Trait("Feature", "PngRenderingB")]
     public void RenderStatePng_InitialSetup_ProducesPngB()
