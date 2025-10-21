@@ -117,57 +117,33 @@ public class ChessState : IState<ChessAction, ChessState>
 
         var pieceActions = new List<PieceAction>();
 
-        // Build an 8x8 grid of CellActors
-        var cells = new CellActor[8, 8];
-        var cellList = new List<CellActor>();
-        for (int r = 0; r < 8; r++)
-        {
-            for (int c = 0; c < 8; c++)
-            {
-                var cell = new CellActor(r, c);
-                cells[r, c] = cell;
-                cellList.Add(cell);
-            }
-        }
+        // Build a lightweight Board using the new core types and expand piece actions
+        var board = new Game.Core.Wip.Board(8, 8);
 
-        // Create PieceActors and attach them to their respective CellActors
+        // Map ChessPiece -> core Piece with policy and faction
         for (int row = 0; row < 8; row++)
         {
             for (int col = 0; col < 8; col++)
             {
-                var piece = this[row, col];
-                if (piece.IsEmpty) continue;
+                var cp = this[row, col];
+                if (cp.IsEmpty) continue;
 
-                FactionPolicy factionPolicy = new(ChessHistoryUtility.ForwardAxis(piece));
-                FactionActor factionActor = new(factionPolicy);
-
-                PiecePolicy piecePolicy = new(ChessHistoryUtility.GetPatternDtosFor(piece));
-                PieceActor pieceActor = new(piecePolicy, factionActor);
-
-                cells[row, col].OccupyingPiece = pieceActor;
+                var faction = cp.IsWhite ? Game.Core.Wip.Faction.White : Game.Core.Wip.Faction.Black;
+                var piecePolicy = new Game.Core.Wip.PiecePolicy(ChessHistoryUtility.GetPatternDtosFor(cp));
+                var corePiece = new Game.Core.Wip.Piece(piecePolicy, faction, row, col);
+                board.AddPiece(corePiece);
             }
         }
 
-        // After collecting all CellActors for the board, expand them via a BoardActor
-        var boardActor = new BoardActor(
-            cellList,
-            isInside: (r, c) => IsInside(r, c),
-            getPieceAt: (r, c) => {
-                var p = this[r, c];
-                return p.IsEmpty ? null : (object)p;
-            }
-        );
-
-        // Do not apply game-level filtering here - return all board candidates.
-        // The higher-level `GetAvailableActions` wrapper applies turn-based filtering when needed.
-        var candidatesAll = boardActor.GetActionCandidates();
+        // Expand board-level actions and apply capture filtering similar to previous logic
+        var candidatesAll = board.GetActions();
 
         foreach (var cand in candidatesAll)
         {
-            // identify the originating piece for this candidate
-            var fromPiece = this[cand.FromRow, cand.FromCol];
-            if (fromPiece.IsEmpty) continue; // defensive
+            var fromPiece = board.PieceAt(cand.FromRow, cand.FromCol);
+            if (fromPiece == null) continue;
 
+            // Translate board coordinates to chess representation and check capture rules
             var target = this[cand.ToRow, cand.ToCol];
             var captures = cand.Pattern.Captures;
 
@@ -179,8 +155,7 @@ public class ChessState : IState<ChessAction, ChessState>
             }
             else
             {
-                // target occupied; allow if owner differs
-                if (target.IsWhite != fromPiece.IsWhite)
+                if (target.IsWhite != (fromPiece.Faction == Game.Core.Wip.Faction.White))
                 {
                     if (captures == CaptureBehavior.CaptureOnly || captures == CaptureBehavior.MoveOrCapture)
                         accept = true;
@@ -190,7 +165,9 @@ public class ChessState : IState<ChessAction, ChessState>
             if (!accept) continue;
 
             var chessAction = new ChessAction(new ChessPosition(cand.FromRow, cand.FromCol), new ChessPosition(cand.ToRow, cand.ToCol));
-            pieceActions.Add(new PieceAction(chessAction, fromPiece));
+            // Retrieve original chess piece from state for the result payload
+            var originalPiece = this[cand.FromRow, cand.FromCol];
+            pieceActions.Add(new PieceAction(chessAction, originalPiece));
         }
 
         return new AvailableActionsResult(pieceActions);
