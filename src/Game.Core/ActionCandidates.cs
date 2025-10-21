@@ -49,9 +49,4 @@ internal static class ActionCandidates
 		}
 	}
 
-	public static IEnumerable<ActionCandidate> ApplyPolicy(IEnumerable<ActionCandidate> candidates, IPolicy? policy)
-	{
-		if (policy == null) return candidates;
-		return policy.Apply(candidates);
-	}
 }

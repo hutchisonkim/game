@@ -37,27 +37,19 @@ public interface IPolicy
     IEnumerable<ActionCandidate> Apply(IEnumerable<ActionCandidate> candidates);
 }
 
-// Faction-level policy abstraction: used by FactionActor to provide faction-specific info
-public interface IFactionPolicy
+// Concrete faction policy
+public sealed class FactionPolicy
 {
-    // Returns the forward axis multiplier for the faction as a vector (X,Y)
-    (int X, int Y) GetForwardAxis();
-}
-
-// Delegate-based faction policy
-public sealed class DelegateFactionPolicy : IFactionPolicy
-{
-    private readonly Func<(int X, int Y)> _getForwardAxis;
-    public DelegateFactionPolicy(Func<(int X, int Y)> getForwardAxis) => _getForwardAxis = getForwardAxis;
-    public (int X, int Y) GetForwardAxis() => _getForwardAxis();
+    private readonly (int X, int Y) _forward;
+    public FactionPolicy((int X, int Y) forward) => _forward = forward;
+    public (int X, int Y) GetForwardAxis() => _forward;
 }
 
 // FactionActor: encapsulates faction-specific behavior and uses an IFactionPolicy
 public sealed class FactionActor
 {
-    private readonly IFactionPolicy _policy;
-    public FactionActor(IFactionPolicy policy) => _policy = policy;
-    public (int X, int Y) GetForwardAxis() => _policy.GetForwardAxis();
+    public FactionPolicy Policy { private set; get; }
+    public FactionActor(FactionPolicy policy) => Policy = policy;
 }
 
 // CellActor: domain-agnostic representation of a board cell (row/col)
@@ -83,23 +75,17 @@ public sealed class CellActor : IActor
 }
 
 
-// Piece-level policy: responsible for supplying pattern DTOs for a piece
-public interface IPiecePolicy
-{
-    IEnumerable<PatternDto> GetPatterns();
-}
 
-// Delegate-based piece policy
-public sealed class DelegatePiecePolicy : IPiecePolicy
+// Concrete piece policy
+public sealed class PiecePolicy
 {
-    private readonly Func<IEnumerable<PatternDto>> _getBasePatterns;
-    public DelegatePiecePolicy(Func<IEnumerable<PatternDto>> getBasePatterns) => _getBasePatterns = getBasePatterns;
+    private readonly IEnumerable<PatternDto> _basePatterns;
+    public PiecePolicy(IEnumerable<PatternDto> basePatterns) => _basePatterns = basePatterns;
 
     public IEnumerable<PatternDto> GetPatterns()
     {
-        // Expand mirrors behind the policy. Faction parameter is provided for policies
-        // that need to filter or transform patterns by faction (not used here yet).
-        foreach (PatternDto basePattern in _getBasePatterns())
+        // Expand mirrors behind the policy.
+        foreach (PatternDto basePattern in _basePatterns)
         {
             foreach (PatternDto mirroredPattern in GetMirroredPatterns(basePattern))
             {
@@ -107,8 +93,8 @@ public sealed class DelegatePiecePolicy : IPiecePolicy
             }
         }
     }
-    
-    public static IEnumerable<PatternDto> GetMirroredPatterns(PatternDto pattern)
+
+    private static IEnumerable<PatternDto> GetMirroredPatterns(PatternDto pattern)
     {
         yield return new PatternDto(pattern.Vector, MirrorBehavior.None, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
 
@@ -128,10 +114,10 @@ public sealed class DelegatePiecePolicy : IPiecePolicy
 // Note: PieceActor is cell-agnostic; callers must supply the from-row/from-col when requesting candidates.
 public sealed class PieceActor
 {
-    private readonly IPiecePolicy _policy;
-    private readonly FactionActor? _faction;
+    private readonly PiecePolicy _policy;
+    private readonly FactionActor _faction;
 
-    public PieceActor(IPiecePolicy policy, FactionActor? faction = null)
+    public PieceActor(PiecePolicy policy, FactionActor faction)
     {
         _policy = policy;
         _faction = faction;
@@ -140,7 +126,7 @@ public sealed class PieceActor
     public IEnumerable<ActionCandidate> GetCandidates(int fromRow, int fromCol)
     {
         (int X, int Y) forward = (1, 1);
-        if (_faction != null) forward = _faction.GetForwardAxis();
+        if (_faction != null) forward = _faction.Policy.GetForwardAxis();
 
         foreach (PatternDto p in _policy.GetPatterns())
         {

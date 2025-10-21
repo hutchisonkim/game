@@ -142,11 +142,11 @@ public class ChessState : IState<ChessAction, ChessState>
                 var piece = this[row, col];
                 if (piece == null) continue;
 
-                var factionPolicy = new DelegateFactionPolicy(() => PieceBehavior.ForwardAxis(piece));
-                var factionActor = new FactionActor(factionPolicy);
+                FactionPolicy factionPolicy = new FactionPolicy(ChessBehavior.ForwardAxis(piece));
+                FactionActor factionActor = new FactionActor(factionPolicy);
 
-                var piecePolicy = new DelegatePiecePolicy(() => PieceBehavior.GetPatternDtosFor(piece));
-                var pieceActor = new PieceActor(piecePolicy, factionActor);
+                PiecePolicy piecePolicy = new PiecePolicy(ChessBehavior.GetPatternDtosFor(piece));
+                PieceActor pieceActor = new PieceActor(piecePolicy, factionActor);
 
                 cells[row, col].OccupyingPiece = pieceActor;
             }
