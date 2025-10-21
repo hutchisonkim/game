@@ -325,13 +325,231 @@ public sealed class Board
         if (p == null) return;
         p.MoveTo(action.ToRow, action.ToCol);
     }
+    public IEnumerable<ActionCandidate> GetActionsLinq()
+    {
+        const int maxExplodeSteps = 8;
+
+        int PieceId(int row, int col) => HashCode.Combine(row, col);
+        int DirectionId(PatternDto d) => HashCode.Combine(d.Vector.X, d.Vector.Y, d.Captures);
+
+        // Precompute occupancy for faster lookup
+        var occupancy = _pieces.ToDictionary(p => (p.Row, p.Col), p => p);
+
+        // 1️⃣ Explode all hypothetical moves: (piece × direction × step)
+        var exploded =
+            from Piece p in _pieces
+            from PatternDto d in p.Policy.GetPatterns()
+            from int step in Enumerable.Range(1, maxExplodeSteps)
+            let toRow = p.Row + d.Vector.X * step
+            let toCol = p.Col + d.Vector.Y * step
+            where IsInside(toRow, toCol)
+            let occupying = occupancy.TryGetValue((toRow, toCol), out var occ) ? occ : null
+            select new
+            {
+                Piece = p,
+                Direction = d,
+                Step = step,
+                ToRow = toRow,
+                ToCol = toCol,
+                Occupying = occupying,
+                PieceId = PieceId(p.Row, p.Col),
+                DirectionId = DirectionId(d)
+            };
+
+        // 2️⃣ For each (piece,direction), find the step of the *first occupied* cell
+        var firstBlocks =
+            from e in exploded
+            where e.Occupying != null
+            group e by new { e.PieceId, e.DirectionId } into g
+            select new
+            {
+                g.Key.PieceId,
+                g.Key.DirectionId,
+                FirstBlockStep = g.Min(x => x.Step)
+            };
+
+        // 3️⃣ Join exploded moves with first-block info
+        var joined =
+            from e in exploded
+            join fb in firstBlocks
+                on new { e.PieceId, e.DirectionId } equals new { fb.PieceId, fb.DirectionId }
+                into fbGroup
+            from fb in fbGroup.DefaultIfEmpty()
+            select new
+            {
+                e,
+                FirstBlockStep = fb?.FirstBlockStep
+            };
+
+        // 4️⃣ Filter to match the blocking behavior in GetActions()
+        // - Keep moves up to maxExplodeSteps
+        // - Stop once an occupied cell is reached
+        var bounded =
+            from j in joined
+            where j.e.Step <= maxExplodeSteps
+            where j.FirstBlockStep == null || j.e.Step <= j.FirstBlockStep
+            select j.e;
+
+        // 5️⃣ Convert to ActionCandidates, same as GetActions
+        var expanded =
+            bounded.Select(v => new ActionCandidate(
+                v.Piece.Row,
+                v.Piece.Col,
+                v.ToRow,
+                v.ToCol,
+                v.Direction,
+                v.Step,
+                v.Direction.Jumps,
+                new List<CellActor>()
+            ));
+
+        // 6️⃣ Final filtering identical to GetActions
+        var legal = expanded
+            .Where(a => IsInside(a.FromRow, a.FromCol))
+            .Where(a => IsInside(a.ToRow, a.ToCol))
+            .Where(a => IsValidTarget(a.ToRow, a.ToCol, a.Pattern.Captures))
+            .Where(a => a.TraversedCells.All(cell => IsValidMovePath(cell.Row, cell.Col, a.Pattern.Captures)));
+
+        return legal;
+    }
+
+    public IEnumerable<ActionCandidate> GetActionsLinqOld()
+    {
+        const int maxExplodeSteps = 8;
+
+        int PieceId(int row, int col) => HashCode.Combine(row, col);
+        int DirectionId(PatternDto d) => HashCode.Combine(d.Vector.X, d.Vector.Y, d.Captures);
+
+        // 1️⃣ Generate all exploded move targets (piece × direction × step)
+        var exploded =
+            from Piece p in _pieces
+            from PatternDto d in p.Policy.GetPatterns()
+            from int step in Enumerable.Range(1, maxExplodeSteps)
+            let toRow = p.Row + d.Vector.X * step
+            let toCol = p.Col + d.Vector.Y * step
+            select new
+            {
+                Piece = p,
+                Direction = d,
+                Step = step,
+                ToRow = toRow,
+                ToCol = toCol,
+                Occupying = PieceAt(toRow, toCol)
+            };
+
+        // 2️⃣ Keep only cells inside the board
+        var bounded =
+            from e in exploded
+            where IsInside(e.ToRow, e.ToCol)
+            select e;
+
+        // 3️⃣ Compute, per (piece,direction), where the *first occupied* cell is
+        var firstBlocks =
+            from e in bounded
+            where e.Occupying != null
+            group e by new { Id = PieceId(e.Piece.Row, e.Piece.Col), Id1 = DirectionId(e.Direction) } into g
+            select new
+            {
+                g.Key.Id,
+                g.Key.Id1,
+                FirstBlockStep = g.Min(x => x.Step)
+            };
+
+        // 4️⃣ Join exploded moves with the first-block info
+        var joined =
+            from e in bounded
+            join fb in firstBlocks
+                on new { Id = PieceId(e.Piece.Row, e.Piece.Col), Id1 = DirectionId(e.Direction) } equals new { fb.Id, fb.Id1 }
+                into fbGroup
+            from fb in fbGroup.DefaultIfEmpty()
+            select new
+            {
+                e,
+                FirstBlockStep = fb?.FirstBlockStep
+            };
+
+        // 5️⃣ Filter to keep only steps before the first occupied
+        var visible =
+            from j in joined
+            where j.FirstBlockStep == null || j.e.Step <= j.FirstBlockStep
+            select j.e;
+
+        // 6️⃣ Convert to ActionCandidates and filter final legality
+        var legal =
+            from v in visible
+            where IsValidTarget(v.ToRow, v.ToCol, v.Direction.Captures)
+               && IsValidMovePath(v.ToRow, v.ToCol, v.Direction.Captures)
+            select new ActionCandidate(
+                v.Piece.Row,
+                v.Piece.Col,
+                v.ToRow,
+                v.ToCol,
+                v.Direction,
+                v.Step,
+
+                v.Direction.Jumps,
+                new List<CellActor>()
+            );
+
+        return legal;
+    }
 
     public IEnumerable<ActionCandidate> GetActions()
     {
-        // Preserve per-piece direction processing (block when occupied/out-of-bounds) by
-        // using the shared ActionCandidates helper.
-        return _pieces.SelectMany(p => ActionCandidates.ProcessCellCandidates(p.GetActions(Rows, Cols), (r, c) => true, (r, c) => (object?)PieceAt(r, c)))
-        // return _pieces.SelectMany(p => ActionCandidates.ProcessCellCandidates(p.GetActions(this), IsInside, (r, c) => (object?)PieceAt(r, c)))
+        // Inline per-piece direction processing (bounds/occupancy blocking) and
+        // optionally parallelize across pieces to "explode" candidates like a Spark job.
+        // Limit per-direction expansion to 8 steps for performance/control.
+        const int maxExplodeSteps = 8;
+
+        IEnumerable<ActionCandidate> expanded = _pieces
+            // parallelize the piece-level work to distribute expansion across cores
+            .AsParallel()
+            // keep ordering predictable; remove AsOrdered() if you don't need determinism
+            .AsOrdered()
+            .SelectMany(p =>
+            {
+                var results = new List<ActionCandidate>();
+                ActionCandidate? previous = null;
+                bool directionBlocked = false;
+
+                foreach (var cand in p.GetActions(Rows, Cols))
+                {
+                    // Reset blocking when pattern/direction changes
+                    if (previous == null || !ReferenceEquals(previous.Pattern, cand.Pattern) || cand.Steps <= previous.Steps)
+                        directionBlocked = false;
+
+                    previous = cand;
+
+                    if (directionBlocked) continue;
+
+                    // Cap expansion per-direction to maxExplodeSteps
+                    if (cand.Steps > maxExplodeSteps)
+                    {
+                        directionBlocked = true;
+                        continue;
+                    }
+
+                    // Check bounds and block further steps in this direction if outside
+                    if (!IsInside(cand.ToRow, cand.ToCol))
+                    {
+                        directionBlocked = true;
+                        continue;
+                    }
+
+                    var occupying = PieceAt(cand.ToRow, cand.ToCol);
+
+                    results.Add(cand);
+
+                    // If occupied, block further steps in this direction
+                    if (occupying != null)
+                        directionBlocked = true;
+                }
+
+                return results;
+            })
+            .AsSequential();
+
+        return expanded
                           .Filter(a => IsInside(a.FromRow, a.FromCol))
                           .Filter(a => IsInside(a.ToRow, a.ToCol))
                           .Filter(a => IsValidTarget(a.ToRow, a.ToCol, a.Pattern.Captures))
