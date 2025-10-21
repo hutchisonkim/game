@@ -407,64 +407,74 @@ public sealed class Board
 
     public IEnumerable<ActionCandidate> GetActions()
     {
-        // Inline per-piece direction processing (bounds/occupancy blocking) and
-        // optionally parallelize across pieces to "explode" candidates like a Spark job.
-        // Limit per-direction expansion to 8 steps for performance/control.
+        // Extract per-piece expansion to a helper for clarity and incremental refactor.
         const int maxExplodeSteps = 8;
+
+        IEnumerable<ActionCandidate> ExpandPieceActions(Piece p)
+        {
+            var results = new List<ActionCandidate>();
+
+            // Determine forward axis based on faction: white moves +Y, black moves -Y
+            (int X, int Y) forward = p.Faction == Faction.White ? (1, 1) : (1, -1);
+
+            foreach (PatternDto pattern in p.Policy.GetPatterns())
+            {
+                int dx = pattern.Vector.X * forward.X;
+                int dy = pattern.Vector.Y * forward.Y;
+                int x = p.Col;
+                int y = p.Row;
+                int steps = 0;
+
+                var traversedCells = new List<CellActor>();
+
+                while (true)
+                {
+                    x += dx;
+                    y += dy;
+                    steps++;
+
+                    // Cap expansion per-direction to maxExplodeSteps
+                    if (steps > maxExplodeSteps)
+                        break;
+
+                    // Check bounds and stop this direction if outside
+                    if (!IsInside(y, x))
+                        break;
+
+                    var cell = new CellActor(y, x);
+                    traversedCells.Add(cell);
+                    var traversedClone = new List<CellActor>(traversedCells);
+
+                    var occupying = PieceAt(y, x);
+
+                    var cand = new ActionCandidate(p.Row, p.Col, y, x, pattern, steps, pattern.Jumps, traversedClone, p);
+                    results.Add(cand);
+
+                    // If occupied, stop further steps in this direction
+                    if (occupying != null)
+                        break;
+
+                    if (pattern.Repeats == RepeatBehavior.NotRepeatable || (pattern.Repeats == RepeatBehavior.RepeatableOnce && steps == 1) || pattern.Jumps)
+                        break;
+                }
+            }
+
+            return results;
+        }
 
         IEnumerable<ActionCandidate> expanded = _pieces
             // parallelize the piece-level work to distribute expansion across cores
             .AsParallel()
             // keep ordering predictable; remove AsOrdered() if you don't need determinism
             .AsOrdered()
-            .SelectMany(p =>
-            {
-                var results = new List<ActionCandidate>();
-                ActionCandidate? previous = null;
-                bool directionBlocked = false;
-
-                foreach (var cand in p.GetActions(Rows, Cols))
-                {
-                    // Reset blocking when pattern/direction changes
-                    if (previous == null || !ReferenceEquals(previous.Pattern, cand.Pattern) || cand.Steps <= previous.Steps)
-                        directionBlocked = false;
-
-                    previous = cand;
-
-                    if (directionBlocked) continue;
-
-                    // Cap expansion per-direction to maxExplodeSteps
-                    if (cand.Steps > maxExplodeSteps)
-                    {
-                        directionBlocked = true;
-                        continue;
-                    }
-
-                    // Check bounds and block further steps in this direction if outside
-                    if (!IsInside(cand.ToRow, cand.ToCol))
-                    {
-                        directionBlocked = true;
-                        continue;
-                    }
-
-                    var occupying = PieceAt(cand.ToRow, cand.ToCol);
-
-                    results.Add(cand);
-
-                    // If occupied, block further steps in this direction
-                    if (occupying != null)
-                        directionBlocked = true;
-                }
-
-                return results;
-            })
+            .SelectMany(p => ExpandPieceActions(p))
             .AsSequential();
 
         return expanded
-                          .Filter(a => IsInside(a.FromRow, a.FromCol))
-                          .Filter(a => IsInside(a.ToRow, a.ToCol))
-                          .Filter(a => IsValidTarget(a.ToRow, a.ToCol, a.Pattern.Captures))
-                          .Filter(a => a.TraversedCells.All(cell => IsValidMovePath(cell.Row, cell.Col, a.Pattern.Captures)));
+            .Filter(a => IsInside(a.FromRow, a.FromCol))
+            .Filter(a => IsInside(a.ToRow, a.ToCol))
+            .Filter(a => IsValidTarget(a.ToRow, a.ToCol, a.Pattern.Captures))
+            .Filter(a => a.TraversedCells.All(cell => IsValidMovePath(cell.Row, cell.Col, a.Pattern.Captures)));
     }
 
     public bool IsInside(int row, int col) => row >= 0 && row < Rows && col >= 0 && col < Cols;
