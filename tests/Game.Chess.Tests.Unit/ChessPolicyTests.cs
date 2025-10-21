@@ -22,7 +22,7 @@ public class ChessPolicySimulationTests
         string outputPath = TestFileHelper.GetOutputPath(fileName);
         string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
 
-        List<string> actionsTimeline = GameSerializerUtility.GenerateRandom(turnCount, seed);
+        List<string> actionsTimeline = ChessSerializationUtility.GenerateRandom(turnCount, seed);
         string json = JsonSerializer.Serialize(actionsTimeline, new JsonSerializerOptions { WriteIndented = true });
 
         // Act
@@ -47,7 +47,7 @@ public class ChessPolicySimulationTests
         string outputPath = TestFileHelper.GetOutputPath(fileName);
         string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
 
-        List<string> actionsTimeline = GameSerializerUtility.GenerateInitial();
+        List<string> actionsTimeline = ChessSerializationUtility.GenerateInitial();
         string json = JsonSerializer.Serialize(actionsTimeline, new JsonSerializerOptions { WriteIndented = true });
 
         // Act

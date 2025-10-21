@@ -1,5 +1,6 @@
 using System.Drawing;
-using Game.Chess;
+using Game.Chess.History;
+using Game.Chess.Entity;
 
 namespace Game.Chess.Renders;
 
@@ -9,7 +10,7 @@ internal static class ChessBoardStamps
     // ─────────────────────────────────────────────────────────────
     // MAIN ENTRY POINT — returns a ready board layer with pieces
     // ─────────────────────────────────────────────────────────────
-    internal static Bitmap StampBoard(Policy.ChessState state, int boardSize, bool includePieces = true)
+    internal static Bitmap StampBoard(ChessState state, int boardSize, bool includePieces = true)
     {
         if (state is null)
             throw new ArgumentNullException(nameof(state));
@@ -59,7 +60,7 @@ internal static class ChessBoardStamps
     // ─────────────────────────────────────────────────────────────
     // PIECES
     // ─────────────────────────────────────────────────────────────
-    internal static void StampPieces(Graphics g, Piece?[,] board, int cell, float opacity = 1.0f)
+    internal static void StampPieces(Graphics g, ChessPiece?[,] board, int cell, float opacity = 1.0f)
     {
         for (int r = 0; r < 8; r++)
             for (int f = 0; f < 8; f++)
@@ -74,7 +75,7 @@ internal static class ChessBoardStamps
             }
     }
 
-    internal static Bitmap StampPiecesLayer(Piece?[,] board, int cell, float opacity = 1.0f)
+    internal static Bitmap StampPiecesLayer(ChessPiece?[,] board, int cell, float opacity = 1.0f)
     {
         var bmp = new Bitmap(cell * 8, cell * 8);
         using var g = Graphics.FromImage(bmp);
@@ -82,7 +83,7 @@ internal static class ChessBoardStamps
         return bmp;
     }
 
-    internal static void StampPiece(Graphics g, Rectangle rect, Piece piece, int cell, float opacity = 1.0f)
+    internal static void StampPiece(Graphics g, Rectangle rect, ChessPiece piece, int cell, float opacity = 1.0f)
     {
         string symbol = GetPieceSymbol(piece);
         float fontSize = cell * 0.75f;
@@ -163,26 +164,26 @@ internal static class ChessBoardStamps
         catch { return null; }
     }
 
-    private static string GetPieceSymbol(Piece piece)
+    private static string GetPieceSymbol(ChessPiece piece)
     {
         var t = piece.TypeFlag;
         if (piece.IsWhite)
         {
-            if ((t & PieceAttribute.King) != 0) return "♔";
-            if ((t & PieceAttribute.Queen) != 0) return "♕";
-            if ((t & PieceAttribute.Rook) != 0) return "♖";
-            if ((t & PieceAttribute.Bishop) != 0) return "♗";
-            if ((t & PieceAttribute.Knight) != 0) return "♘";
-            if ((t & PieceAttribute.Pawn) != 0) return "♙";
+            if ((t & ChessPieceAttribute.King) != 0) return "♔";
+            if ((t & ChessPieceAttribute.Queen) != 0) return "♕";
+            if ((t & ChessPieceAttribute.Rook) != 0) return "♖";
+            if ((t & ChessPieceAttribute.Bishop) != 0) return "♗";
+            if ((t & ChessPieceAttribute.Knight) != 0) return "♘";
+            if ((t & ChessPieceAttribute.Pawn) != 0) return "♙";
         }
         else
         {
-            if ((t & PieceAttribute.King) != 0) return "♚";
-            if ((t & PieceAttribute.Queen) != 0) return "♛";
-            if ((t & PieceAttribute.Rook) != 0) return "♜";
-            if ((t & PieceAttribute.Bishop) != 0) return "♝";
-            if ((t & PieceAttribute.Knight) != 0) return "♞";
-            if ((t & PieceAttribute.Pawn) != 0) return "♟";
+            if ((t & ChessPieceAttribute.King) != 0) return "♚";
+            if ((t & ChessPieceAttribute.Queen) != 0) return "♛";
+            if ((t & ChessPieceAttribute.Rook) != 0) return "♜";
+            if ((t & ChessPieceAttribute.Bishop) != 0) return "♝";
+            if ((t & ChessPieceAttribute.Knight) != 0) return "♞";
+            if ((t & ChessPieceAttribute.Pawn) != 0) return "♟";
         }
         return "?";
     }

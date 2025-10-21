@@ -2,5 +2,7 @@ namespace Game.Core;
 
 public interface IAction
 {
-    string Description { get; }
+    // Serialization of actions is intentionally moved out of the core domain.
+    // Implementations should not expose a string Description here; serializers
+    // live in language-specific serialization projects.
 }

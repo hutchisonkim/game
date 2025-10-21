@@ -42,6 +42,5 @@ public class StateTests
 
     private sealed class TestAction : IAction
     {
-        public string Description => "Test Action";
     }
 }

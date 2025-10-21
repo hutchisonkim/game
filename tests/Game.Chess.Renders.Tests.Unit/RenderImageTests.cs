@@ -1,6 +1,6 @@
 using Xunit;
 using System.Drawing;
-using Game.Chess.Renders;
+using Game.Chess.History;
 
 namespace Game.Chess.Renders.Tests.Unit;
 
@@ -14,7 +14,7 @@ public class RenderStatePngTests
     public void RenderStatePng_InitialSetup_ProducesPngB()
     {
         // Arrange
-        var state = new Policy.ChessState(); // Initial chess position
+        var state = new ChessState(); // Initial chess position
 
         // Act
         var chessView = new ChessView();
@@ -43,7 +43,7 @@ public class RenderStatePngTests
     public void RenderTransitionPngs_RandomMove_ProducesTwoPngsWithArrowsB()
     {
         // Arrange
-        var board = new Policy.ChessState();
+        var board = new ChessState();
         var moves = board.GetAvailableActions().ToList();
         Assert.True(moves.Count > 0);
 
@@ -85,8 +85,8 @@ public class RenderStatePngTests
     public void RenderTimelineGif_64Turns_ProducesGifUsingTransitionPngPairsB()
     {
         // Arrange
-        var board = new Policy.ChessState();
-        var transitions = new List<(Policy.ChessState fromState, Policy.ChessState toState, ChessAction action)>();
+        var board = new ChessState();
+        var transitions = new List<(ChessState fromState, ChessState toState, ChessAction action)>();
         var rng = new Random(12345);
         var chessView = new ChessView();
         var currentBoard = board;

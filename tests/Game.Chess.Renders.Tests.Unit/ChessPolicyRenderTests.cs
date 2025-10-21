@@ -1,7 +1,7 @@
 //tests\Game.Chess.Renders.Tests.Unit\ChessPolicyRenderTests.cs
 
 using Xunit;
-using Game.Chess.Policy;
+using Game.Chess.History;
 
 namespace Game.Chess.Renders.Tests.Unit;
 

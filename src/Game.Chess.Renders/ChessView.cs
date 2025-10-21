@@ -1,12 +1,12 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using Game.Core.Renders;
-using static Game.Chess.Policy.ChessState;
-
+using Game.Chess.Entity;
+using Game.Chess.History;
 namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-public class ChessView : ViewBase<ChessAction, Policy.ChessState>
+public class ChessView : ViewBase<ChessAction, ChessState>
 {
     // add constructor arguments for potentially rendering attacked cells, threatened cells, and checked cells.
     private readonly bool _renderAttackedCells;
@@ -24,10 +24,10 @@ public class ChessView : ViewBase<ChessAction, Policy.ChessState>
         _renderBlockedCells = renderBlockedCells;
     }
 
-    public override byte[] RenderStatePng(Policy.ChessState state, int stateSize = 400)
+    public override byte[] RenderStatePng(ChessState state, int stateSize = 400)
     {
     var currentTurnColorFlag = state.CurrentTurnColorFlag;
-    var otherColor = (currentTurnColorFlag & PieceAttribute.White) != 0 ? PieceAttribute.Black : PieceAttribute.White;
+    var otherColor = (currentTurnColorFlag & ChessPieceAttribute.White) != 0 ? ChessPieceAttribute.Black : ChessPieceAttribute.White;
         using var bmp = ComposeBoard(state, stateSize);
         if (_renderBlockedCells)
             StampBlockedCells(bmp, state.GetBlockedCells(currentTurnColorFlag), stateSize);
@@ -46,7 +46,7 @@ public class ChessView : ViewBase<ChessAction, Policy.ChessState>
     }
 
     public override byte[] RenderTransitionSequenceGif(
-        IEnumerable<(Policy.ChessState fromState, Policy.ChessState toState, ChessAction action)> transitions,
+        IEnumerable<(ChessState fromState, ChessState toState, ChessAction action)> transitions,
         int stateSize = 400)
     {
         var bitmaps = transitions
@@ -63,21 +63,21 @@ public class ChessView : ViewBase<ChessAction, Policy.ChessState>
         return Renders.GifComposer.Combine(bitmaps);
     }
 
-    public override byte[] RenderPreTransitionPng(Policy.ChessState fromState, Policy.ChessState toState, ChessAction action, int stateSize = 400)
+    public override byte[] RenderPreTransitionPng(ChessState fromState, ChessState toState, ChessAction action, int stateSize = 400)
     {
         using var bmp = ComposeBoard(fromState, stateSize);
         StampMoveHighlight(bmp, action, Color.OrangeRed, stateSize);
         return ToPng(bmp);
     }
 
-    public override byte[] RenderPostTransitionPng(Policy.ChessState fromState, Policy.ChessState toState, ChessAction action, int stateSize = 400)
+    public override byte[] RenderPostTransitionPng(ChessState fromState, ChessState toState, ChessAction action, int stateSize = 400)
     {
         using var bmp = ComposeBoard(toState, stateSize);
         StampMoveHighlight(bmp, action, Color.Red, stateSize);
         return ToPng(bmp);
     }
 
-    public override byte[] RenderTransitionGif(Policy.ChessState fromState, Policy.ChessState toState, ChessAction action, int stateSize = 400)
+    public override byte[] RenderTransitionGif(ChessState fromState, ChessState toState, ChessAction action, int stateSize = 400)
     {
         using var bmpFrom = ComposeBoard(fromState, stateSize);
         StampMoveHighlight(bmpFrom, action, Color.OrangeRed, stateSize);
@@ -96,7 +96,7 @@ public class ChessView : ViewBase<ChessAction, Policy.ChessState>
     // COMPOSITION LAYER HELPERS
     // ─────────────────────────────────────────────────────────────
 
-    private static Bitmap ComposeBoard(Policy.ChessState state, int stateSize)
+    private static Bitmap ComposeBoard(ChessState state, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
 
@@ -110,7 +110,7 @@ public class ChessView : ViewBase<ChessAction, Policy.ChessState>
         return baseLayer;
     }
 
-    private static void StampPieces(Bitmap bmp, Game.Chess.Piece?[,] board, int cell, float opacity = 1.0f)
+    private static void StampPieces(Bitmap bmp, ChessPiece?[,] board, int cell, float opacity = 1.0f)
     {
         using var g = Graphics.FromImage(bmp);
         ChessBoardStamps.StampPieces(g, board, cell, opacity);
@@ -129,7 +129,7 @@ public class ChessView : ViewBase<ChessAction, Policy.ChessState>
         ChessBoardStamps.StampMoves(g, cell, moveList, color);
     }
 
-    private static void StampBlockedCells(Bitmap bmp, IEnumerable<Cell> cells, int stateSize)
+    private static void StampBlockedCells(Bitmap bmp, IEnumerable<ChessState.Cell> cells, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
@@ -138,14 +138,14 @@ public class ChessView : ViewBase<ChessAction, Policy.ChessState>
         positions = positions.Select(p => (7 - p.Item1, p.Item2, 7 - p.Item3, p.Item4)).ToList();
         ChessBoardStamps.StampCells_InnerContour(g, cell, positions, color: Color.Gray, thickness: 5);
     }
-    private static void StampPinnedCells(Bitmap bmp, IEnumerable<Cell> cells, int stateSize)
+    private static void StampPinnedCells(Bitmap bmp, IEnumerable<ChessState.Cell> cells, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
         var positions = cells.Select(c => (c.Row, c.Col, c.Row, c.Col)).ToList();
         ChessBoardStamps.StampCells_InnerContour(g, cell, positions, color: Color.Black, thickness: 5);
     }
-    private static void StampAttackedCells(Bitmap bmp, IEnumerable<AttackedCell> cells, int stateSize)
+    private static void StampAttackedCells(Bitmap bmp, IEnumerable<ChessState.AttackedCell> cells, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
@@ -161,7 +161,7 @@ public class ChessView : ViewBase<ChessAction, Policy.ChessState>
         ChessBoardStamps.StampMoves(g, cell, rawAttackingMovesList, Color.Orange);
     }
 
-    private static void StampThreatenedCells(Bitmap bmp, IEnumerable<Cell> cells, int stateSize)
+    private static void StampThreatenedCells(Bitmap bmp, IEnumerable<ChessState.Cell> cells, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
@@ -169,7 +169,7 @@ public class ChessView : ViewBase<ChessAction, Policy.ChessState>
         ChessBoardStamps.StampCells_InnerContour(g, cell, positions, color: Color.OrangeRed, thickness: 2);
     }
 
-    private static void StampCheckedCells(Bitmap bmp, IEnumerable<Cell> cells, int stateSize)
+    private static void StampCheckedCells(Bitmap bmp, IEnumerable<ChessState.Cell> cells, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);

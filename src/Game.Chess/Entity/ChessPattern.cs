@@ -1,9 +1,6 @@
-//src\Game.Chess\Pattern.cs
+namespace Game.Chess.Entity;
 
-namespace Game.Chess.Policy;
-
-// 🔹 Move rules
-public class Pattern
+public class ChessPattern
 {
     [Flags]
     public enum MirrorBehavior { None = 0, Horizontal = 1, Vertical = 2, All = Horizontal | Vertical }
@@ -17,7 +14,7 @@ public class Pattern
     public bool ForwardOnly { get; }
     public bool Jumps { get; }
 
-    public Pattern(PatternOptions options)
+    public ChessPattern(PatternOptions options)
     {
         Vector = options.Vector;
         Mirrors = options.Mirrors;
