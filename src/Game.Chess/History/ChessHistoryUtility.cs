@@ -1,6 +1,7 @@
 //src\Game.Chess\ChessBehavior.cs
 
 using Game.Chess.Entity;
+using Game.Core.Wip;
 namespace Game.Chess.History;
 
 // 🔹 Domain-agnostic piece behavior using the `Piece` record (Game.Chess.Piece)
@@ -59,19 +60,19 @@ public static class ChessHistoryUtility
     }
 
     // Convert Pattern to Game.Core.PatternDto and expose a helper for pieces
-    internal static Core.PatternDto ToPatternDto(ChessPattern pattern)
+    internal static PatternDto ToPatternDto(ChessPattern pattern)
     {
-        return new Core.PatternDto(
+        return new PatternDto(
             Vector: pattern.Vector,
-            Mirrors: (Core.MirrorBehavior)pattern.Mirrors,
-            Repeats: (Core.RepeatBehavior)pattern.Repeats,
-            Captures: (Core.CaptureBehavior)pattern.Captures,
+            Mirrors: (MirrorBehavior)pattern.Mirrors,
+            Repeats: (RepeatBehavior)pattern.Repeats,
+            Captures: (CaptureBehavior)pattern.Captures,
             ForwardOnly: pattern.ForwardOnly,
             Jumps: pattern.Jumps
         );
     }
 
-    public static IEnumerable<Core.PatternDto> GetPatternDtosFor(ChessPiece piece)
+    public static IEnumerable<PatternDto> GetPatternDtosFor(ChessPiece piece)
     {
         return GetPatternsFor(piece).Select(ToPatternDto);
     }

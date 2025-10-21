@@ -2,6 +2,7 @@
 
 using Game.Core;
 using Game.Chess.Entity;
+using Game.Core.Wip;
 
 namespace Game.Chess.History;
 
@@ -173,7 +174,7 @@ public class ChessState : IState<ChessAction, ChessState>
             bool accept = false;
             if (target.IsEmpty)
             {
-                if (captures == Game.Core.CaptureBehavior.MoveOnly || captures == Game.Core.CaptureBehavior.MoveOrCapture)
+                if (captures == CaptureBehavior.MoveOnly || captures == CaptureBehavior.MoveOrCapture)
                     accept = true;
             }
             else
@@ -181,7 +182,7 @@ public class ChessState : IState<ChessAction, ChessState>
                 // target occupied; allow if owner differs
                 if (target.IsWhite != fromPiece.IsWhite)
                 {
-                    if (captures == Game.Core.CaptureBehavior.CaptureOnly || captures == Game.Core.CaptureBehavior.MoveOrCapture)
+                    if (captures == CaptureBehavior.CaptureOnly || captures == CaptureBehavior.MoveOrCapture)
                         accept = true;
                 }
             }
