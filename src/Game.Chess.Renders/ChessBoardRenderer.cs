@@ -60,13 +60,13 @@ internal static class ChessBoardStamps
     // ─────────────────────────────────────────────────────────────
     // PIECES
     // ─────────────────────────────────────────────────────────────
-    internal static void StampPieces(Graphics g, ChessPiece?[,] board, int cell, float opacity = 1.0f)
+    internal static void StampPieces(Graphics g, ChessPiece[,] board, int cell, float opacity = 1.0f)
     {
         for (int r = 0; r < 8; r++)
             for (int f = 0; f < 8; f++)
             {
                 var piece = board[r, f];
-                if (piece is not null)
+                if (!piece.IsEmpty)
                 {
                     var y_flipped = (7 - r) * cell; // flip vertical to match board array mapping
                     var rect = new Rectangle(f * cell, y_flipped, cell, cell);
@@ -75,7 +75,7 @@ internal static class ChessBoardStamps
             }
     }
 
-    internal static Bitmap StampPiecesLayer(ChessPiece?[,] board, int cell, float opacity = 1.0f)
+    internal static Bitmap StampPiecesLayer(ChessPiece[,] board, int cell, float opacity = 1.0f)
     {
         var bmp = new Bitmap(cell * 8, cell * 8);
         using var g = Graphics.FromImage(bmp);

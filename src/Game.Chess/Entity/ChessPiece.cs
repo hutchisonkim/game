@@ -17,13 +17,16 @@ public enum ChessPieceAttribute
 }
 
 
-public sealed record ChessPiece(ChessPieceAttribute Attributes)
+public record struct ChessPiece(ChessPieceAttribute Attributes)
 {
     public ChessPieceAttribute Attributes { get; } = Attributes;
 
-    public bool IsWhite => (Attributes & ChessPieceAttribute.White) != 0;
-    public bool IsBlack => (Attributes & ChessPieceAttribute.Black) != 0;
+    public readonly bool IsWhite => (Attributes & ChessPieceAttribute.White) != 0;
 
-    public ChessPieceAttribute ColorFlag => Attributes & (ChessPieceAttribute.White | ChessPieceAttribute.Black);
-    public ChessPieceAttribute TypeFlag => Attributes & (ChessPieceAttribute.Pawn | ChessPieceAttribute.Rook | ChessPieceAttribute.Knight | ChessPieceAttribute.Bishop | ChessPieceAttribute.Queen | ChessPieceAttribute.King);
+    public readonly bool IsEmpty => Attributes == ChessPieceAttribute.None;
+
+    public static ChessPiece Empty { get; } = new(ChessPieceAttribute.None);
+
+    public readonly ChessPieceAttribute ColorFlag => Attributes & (ChessPieceAttribute.White | ChessPieceAttribute.Black);
+    public readonly ChessPieceAttribute TypeFlag => Attributes & (ChessPieceAttribute.Pawn | ChessPieceAttribute.Rook | ChessPieceAttribute.Knight | ChessPieceAttribute.Bishop | ChessPieceAttribute.Queen | ChessPieceAttribute.King);
 }

@@ -110,7 +110,7 @@ public class ChessView : ViewBase<ChessAction, ChessState>
         return baseLayer;
     }
 
-    private static void StampPieces(Bitmap bmp, ChessPiece?[,] board, int cell, float opacity = 1.0f)
+    private static void StampPieces(Bitmap bmp, ChessPiece[,] board, int cell, float opacity = 1.0f)
     {
         using var g = Graphics.FromImage(bmp);
         ChessBoardStamps.StampPieces(g, board, cell, opacity);

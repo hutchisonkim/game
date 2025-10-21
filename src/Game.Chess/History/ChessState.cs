@@ -8,9 +8,9 @@ namespace Game.Chess.History;
 // 🔹 Chess Board
 public class ChessState : IState<ChessAction, ChessState>
 {
-    private readonly ChessPiece?[,] _board = new ChessPiece?[8, 8];
+    private readonly ChessPiece[,] _board = new ChessPiece[8, 8];
 
-    public ChessPiece?[,] Board => _board;
+    public ChessPiece[,] Board => _board;
     public int TurnCount { get; private set; }
     public bool UpsTurns { get; set; } = true;
 
@@ -54,13 +54,13 @@ public class ChessState : IState<ChessAction, ChessState>
     }
 
 
-    public ChessPiece? this[int row, int col] => _board[row, col];
+    public ChessPiece this[int row, int col] => _board[row, col];
 
     public bool IsInside(int row, int col) => row >= 0 && row < 8 && col >= 0 && col < 8;
 
     public ChessState Clone()
     {
-        var copy = new ChessPiece?[8, 8];
+        var copy = new ChessPiece[8, 8];
         Array.Copy(_board, copy, _board.Length);
         var newBoard = new ChessState();
         Array.Copy(copy, newBoard._board, copy.Length);
@@ -74,8 +74,8 @@ public class ChessState : IState<ChessAction, ChessState>
         if (!IsInside(chessAction.From.Row, chessAction.From.Col) || !IsInside(chessAction.To.Row, chessAction.To.Col))
             throw new ArgumentException("Invalid move positions.");
 
-        ChessPiece? piece = _board[chessAction.From.Row, chessAction.From.Col];
-        if (piece == null)
+        ChessPiece piece = _board[chessAction.From.Row, chessAction.From.Col];
+        if (piece.IsEmpty)
             throw new InvalidOperationException("No piece at the source position.");
 
         ChessState newBoard = new();
@@ -83,7 +83,7 @@ public class ChessState : IState<ChessAction, ChessState>
 
         // Move the piece
         newBoard._board[chessAction.To.Row, chessAction.To.Col] = piece;
-        newBoard._board[chessAction.From.Row, chessAction.From.Col] = null;
+        newBoard._board[chessAction.From.Row, chessAction.From.Col] = ChessPiece.Empty;
 
         if (UpsTurns)
         {
@@ -135,7 +135,7 @@ public class ChessState : IState<ChessAction, ChessState>
             for (int col = 0; col < 8; col++)
             {
                 var piece = this[row, col];
-                if (piece == null) continue;
+                if (piece.IsEmpty) continue;
 
                 FactionPolicy factionPolicy = new(ChessHistoryUtility.ForwardAxis(piece));
                 FactionActor factionActor = new(factionPolicy);
@@ -148,7 +148,14 @@ public class ChessState : IState<ChessAction, ChessState>
         }
 
         // After collecting all CellActors for the board, expand them via a BoardActor
-        var boardActor = new BoardActor(cellList, isInside: (r, c) => IsInside(r, c), getPieceAt: (r, c) => this[r, c]);
+        var boardActor = new BoardActor(
+            cellList,
+            isInside: (r, c) => IsInside(r, c),
+            getPieceAt: (r, c) => {
+                var p = this[r, c];
+                return p.IsEmpty ? null : (object)p;
+            }
+        );
 
         // Do not apply game-level filtering here - return all board candidates.
         // The higher-level `GetAvailableActions` wrapper applies turn-based filtering when needed.
@@ -158,13 +165,13 @@ public class ChessState : IState<ChessAction, ChessState>
         {
             // identify the originating piece for this candidate
             var fromPiece = this[cand.FromRow, cand.FromCol];
-            if (fromPiece == null) continue; // defensive
+            if (fromPiece.IsEmpty) continue; // defensive
 
             var target = this[cand.ToRow, cand.ToCol];
             var captures = cand.Pattern.Captures;
 
             bool accept = false;
-            if (target == null)
+            if (target.IsEmpty)
             {
                 if (captures == Game.Core.CaptureBehavior.MoveOnly || captures == Game.Core.CaptureBehavior.MoveOrCapture)
                     accept = true;
@@ -192,7 +199,7 @@ public class ChessState : IState<ChessAction, ChessState>
     {
         public int Row { get; }
         public int Col { get; }
-        public ChessPiece? OccupyingPiece => _state.Board[Row, Col];
+        public ChessPiece OccupyingPiece => _state.Board[Row, Col];
         private ChessState _state;
         public Cell(int row, int col, ChessState state)
         {
@@ -244,7 +251,7 @@ public class ChessState : IState<ChessAction, ChessState>
 
 
     public IEnumerable<Cell> GetThreatenedCells(ChessPieceAttribute threatenedColorFlag) => GetAttackedCells(threatenedColorFlag)
-        .Where(c => c.OccupyingPiece != null && ((c.OccupyingPiece.ColorFlag & threatenedColorFlag) != 0));
+        .Where(c => !c.OccupyingPiece.IsEmpty && ((c.OccupyingPiece.ColorFlag & threatenedColorFlag) != 0));
 
     public IEnumerable<Cell> GetCheckedCells(ChessPieceAttribute checkedColorFlag)
     {
@@ -264,7 +271,7 @@ public class ChessState : IState<ChessAction, ChessState>
         {
             for (int col = 0; col < 8; col++)
             {
-                if (this[row, col] == null)
+                if (this[row, col].IsEmpty)
                 {
                     emptyCells.Add(new Cell(row, col, this));
                 }
@@ -281,7 +288,7 @@ public class ChessState : IState<ChessAction, ChessState>
             for (int col = 0; col < 8; col++)
             {
                 var piece = this[row, col];
-                if (piece != null)
+                if (!piece.IsEmpty)
                 {
                     occupiedCells.Add(new Cell(row, col, this));
                 }
@@ -306,7 +313,7 @@ public class ChessState : IState<ChessAction, ChessState>
             for (int col = 0; col < 8; col++)
             {
                 var piece = _board[row, col];
-                if (piece != null && ((piece.ColorFlag & currentTurnColorFlag) != 0))
+                if (!piece.IsEmpty && ((piece.ColorFlag & currentTurnColorFlag) != 0))
                 {
                     //print
                     if (!availableActions.Contains((row, col)))
@@ -339,7 +346,7 @@ public class ChessState : IState<ChessAction, ChessState>
             for (int col = 0; col < 8; col++)
             {
                 var piece = this[row, col];
-                if (piece != null && ((piece.ColorFlag & pinnedColor) != 0))
+                if (!piece.IsEmpty && ((piece.ColorFlag & pinnedColor) != 0))
                 {
                     var actionsFromCell = oppositeActions
                         .Where(m => m.ChessAction.From.Row == row && m.ChessAction.From.Col == col)
@@ -364,7 +371,7 @@ public class ChessState : IState<ChessAction, ChessState>
             for (int col = 0; col < 8; col++)
             {
                 var piece = this[row, col];
-                if (piece != null && ((piece.ColorFlag & pieceColorFlag) != 0) && ((piece.TypeFlag & pieceTypeFlag) != 0))
+                if (!piece.IsEmpty && ((piece.ColorFlag & pieceColorFlag) != 0) && ((piece.TypeFlag & pieceTypeFlag) != 0))
                 {
                     positions.Add(new ChessPosition(row, col));
                 }

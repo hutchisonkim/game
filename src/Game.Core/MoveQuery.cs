@@ -84,7 +84,6 @@ public sealed class PiecePolicy
 
     public IEnumerable<PatternDto> GetPatterns()
     {
-        // Expand mirrors behind the policy.
         foreach (PatternDto basePattern in _basePatterns)
         {
             foreach (PatternDto mirroredPattern in GetMirroredPatterns(basePattern))
@@ -110,8 +109,6 @@ public sealed class PiecePolicy
 }
 
 
-// PieceActor: knows about patterns for a single piece and can expand them into candidates
-// Note: PieceActor is cell-agnostic; callers must supply the from-row/from-col when requesting candidates.
 public sealed class PieceActor
 {
     private readonly PiecePolicy _policy;
@@ -123,6 +120,8 @@ public sealed class PieceActor
         _faction = faction;
     }
 
+    //TODO: refactor to expand pattern deltas instead (without adding the starting position)
+    // also, turn into arguments: the forward axis and the patterns collection
     public IEnumerable<ActionCandidate> GetCandidates(int fromRow, int fromCol)
     {
         (int X, int Y) forward = (1, 1);
@@ -135,9 +134,6 @@ public sealed class PieceActor
             int x = fromCol;
             int y = fromRow;
             int steps = 0;
-
-            // Pieces generate unconstrained candidates; board-level actor/policy will filter out-of-bounds
-            // We cap iterations to a reasonable board size (8) to avoid runaway loops in domain-agnostic code.
             int maxSteps = 8;
 
             do
@@ -146,7 +142,6 @@ public sealed class PieceActor
                 y += dy;
                 steps++;
 
-                // Emit the candidate without checking board occupancy or bounds. Post-processing will apply capture semantics.
                 yield return new ActionCandidate(fromRow, fromCol, y, x, p, steps, p.Jumps);
 
                 if (p.Repeats == RepeatBehavior.NotRepeatable || (p.Repeats == RepeatBehavior.RepeatableOnce && steps == 1) || p.Jumps)
@@ -191,8 +186,6 @@ public sealed class BoardActor : IActor
 
     public IEnumerable<ActionCandidate> GetActionCandidates()
     {
-        // Build the candidate stream using the fluent CandidateBuilder and
-        // ensure per-cell processing (direction blocking) is preserved.
         return CandidateBuilder
             .FromCellActors(_cells, _isInside, _getPieceAt)
             .ApplyPolicy(_policy)
@@ -201,7 +194,6 @@ public sealed class BoardActor : IActor
 
 }
 
-// GameActor: composes board actors and applies game-level policy such as turn filtering
 public sealed class GameActor : IActor
 {
     public GameState State { private get; set; }

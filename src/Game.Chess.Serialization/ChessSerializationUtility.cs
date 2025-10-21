@@ -35,13 +35,13 @@ public static class ChessSerializationUtility
     {
         ChessState state = new();
         var actions = new List<string>();
-        ChessPiece?[,] board = state.Board;
+        ChessPiece[,] board = state.Board;
         for (int row = 0; row < 8; row++)
         {
             for (int col = 1; col < 8; col++)
             {
-                ChessPiece? piece = board[row, col];
-                if (piece == null) continue;
+                ChessPiece piece = board[row, col];
+                if (piece.IsEmpty) continue;
                 string toPositionDescription = PositionToText(row, col);
                 string pieceTypeDescription = PieceTypeDescription(piece.Attributes);
                 actions.Add(SerializeInitialSquare(toPositionDescription, pieceTypeDescription));
