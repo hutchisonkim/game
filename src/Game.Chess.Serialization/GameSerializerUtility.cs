@@ -1,10 +1,10 @@
-// tests/Game.Chess.Tests.Unit/ChessPolicySimulationTests.cs
+// src\Game.Chess.Serialization\ChessSerializerUtility.cs
 
 using Game.Chess.Policy;
 
-namespace Game.Chess;
+namespace Game.Chess.Serialization;
 
-public static class ActionsTimeline
+public static class GameSerializerUtility
 {
     public static List<string> GenerateRandom(int turnCount, int seed)
     {
@@ -20,7 +20,7 @@ public static class ActionsTimeline
             ChessState.PieceAction pieceAction = pieceActions.ElementAt(rng.Next(pieceActions.Count()));
             ChessState nextState = state.Apply(pieceAction.ChessAction);
 
-            actionsTimeline.Add(Serialization.ChessSerializer.SerializeActionDescription(pieceAction.ChessAction.Description));
+            actionsTimeline.Add(ChessSerializer.SerializeActionDescription(pieceAction.ChessAction.Description));
             state = nextState;
         }
 
@@ -39,8 +39,8 @@ public static class ActionsTimeline
                 Piece? piece = board[row, col];
                 if (piece == null) continue;
                 string toPositionDescription = new Position(row, col).ToString();
-                string pieceTypeDescription = ChessBehavior.PieceTypeDescription(piece);
-                actions.Add(Serialization.ChessSerializer.SerializeInitialSquare(toPositionDescription, pieceTypeDescription));
+                string pieceTypeDescription = ChessSerializer.PieceTypeDescription((int)piece.Attributes, piece.IsWhite);
+                actions.Add(ChessSerializer.SerializeInitialSquare(toPositionDescription, pieceTypeDescription));
             }
         }
         string actionsString = string.Join(";", actions);

@@ -3,6 +3,7 @@
 using Xunit;
 using System.Text.Json;
 using Game.Core.Tests.Unit;
+using Game.Chess.Serialization;
 
 namespace Game.Chess.Tests.Unit;
 
@@ -21,7 +22,7 @@ public class ChessPolicySimulationTests
         string outputPath = TestFileHelper.GetOutputPath(fileName);
         string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
 
-        List<string> actionsTimeline = ActionsTimeline.GenerateRandom(turnCount, seed);
+        List<string> actionsTimeline = GameSerializerUtility.GenerateRandom(turnCount, seed);
         string json = JsonSerializer.Serialize(actionsTimeline, new JsonSerializerOptions { WriteIndented = true });
 
         // Act
@@ -46,7 +47,7 @@ public class ChessPolicySimulationTests
         string outputPath = TestFileHelper.GetOutputPath(fileName);
         string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
 
-        List<string> actionsTimeline = ActionsTimeline.GenerateInitial();
+        List<string> actionsTimeline = GameSerializerUtility.GenerateInitial();
         string json = JsonSerializer.Serialize(actionsTimeline, new JsonSerializerOptions { WriteIndented = true });
 
         // Act

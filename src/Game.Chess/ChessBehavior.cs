@@ -8,8 +8,6 @@ public static class ChessBehavior
     public static (int X, int Y) ForwardAxis(Piece piece) => (1, piece.IsWhite ? 1 : -1); // determines the initial pattern direction that gets tiled (used for pawn movement that is forward-only)
     public static bool IsClockwise(Piece piece) => piece.IsWhite ? true : false; // determines the initial queen placement (white mirrors black)
 
-    public static string PieceTypeDescription(Piece piece) => Serialization.ChessSerializer.PieceTypeDescription((int)piece.TypeFlag, piece.IsWhite);
-
 
     public static class Vector2
     {

@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Game.Chess\Game.Chess.csproj" />
+    <ProjectReference Include="..\..\src\Game.Chess.Serialization\Game.Chess.Serialization.csproj" />
     <ProjectReference Include="..\..\tests\Game.Core.Tests.Unit\Game.Core.Tests.Unit.csproj" />
   </ItemGroup>
 

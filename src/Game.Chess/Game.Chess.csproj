@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Game.Core\Game.Core.csproj" />
-    <ProjectReference Include="..\Game.Chess.Serialization\Game.Chess.Serialization.csproj" />
   </ItemGroup>
 
   <ItemGroup>
