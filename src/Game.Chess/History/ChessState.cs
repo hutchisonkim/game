@@ -136,7 +136,7 @@ public class ChessState : IState<ChessAction, ChessState>
         }
 
         // Expand board-level actions and apply capture filtering similar to previous logic
-        var candidatesAll = board.GetActions();
+        var candidatesAll = board.GetActions(CurrentTurnColorFlag == ChessPieceAttribute.White ? Game.Core.Wip.Faction.White : Game.Core.Wip.Faction.Black);
 
         foreach (var cand in candidatesAll)
         {

@@ -325,7 +325,90 @@ public sealed class Board
         if (p == null) return;
         p.MoveTo(action.ToRow, action.ToCol);
     }
-    public IEnumerable<ActionCandidate> GetActionsLinq()
+
+    // public IEnumerable<ActionCandidate> GetActionsLinq()
+    // {
+    //     const int maxExplodeSteps = 8;
+
+    //     int PieceId(int row, int col) => HashCode.Combine(row, col);
+    //     int DirectionId(PatternDto d) => HashCode.Combine(d.Vector.X, d.Vector.Y, d.Captures);
+
+    //     // 1️⃣ Generate all exploded move targets (piece × direction × step)
+    //     var exploded =
+    //         from Piece p in _pieces
+    //         from PatternDto d in p.Policy.GetPatterns()
+    //         from int step in Enumerable.Range(1, maxExplodeSteps)
+    //         let toRow = p.Row + d.Vector.X * step
+    //         let toCol = p.Col + d.Vector.Y * step
+    //         select new
+    //         {
+    //             Piece = p,
+    //             Direction = d,
+    //             Step = step,
+    //             ToRow = toRow,
+    //             ToCol = toCol,
+    //             Occupying = PieceAt(toRow, toCol)
+    //         };
+
+    //     // 2️⃣ Keep only cells inside the board
+    //     var bounded =
+    //         from e in exploded
+    //         select e;
+
+    //     // 3️⃣ Compute, per (piece,direction), where the *first occupied* cell is
+    //     var firstBlocks =
+    //         from e in bounded
+    //         where e.Occupying != null
+    //         group e by new { Id = PieceId(e.Piece.Row, e.Piece.Col), Id1 = DirectionId(e.Direction) } into g
+    //         select new
+    //         {
+    //             g.Key.Id,
+    //             g.Key.Id1,
+    //             FirstBlockStep = g.Min(x => x.Step)
+    //         };
+
+    //     // 4️⃣ Join exploded moves with the first-block info
+    //     var joined =
+    //         from e in bounded
+    //         join fb in firstBlocks
+    //             on new { Id = PieceId(e.Piece.Row, e.Piece.Col), Id1 = DirectionId(e.Direction) } equals new { fb.Id, fb.Id1 }
+    //             into fbGroup
+    //         from fb in fbGroup.DefaultIfEmpty()
+    //         select new
+    //         {
+    //             e,
+    //             FirstBlockStep = fb?.FirstBlockStep
+    //         };
+
+    //     // 5️⃣ Filter to keep only steps before the first occupied
+    //     var visible =
+    //         from j in joined
+    //         where j.FirstBlockStep == null || j.e.Step <= j.FirstBlockStep
+    //         select j.e;
+
+    //     // 6️⃣ Convert to ActionCandidates and filter final legality
+    //     var legal =
+    //         from v in visible
+    //         where IsValidTarget(v.ToRow, v.ToCol, v.Direction.Captures)
+    //            && IsValidMovePath(v.ToRow, v.ToCol, v.Direction.Captures)
+    //         select new ActionCandidate(
+    //             v.Piece.Row,
+    //             v.Piece.Col,
+    //             v.ToRow,
+    //             v.ToCol,
+    //             v.Direction,
+    //             v.Step,
+
+    //             v.Direction.Jumps,
+    //             new List<CellActor>()
+    //         );
+
+    //     return legal;
+    // }
+
+    // Variant that allows injecting a captures/jumps filter to help diagnose which
+    // of those two attributes causes a candidate to be rejected.
+    public IEnumerable<ActionCandidate> GetActionsLinq(Faction turnFaction, CaptureBehavior capturesFilter, bool jumpsFilter)
     {
         const int maxExplodeSteps = 8;
 
@@ -334,9 +417,9 @@ public sealed class Board
 
         // 1️⃣ Generate all exploded move targets (piece × direction × step)
         var exploded =
-            from Piece p in _pieces
-            from PatternDto d in p.Policy.GetPatterns()
-            from int step in Enumerable.Range(1, maxExplodeSteps)
+            from Piece p in _pieces.Filter(p => p.Faction == turnFaction)
+            from PatternDto d in p.Policy.GetPatterns().Filter(d => d.Captures == capturesFilter && d.Jumps == jumpsFilter)
+            from int step in Enumerable.Range(1, d.Jumps ? 1 : maxExplodeSteps)
             let toRow = p.Row + d.Vector.X * step
             let toCol = p.Col + d.Vector.Y * step
             select new
@@ -385,11 +468,13 @@ public sealed class Board
             where j.FirstBlockStep == null || j.e.Step <= j.FirstBlockStep
             select j.e;
 
-        // 6️⃣ Convert to ActionCandidates and filter final legality
+        // 6️⃣ Convert to ActionCandidates and filter final legality using the provided filters
         var legal =
             from v in visible
-            where IsValidTarget(v.ToRow, v.ToCol, v.Direction.Captures)
-               && IsValidMovePath(v.ToRow, v.ToCol, v.Direction.Captures)
+            where v.Direction.Captures == capturesFilter
+               && v.Direction.Jumps == jumpsFilter
+               && IsValidTarget(v.ToRow, v.ToCol, capturesFilter)
+               && IsValidMovePath(v.ToRow, v.ToCol, capturesFilter)
             select new ActionCandidate(
                 v.Piece.Row,
                 v.Piece.Col,
@@ -405,7 +490,7 @@ public sealed class Board
         return legal;
     }
 
-    public IEnumerable<ActionCandidate> GetActions()
+    public IEnumerable<ActionCandidate> GetActions(Faction turnFaction)
     {
         // Extract per-piece expansion to a helper for clarity and incremental refactor.
         const int maxExplodeSteps = 8;
@@ -437,9 +522,6 @@ public sealed class Board
                     if (steps > maxExplodeSteps)
                         break;
 
-                    // Check bounds and stop this direction if outside
-                    if (!IsInside(y, x))
-                        break;
 
                     var cell = new CellActor(y, x);
                     traversedCells.Add(cell);
@@ -470,11 +552,47 @@ public sealed class Board
             .SelectMany(p => ExpandPieceActions(p))
             .AsSequential();
 
-        return expanded
+        var r = expanded
             .Filter(a => IsInside(a.FromRow, a.FromCol))
             .Filter(a => IsInside(a.ToRow, a.ToCol))
             .Filter(a => IsValidTarget(a.ToRow, a.ToCol, a.Pattern.Captures))
             .Filter(a => a.TraversedCells.All(cell => IsValidMovePath(cell.Row, cell.Col, a.Pattern.Captures)));
+
+        var jumps = r.Filter(a => a.Pattern.Captures == CaptureBehavior.MoveOrCapture && a.Pattern.Jumps);
+
+        var jumpsLinq = GetActionsLinq(turnFaction, CaptureBehavior.MoveOrCapture, true)
+            .Filter(a => IsInside(a.FromRow, a.FromCol))
+            .Filter(a => IsInside(a.ToRow, a.ToCol));
+
+        //compare the three sets for debugging/discrepancies here using the difference in count
+        var jumpsDiff = jumps.Count() - jumpsLinq.Count();
+
+        // Console.WriteLine($"Jumps Diff Len: {jumpsDiff}(Jumps: {jumps.Count()} vs {jumpsLinq.Count()})");
+
+        // // if jump counts differ, check which specific candidates are missing/extra
+        // if (jumpsDiff != 0)
+        // {
+        //     var jumpsSet = new HashSet<(int FromRow, int FromCol, int ToRow, int ToCol)>(jumps.Select(a => (a.FromRow, a.FromCol, a.ToRow, a.ToCol)));
+        //     var jumpsLinqSet = new HashSet<(int FromRow, int FromCol, int ToRow, int ToCol)>(jumpsLinq.Select(a => (a.FromRow, a.FromCol, a.ToRow, a.ToCol)));
+
+        //     var missingInLinq = jumpsSet.Except(jumpsLinqSet).ToList();
+        //     var extraInLinq = jumpsLinqSet.Except(jumpsSet).ToList();
+
+        //     Console.WriteLine("Missing in LINQ:");
+        //     foreach (var item in missingInLinq)
+        //     {
+        //         Console.WriteLine(item);
+        //     }
+
+        //     Console.WriteLine("Extra in LINQ:");
+        //     foreach (var item in extraInLinq)
+        //     {
+        //         Console.WriteLine(item);
+        //     }
+        // }
+
+
+        return r;
     }
 
     public bool IsInside(int row, int col) => row >= 0 && row < Rows && col >= 0 && col < Cols;
@@ -527,7 +645,7 @@ public sealed class Game
 
     public IEnumerable<ActionCandidate> GetActions()
     {
-        return _board.GetActions()
+        return _board.GetActions(TurnFaction)
                      .Filter(a => a.Piece != null && a.Piece.Faction == TurnFaction)
                      .Filter(a => !IsBlocked(a))
                      .Filter(a => true) // placeholder for empty captures
