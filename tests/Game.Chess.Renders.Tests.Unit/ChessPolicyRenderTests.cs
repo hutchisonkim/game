@@ -77,7 +77,7 @@ public class ChessPolicyRenderTests
 
         for (int turn = 0; turn < turnCount; turn++)
         {
-            List<ChessAction> actions = [.. state.GetAvailableActions()];
+            List<ChessAction> actions = [.. state.GetActionCandidates()];
             if (actions.Count == 0) break;
 
             ChessAction randomAction = actions[rng.Next(actions.Count)];

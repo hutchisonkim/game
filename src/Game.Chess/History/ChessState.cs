@@ -2,7 +2,7 @@
 
 using Game.Core;
 using Game.Chess.Entity;
-using Game.Core.Wip;
+using static Game.Chess.History.ChessHistoryUtility;
 
 namespace Game.Chess.History;
 
@@ -94,265 +94,104 @@ public class ChessState : IState<ChessAction, ChessState>
         return newBoard;
     }
 
-    // Current turn represented as a color flag
-    public ChessPieceAttribute CurrentTurnColorFlag => (TurnCount % 2 == 0) ? ChessPieceAttribute.White : ChessPieceAttribute.Black;
+    public ChessPieceAttribute TurnColor => (TurnCount % 2 == 0) ? ChessPieceAttribute.White : ChessPieceAttribute.Black;
 
-    public IEnumerable<ChessAction> GetAvailableActions()
-    {
-        var currentColorFlag = CurrentTurnColorFlag;
-        return GetAvailableActionsDetailed().PieceMoves
-            .Where(m => (m.Piece.ColorFlag & currentColorFlag) != 0)
-            .Select(m => m.ChessAction);
-    }
+    //refactor below as ChessActionCandidate methods
+    public IEnumerable<ChessActionCandidate> GetActionCandidates() =>
+        ChessHistoryUtility.GetActionCandidates(_board, TurnColor);
 
-    public record AvailableActionsResult(
-        IEnumerable<PieceAction> PieceMoves
-    );
+    public IEnumerable<ChessActionCandidate> GetAttackingActionCandidates(ChessPieceAttribute attackingColor) =>
+        ChessHistoryUtility.GetActionCandidates(_board, attackingColor)
+            .Where(candidate => candidate.Pattern.Captures != CaptureBehavior.MoveOnly);
 
-    public ChessState GetNextState(PieceAction pieceAction) => Apply(pieceAction.ChessAction);
-    public AvailableActionsResult GetNextAvailableActionsDetailed(PieceAction pieceAction) => GetNextState(pieceAction).GetAvailableActionsDetailed();
-
-    public AvailableActionsResult GetAvailableActionsDetailed()
-    {
-
-        var pieceActions = new List<PieceAction>();
-
-        // Build a lightweight Board using the new core types and expand piece actions
-        var board = new Game.Core.Wip.Board(8, 8);
-
-        // Map ChessPiece -> core Piece with policy and faction
-        for (int row = 0; row < 8; row++)
-        {
-            for (int col = 0; col < 8; col++)
+    public IEnumerable<ChessActionCandidate> GetThreateningActionCandidates(ChessPieceAttribute threateningColor) =>
+        GetAttackingActionCandidates(threateningColor)
+            .Where(candidate =>
             {
-                var cp = this[row, col];
-                if (cp.IsEmpty) continue;
+                var threatenedPiece = this[candidate.Action.To.Row, candidate.Action.To.Col];
+                return !threatenedPiece.IsEmpty && !threatenedPiece.IsSameColor(threateningColor);
+            });
 
-                var faction = cp.IsWhite ? Game.Core.Wip.Faction.White : Game.Core.Wip.Faction.Black;
-                var piecePolicy = new Game.Core.Wip.PiecePolicy(ChessHistoryUtility.GetPatternDtosFor(cp));
-                var corePiece = new Game.Core.Wip.Piece(piecePolicy, faction, row, col);
-                board.AddPiece(corePiece);
-            }
-        }
-
-        // Expand board-level actions and apply capture filtering similar to previous logic
-        var candidatesAll = board.GetActions(CurrentTurnColorFlag == ChessPieceAttribute.White ? Game.Core.Wip.Faction.White : Game.Core.Wip.Faction.Black);
-
-        foreach (var cand in candidatesAll)
-        {
-            var fromPiece = board.PieceAt(cand.FromRow, cand.FromCol);
-            if (fromPiece == null) continue;
-
-            // Translate board coordinates to chess representation and check capture rules
-            var target = this[cand.ToRow, cand.ToCol];
-            var captures = cand.Pattern.Captures;
-
-            bool accept = false;
-            if (target.IsEmpty)
+    public IEnumerable<ChessActionCandidate> GetCheckingActionCandidates(ChessPieceAttribute checkingColor) =>
+        GetThreateningActionCandidates(checkingColor)
+            .Where(candidate =>
             {
-                if (captures == CaptureBehavior.MoveOnly || captures == CaptureBehavior.MoveOrCapture)
-                    accept = true;
-            }
-            else
-            {
-                if (target.IsWhite != (fromPiece.Faction == Game.Core.Wip.Faction.White))
-                {
-                    if (captures == CaptureBehavior.CaptureOnly || captures == CaptureBehavior.MoveOrCapture)
-                        accept = true;
-                }
-            }
-
-            if (!accept) continue;
-
-            var chessAction = new ChessAction(new ChessPosition(cand.FromRow, cand.FromCol), new ChessPosition(cand.ToRow, cand.ToCol));
-            // Retrieve original chess piece from state for the result payload
-            var originalPiece = this[cand.FromRow, cand.FromCol];
-            pieceActions.Add(new PieceAction(chessAction, originalPiece));
-        }
-
-        return new AvailableActionsResult(pieceActions);
-    }
-
-    public class Cell
-    {
-        public int Row { get; }
-        public int Col { get; }
-        public ChessPiece OccupyingPiece => _state.Board[Row, Col];
-        private ChessState _state;
-        public Cell(int row, int col, ChessState state)
-        {
-            Row = row;
-            Col = col;
-            _state = state;
-        }
-    }
-
-    public class AttackedCell : Cell
-    {
-        public IEnumerable<PieceAction> AttackingPieceActions { get; }
-
-        public AttackedCell(int row, int col, ChessState state, IEnumerable<PieceAction> attackingMoves)
-            : base(row, col, state)
-        {
-            AttackingPieceActions = attackingMoves;
-        }
-    }
-
-    public IEnumerable<AttackedCell> GetAttackedCells(ChessPieceAttribute attackedColorFlag)
-    {
-        var cellsDict = new Dictionary<(int, int), List<PieceAction>>();
-        var availableActions = GetAvailableActionsDetailed().PieceMoves;
-
-        foreach (var move in availableActions)
-        {
-            if ((move.Piece.ColorFlag & attackedColorFlag) == 0) continue; // keep only attacking moves
-
-            var toPos = move.ChessAction.To;
-            var attackedPosition = (toPos.Row, toPos.Col);
-
-            if (!cellsDict.TryGetValue(attackedPosition, out List<PieceAction>? attackingMoves))
-            {
-                attackingMoves = new List<PieceAction>();
-                cellsDict[attackedPosition] = attackingMoves;
-            }
-
-            attackingMoves.Add(move);
-        }
-
-        return cellsDict.Select(kvp => new AttackedCell(
-            row: kvp.Key.Item1,
-            col: kvp.Key.Item2,
-            state: this,
-            attackingMoves: kvp.Value
-        ));
-    }
+                var threatenedPiece = this[candidate.Action.To.Row, candidate.Action.To.Col];
+                return (threatenedPiece.TypeFlag & ChessPieceAttribute.King) != 0;
+            });
 
 
-    public IEnumerable<Cell> GetThreatenedCells(ChessPieceAttribute threatenedColorFlag) => GetAttackedCells(threatenedColorFlag)
-        .Where(c => !c.OccupyingPiece.IsEmpty && ((c.OccupyingPiece.ColorFlag & threatenedColorFlag) != 0));
 
-    public IEnumerable<Cell> GetCheckedCells(ChessPieceAttribute checkedColorFlag)
-    {
-        var kingPositions = GetPiecesByType(checkedColorFlag, ChessPieceAttribute.King);
-        if (kingPositions.Count != 1) return Enumerable.Empty<Cell>();
-
-        var kingPos = kingPositions.First();
-        var attackedCells = GetAttackedCells(checkedColorFlag);
-
-        return attackedCells.Where(c => c.Row == kingPos.Row && c.Col == kingPos.Col);
-    }
-
-    public IEnumerable<Cell> GetEmptyCells()
-    {
-        var emptyCells = new List<Cell>();
-        for (int row = 0; row < 8; row++)
-        {
-            for (int col = 0; col < 8; col++)
-            {
-                if (this[row, col].IsEmpty)
-                {
-                    emptyCells.Add(new Cell(row, col, this));
-                }
-            }
-        }
-        return emptyCells;
-    }
-
-    public IEnumerable<Cell> GetOccupiedCells()
-    {
-        var occupiedCells = new List<Cell>();
-        for (int row = 0; row < 8; row++)
-        {
-            for (int col = 0; col < 8; col++)
-            {
-                var piece = this[row, col];
-                if (!piece.IsEmpty)
-                {
-                    occupiedCells.Add(new Cell(row, col, this));
-                }
-            }
-        }
-        return occupiedCells;
-    }
-
-    public IEnumerable<Cell> GetBlockedCells(ChessPieceAttribute currentTurnColorFlag)
+    public IEnumerable<(int X, int Y)> GetBlockedPositions(ChessPieceAttribute blockedColor)
     {
         // start by getting all available actions for the current turn color and record their "from" position
         // then find all cells that are occupied by pieces of the same color
         // then find the cells that are occupied by pieces of the opposite color and are not in the "from" position of any available action
         // those are the blocked cells
-        var availableActions = GetAvailableActionsDetailed().PieceMoves
-            .Where(m => (m.Piece.ColorFlag & currentTurnColorFlag) != 0)
-            .Select(m => (m.ChessAction.From.Row, m.ChessAction.From.Col))
-            .ToHashSet();
-        var blockedCells = new List<Cell>();
         for (int row = 0; row < 8; row++)
         {
             for (int col = 0; col < 8; col++)
             {
-                var piece = _board[row, col];
-                if (!piece.IsEmpty && ((piece.ColorFlag & currentTurnColorFlag) != 0))
-                {
-                    //print
-                    if (!availableActions.Contains((row, col)))
-                    {
-                        blockedCells.Add(new Cell(row, col, this));
-                    }
-                }
+                var piece = this[row, col];
+                if (piece.IsEmpty) continue;
+                if (!piece.IsSameColor(blockedColor)) continue;
+                var actionsFromCell = GetActionCandidates()
+                    .Where(c => c.Action.From.Row == row && c.Action.From.Col == col)
+                    .ToList();
+                if (actionsFromCell.Count != 0) continue;
+                yield return (row, col);
             }
         }
-        return blockedCells;
     }
 
-    public IEnumerable<Cell> GetPinnedCells(ChessPieceAttribute pinnedColor)
+//because we are using simulatedBoard.TurnColor, we should use the TurnColor rather than an argument. same for all such methods
+    public IEnumerable<(int X, int Y)> GetPinnedCells(ChessPieceAttribute pinnedColor)
     {
         // start by getting the king position for the pinned color
         // then get all available actions for the opposite color
         // then, for each action, simulate the move and see if it results in a check on the king
         // flag each action with this information
         // then, for each cell occupied by a piece of the pinned color, flag the cell as pinned if all actions from that cell result in a check on the king
-        var kingPositions = GetPiecesByType(pinnedColor, ChessPieceAttribute.King);
-        if (kingPositions.Count != 1) return Enumerable.Empty<Cell>();
-        var kingPos = kingPositions.First();
-        var oppositeColor = (pinnedColor & ChessPieceAttribute.White) != 0 ? ChessPieceAttribute.Black : ChessPieceAttribute.White;
-        var oppositeActions = GetAvailableActionsDetailed().PieceMoves
-            .Where(m => (m.Piece.ColorFlag & oppositeColor) != 0)
-            .ToList();
-        var pinnedCells = new List<Cell>();
-        for (int row = 0; row < 8; row++)
+        List<(int X, int Y)> pinnedCells = new List<(int X, int Y)>();
+        IReadOnlyCollection<(int X, int Y)> kingPositions = GetPiecesByType(pinnedColor, ChessPieceAttribute.King);
+        if (kingPositions.Count != 1) return pinnedCells;
+        (int X, int Y) kingPosition = kingPositions.First();
+        ChessPiece kingPiece = this[kingPosition.X, kingPosition.Y];
+        if (kingPiece.IsEmpty) throw new InvalidOperationException("King piece not found at expected position.");
+        if (!kingPiece.IsSameColor(pinnedColor)) throw new InvalidOperationException("King piece color does not match pinned color.");
+
+        List<ChessActionCandidate> opposingActionCandidates = [.. GetActionCandidates()
+            .Where(c => !this[c.Action.From.Row, c.Action.From.Col].IsSameColor(pinnedColor))];
+
+        //for each opposing action candidate, simulate the move by applying it to a cloned board and check if the king is checked
+        foreach (ChessActionCandidate checkingActionCandidate in opposingActionCandidates)
         {
-            for (int col = 0; col < 8; col++)
-            {
-                var piece = this[row, col];
-                if (!piece.IsEmpty && ((piece.ColorFlag & pinnedColor) != 0))
-                {
-                    var actionsFromCell = oppositeActions
-                        .Where(m => m.ChessAction.From.Row == row && m.ChessAction.From.Col == col)
-                        .ToList();
-                    if (actionsFromCell.Count > 0 && actionsFromCell.All(a => GetNextState(a).GetCheckedCells(pinnedColor).Any()))
-                    {
-                        pinnedCells.Add(new Cell(row, col, this));
-                    }
-                }
-            }
+            ChessState simulatedBoard = Apply(checkingActionCandidate.Action);
+            IEnumerable<ChessActionCandidate> checkingCandidates = simulatedBoard.GetCheckingActionCandidates(simulatedBoard.TurnColor);
+            if (checkingCandidates.Any()) continue;
+            (int Row, int Col) pinnedCell = (checkingActionCandidate.Action.From.Row, checkingActionCandidate.Action.From.Col);
+            if (pinnedCells.Contains(pinnedCell)) continue;
+            pinnedCells.Add(pinnedCell);
         }
+
+
         return pinnedCells;
     }
 
 
 
-    public IReadOnlyCollection<ChessPosition> GetPiecesByType(ChessPieceAttribute pieceColorFlag, ChessPieceAttribute pieceTypeFlag)
+    public IReadOnlyCollection<(int X, int Y)> GetPiecesByType(ChessPieceAttribute pieceColor, ChessPieceAttribute pieceType)
     {
-        var positions = new List<ChessPosition>();
+        var positions = new List<(int X, int Y)>();
         for (int row = 0; row < 8; row++)
         {
             for (int col = 0; col < 8; col++)
             {
                 var piece = this[row, col];
-                if (!piece.IsEmpty && ((piece.ColorFlag & pieceColorFlag) != 0) && ((piece.TypeFlag & pieceTypeFlag) != 0))
-                {
-                    positions.Add(new ChessPosition(row, col));
-                }
+                if (piece.IsEmpty) continue;
+                if (!piece.IsSameColor(pieceColor)) continue;
+                if (!piece.IncludesType(pieceType)) continue;
+                positions.Add((row, col));
             }
         }
         return positions;

@@ -23,10 +23,16 @@ public record struct ChessPiece(ChessPieceAttribute Attributes)
 
     public readonly bool IsWhite => (Attributes & ChessPieceAttribute.White) != 0;
 
+    public readonly (int X, int Y) ForwardAxis() => (1, IsWhite ? 1 : -1);
+
     public readonly bool IsEmpty => Attributes == ChessPieceAttribute.None;
 
     public static ChessPiece Empty { get; } = new(ChessPieceAttribute.None);
 
     public readonly ChessPieceAttribute ColorFlag => Attributes & (ChessPieceAttribute.White | ChessPieceAttribute.Black);
     public readonly ChessPieceAttribute TypeFlag => Attributes & (ChessPieceAttribute.Pawn | ChessPieceAttribute.Rook | ChessPieceAttribute.Knight | ChessPieceAttribute.Bishop | ChessPieceAttribute.Queen | ChessPieceAttribute.King);
+
+    public readonly bool IsSameColor(ChessPieceAttribute otherColorFlag) => (ColorFlag & otherColorFlag) != 0;
+    public readonly bool IncludesType(ChessPieceAttribute otherTypeFlag) => (TypeFlag & otherTypeFlag) != 0;
+    
 }

@@ -26,15 +26,15 @@ public class ChessView : ViewBase<ChessAction, ChessState>
 
     public override byte[] RenderStatePng(ChessState state, int stateSize = 400)
     {
-    var currentTurnColorFlag = state.CurrentTurnColorFlag;
+    var currentTurnColorFlag = state.TurnColor;
     var otherColor = (currentTurnColorFlag & ChessPieceAttribute.White) != 0 ? ChessPieceAttribute.Black : ChessPieceAttribute.White;
         using var bmp = ComposeBoard(state, stateSize);
         if (_renderBlockedCells)
-            StampBlockedCells(bmp, state.GetBlockedCells(currentTurnColorFlag), stateSize);
+            StampBlockedCells(bmp, state.GetBlockedPositions(currentTurnColorFlag), stateSize);
         if (_renderPinnedCells)
             StampPinnedCells(bmp, state.GetPinnedCells(currentTurnColorFlag), stateSize);
         if (_renderAttackedCells)
-            StampAttackedCells(bmp, state.GetAttackedCells(currentTurnColorFlag), stateSize);
+            StampAttackedCells(bmp, state.GetAttackingActionCandidates(currentTurnColorFlag), stateSize);
         if (_renderThreatenedCells)
             StampThreatenedCells(bmp, state.GetThreatenedCells(otherColor), stateSize);
         if (_renderCheckedCells)

@@ -44,7 +44,7 @@ public class RenderStatePngTests
     {
         // Arrange
         var board = new ChessState();
-        var moves = board.GetAvailableActions().ToList();
+        var moves = board.GetActionCandidates().ToList();
         Assert.True(moves.Count > 0);
 
         // Pick a random move deterministically
@@ -93,7 +93,7 @@ public class RenderStatePngTests
 
         for (int turn = 0; turn < 64; turn++)
         {
-            var moves = currentBoard.GetAvailableActions().ToList();
+            var moves = currentBoard.GetActionCandidates().ToList();
             if (moves.Count == 0) break;
 
             var move = moves[rng.Next(moves.Count)];
