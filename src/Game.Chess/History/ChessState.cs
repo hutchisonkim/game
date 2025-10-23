@@ -104,22 +104,22 @@ public class ChessState : IState<ChessAction, ChessState>
 
     //refactor below as ChessActionCandidate methods
     public IEnumerable<ChessActionCandidate> GetActionCandidates() =>
-        ChessHistoryUtility.GetActionCandidates(_board, TurnColor);
+        ChessHistoryUtility.GetActionCandidates(_board, TurnColor, false, false);
 
-    public IEnumerable<ChessActionCandidate> GetAttackingActionCandidates(ChessPieceAttribute attackingColor) =>
-        ChessHistoryUtility.GetActionCandidates(_board, attackingColor)
+    public IEnumerable<ChessActionCandidate> GetAttackingActionCandidates(ChessPieceAttribute attackingColor, bool includeTargetless, bool includeFriendlyfire) =>
+        ChessHistoryUtility.GetActionCandidates(_board, attackingColor, includeTargetless, includeFriendlyfire)
             .Where(candidate => candidate.Pattern.Captures != CaptureBehavior.MoveOnly);
 
-    public IEnumerable<ChessActionCandidate> GetThreateningActionCandidates(ChessPieceAttribute threateningColor) =>
-        GetAttackingActionCandidates(threateningColor)
+    public IEnumerable<ChessActionCandidate> GetThreateningActionCandidates(ChessPieceAttribute threateningColor, bool includeTargetless, bool includeFriendlyfire) =>
+        GetAttackingActionCandidates(threateningColor, includeTargetless, includeFriendlyfire)
             .Where(candidate =>
             {
                 var threatenedPiece = this[candidate.Action.To.X, candidate.Action.To.Y];
                 return !threatenedPiece.IsEmpty && !threatenedPiece.IsSameColor(threateningColor);
             });
 
-    public IEnumerable<ChessActionCandidate> GetCheckingActionCandidates(ChessPieceAttribute checkingColor) =>
-        GetThreateningActionCandidates(checkingColor)
+    public IEnumerable<ChessActionCandidate> GetCheckingActionCandidates(ChessPieceAttribute checkingColor, bool includeTargetless, bool includeFriendlyfire) =>
+        GetThreateningActionCandidates(checkingColor, includeTargetless, includeFriendlyfire)
             .Where(candidate =>
             {
                 var threatenedPiece = this[candidate.Action.To.X, candidate.Action.To.Y];
@@ -151,7 +151,7 @@ public class ChessState : IState<ChessAction, ChessState>
     }
 
 //because we are using simulatedBoard.TurnColor, we should use the TurnColor rather than an argument. same for all such methods
-    public IEnumerable<(int X, int Y)> GetPinnedCells(ChessPieceAttribute pinnedColor)
+    public IEnumerable<(int X, int Y)> GetPinnedCells(ChessPieceAttribute pinnedColor, bool includeTargetless, bool includeFriendlyfire)
     {
         // start by getting the king position for the pinned color
         // then get all available actions for the opposite color
@@ -173,7 +173,7 @@ public class ChessState : IState<ChessAction, ChessState>
         foreach (ChessActionCandidate checkingActionCandidate in opposingActionCandidates)
         {
             ChessState simulatedBoard = Apply(checkingActionCandidate.Action);
-            IEnumerable<ChessActionCandidate> checkingCandidates = simulatedBoard.GetCheckingActionCandidates(simulatedBoard.TurnColor);
+            IEnumerable<ChessActionCandidate> checkingCandidates = simulatedBoard.GetCheckingActionCandidates(simulatedBoard.TurnColor, includeTargetless, includeFriendlyfire);
             if (checkingCandidates.Any()) continue;
             (int Row, int Col) pinnedCell = (checkingActionCandidate.Action.From.X, checkingActionCandidate.Action.From.Y);
             if (pinnedCells.Contains(pinnedCell)) continue;

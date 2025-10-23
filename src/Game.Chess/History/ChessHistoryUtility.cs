@@ -101,7 +101,7 @@ public static class ChessHistoryUtility
         }
     }
 
-    public static IEnumerable<ChessActionCandidate> GetActionCandidates(ChessPiece[,] board, ChessPieceAttribute turnColor)
+    public static IEnumerable<ChessActionCandidate> GetActionCandidates(ChessPiece[,] board, ChessPieceAttribute turnColor, bool includeTargetless, bool includeFriendlyfire)
     {
         int width = board.GetLength(0);
         int height = board.GetLength(1);
@@ -160,13 +160,13 @@ public static class ChessHistoryUtility
                         // if (pattern.ForwardOnly && fromPiece.IsWhite)
                         //     Console.WriteLine($"C From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
                         ChessPiece toPiece = board[toX, toY];
-                        if (toPiece.IsEmpty && pattern.Captures == CaptureBehavior.CaptureOnly) break;
+                        if (toPiece.IsEmpty && pattern.Captures == CaptureBehavior.CaptureOnly && !includeTargetless) break;
                         // if (pattern.ForwardOnly && fromPiece.IsWhite)
                         //     Console.WriteLine($"D From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps} toPiece.Attributes: {toPiece.Attributes}");
                         if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOnly) break;
                         // if (pattern.ForwardOnly && fromPiece.IsWhite)
                         //     Console.WriteLine($"E From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
-                        if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor)) break;
+                        if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor) && !includeFriendlyfire) break;
                         // if (pattern.ForwardOnly && fromPiece.IsWhite)
                         //     Console.WriteLine($"S From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
 

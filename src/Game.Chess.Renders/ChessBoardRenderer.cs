@@ -108,12 +108,12 @@ internal static class ChessBoardStamps
         var shortestLength = cell;
         var longestLength = (int)Math.Sqrt(2 * (cell * cell));
         var lowestWidth = Math.Max(2, cell / 10);
-        // var highestWidth = Math.Max(2, cell / 9);
-        var highestWidth = lowestWidth;
+        var highestWidth = Math.Max(2, cell / 8);
+        // var highestWidth = lowestWidth;
         var lowestColor = color;
         //highest is the same as color but a bit more bright
-        // var highestColor = Color.FromArgb(255, Math.Min(255, color.R + 5), Math.Min(255, color.G + 5), Math.Min(255, color.B + 5));
-        var highestColor = color;
+        var highestColor = Color.FromArgb(255, Math.Min(255, color.R + 5), Math.Min(255, color.G + 5), Math.Min(255, color.B + 5));
+        // var highestColor = color;
 
         var linesToDraw = new List<(Pen pen, PointF from, PointF to, int width)>();
         foreach (var (fromX, fromY, toX, toY) in moves)
@@ -133,7 +133,9 @@ internal static class ChessBoardStamps
 
             var pen = new Pen(lineColor, lineWidth)
             {
-                EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor
+                // EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor
+                EndCap = System.Drawing.Drawing2D.LineCap.Round,
+                StartCap = System.Drawing.Drawing2D.LineCap.Round
             };
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
@@ -156,7 +158,7 @@ internal static class ChessBoardStamps
     {
         var bmp = new Bitmap(cell * 8, cell * 8);
         using var g = Graphics.FromImage(bmp);
-        StampMoves(g, cell, moves, color);
+        StampMoves(g, cell, moves, color, false);
         return bmp;
     }
 
@@ -192,8 +194,7 @@ internal static class ChessBoardStamps
         }
         return "?";
     }
-
-    internal static void StampCells_InnerContour(Graphics g, int cell, int boardSize, List<(int, int, int, int)> positions, Color color, int thickness)
+    internal static void StampCells_InnerContour(Graphics g, int cell, int boardSize, IEnumerable<(int, int)> positions, Color color, int thickness, int distanceFromEdge = 0)
     {
         using var pen = new Pen(color, thickness)
         {
@@ -203,14 +204,19 @@ internal static class ChessBoardStamps
         };
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-        foreach ((int fromX, int fromY, int toX, int toY) position in positions)
+        foreach ((int X, int Y) position in positions)
         {
-            Rectangle rect = new(position.fromX * cell + thickness / 2, position.fromY * cell + thickness / 2, cell - thickness, cell - thickness);
-            var inverseRect = InverseRectangleVertically(rect, boardSize, cell);
-            g.DrawRectangle(pen, inverseRect);
-            //also fill the rectangle with a  semi-transparent version of the color
+            (int X, int Y) inversePosition = (position.X, boardSize - 1 - position.Y);
+            Rectangle drawRect = new(
+                inversePosition.X * cell + thickness / 2 + distanceFromEdge,
+                inversePosition.Y * cell + thickness / 2 + distanceFromEdge,
+                cell - thickness - 2 * distanceFromEdge,
+                cell - thickness - 2 * distanceFromEdge
+            );
+            g.DrawRectangle(pen, drawRect);
+
             using var brush = new SolidBrush(Color.FromArgb(150, color));
-            g.FillRectangle(brush, inverseRect);
+            g.FillRectangle(brush, drawRect);
         }
     }
 

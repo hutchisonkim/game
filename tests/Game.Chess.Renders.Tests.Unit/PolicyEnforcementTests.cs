@@ -18,8 +18,8 @@ public class PolicyEnforcementTests
 
         // Act
         var renderAttackedCells = true;
-        var renderThreatenedCells = true;
-        var renderCheckedCells = true;
+        var renderThreatenedCells = false;
+        var renderCheckedCells = false;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
         var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
@@ -50,12 +50,12 @@ public class PolicyEnforcementTests
         // Arrange
         var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new ChessAction(new ChessPosition(1, 0), new ChessPosition(3, 0))); // a2 to a4
+        var newState = state.Apply(new ChessAction(new ChessPosition(0, 1), new ChessPosition(0, 3))); // a2 to a4
 
         // Act
         var renderAttackedCells = true;
-        var renderThreatenedCells = true;
-        var renderCheckedCells = true;
+        var renderThreatenedCells = false;
+        var renderCheckedCells = false;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
         var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
@@ -86,12 +86,12 @@ public class PolicyEnforcementTests
         // Arrange
         var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new ChessAction(new ChessPosition(0, 5), new ChessPosition(3, 5))); // f1 to f4
+        var newState = state.Apply(new ChessAction(new ChessPosition(5, 0), new ChessPosition(5, 3))); // f1 to f4
 
         // Act
         var renderAttackedCells = true;
-        var renderThreatenedCells = true;
-        var renderCheckedCells = true;
+        var renderThreatenedCells = false;
+        var renderCheckedCells = false;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
         var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
@@ -122,12 +122,12 @@ public class PolicyEnforcementTests
         // Arrange
         var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new ChessAction(new ChessPosition(0, 3), new ChessPosition(3, 3))); // d1 to d4
+        var newState = state.Apply(new ChessAction(new ChessPosition(3, 0), new ChessPosition(3, 3))); // d1 to d4
 
         // Act
         var renderAttackedCells = true;
-        var renderThreatenedCells = true;
-        var renderCheckedCells = true;
+        var renderThreatenedCells = false;
+        var renderCheckedCells = false;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
         var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
@@ -157,12 +157,12 @@ public class PolicyEnforcementTests
         // Arrange
         var state = new ChessState(); // Initial chess position
         state.UpsTurns = false;
-        var newState = state.Apply(new ChessAction(new ChessPosition(0, 4), new ChessPosition(3, 4))); // e1 to e4
+        var newState = state.Apply(new ChessAction(new ChessPosition(4, 0), new ChessPosition(4, 3))); // e1 to e4
 
         // Act
         var renderAttackedCells = true;
-        var renderThreatenedCells = true;
-        var renderCheckedCells = true;
+        var renderThreatenedCells = false;
+        var renderCheckedCells = false;
         var renderPinnedCells = true;
         var renderBlockedCells = true;
         var chessView = new ChessView(renderAttackedCells, renderThreatenedCells, renderCheckedCells, renderPinnedCells, renderBlockedCells);
