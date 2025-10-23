@@ -14,6 +14,7 @@ public static class ChessHistoryUtility
         public static readonly (int X, int Y) ZeroByOne = (0, 1);
         public static readonly (int X, int Y) OneByOne = (1, 1);
         public static readonly (int X, int Y) OneByTwo = (1, 2);
+        public static readonly (int X, int Y) ZeroByTwo = (0, 2);
     }
 
     internal static IEnumerable<ChessPattern> GetBasePatterns(ChessPiece piece)
@@ -22,8 +23,11 @@ public static class ChessHistoryUtility
         {
             var t when (t & ChessPieceAttribute.Pawn) != 0 =>
             [
+                // single-step pawn move
                 new ChessPattern(vector: Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
-                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.RepeatableOnce, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
+                // two-step initial pawn move (separate pattern so we don't duplicate the single-step)
+                new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
+                // pawn captures
                 new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.CaptureOnly, forwardOnly: true)
             ],
             var t when (t & ChessPieceAttribute.Rook) != 0 =>
@@ -89,8 +93,9 @@ public static class ChessHistoryUtility
         if (fromPiece.IsEmpty) yield break;
         if (!fromPiece.IsSameColor(turnColorAttribute)) yield break;
 
-        var boardSize = board.GetLength(0);
-        int maxSteps = boardSize;
+        int height = board.GetLength(0);
+        int width = board.GetLength(1);
+        int maxSteps = Math.Max(width, height);
 
         (int x, int y) forward = fromPiece.ForwardAxis();
         foreach (ChessPattern pattern in GetPatterns(fromPiece))
@@ -107,9 +112,20 @@ public static class ChessHistoryUtility
                 y += dy;
                 steps++;
 
-                // check bounds using maxSteps as the limit
-                if (x < 0 || x >= maxSteps || y < 0 || y >= maxSteps) break;
-                yield return new ChessAction(new ChessPosition(from.X, from.Y), new ChessPosition(x, y));
+                // check bounds using width/height as the limits
+                if (x < 0 || x >= width || y < 0 || y >= height) break;
+
+                // if this is the two-step pawn move, only allow from the starting rank
+                if (pattern.Delta == Vector2.ZeroByTwo)
+                {
+                    // from.Y is the row (0..7); white pawns start at row 1, black at row 6
+                    var pieceAtFrom = board[from.Y, from.X];
+                    if (pieceAtFrom.IsWhite && from.Y != 1) break;
+                    if (!pieceAtFrom.IsWhite && from.Y != 6) break;
+                }
+
+                // ChessPosition expects (row, col) so pass (y, x)
+                yield return new ChessAction(new ChessPosition(from.Y, from.X), new ChessPosition(y, x));
 
                 if (pattern.Repeats == RepeatBehavior.NotRepeatable) break;
                 if (pattern.Repeats == RepeatBehavior.RepeatableOnce && steps == 1) break;
@@ -136,26 +152,26 @@ public static class ChessHistoryUtility
 
     public static IEnumerable<ChessActionCandidate> GetActionCandidates(ChessPiece[,] board, ChessPieceAttribute turnColor)
     {
-        int width = 8;
-        int height = 8;
+        int height = board.GetLength(0);
+        int width = board.GetLength(1);
 
-        for (int row = 0; row < width; row++)
+        for (int row = 0; row < height; row++)
         {
-            for (int col = 0; col < height; col++)
+            for (int col = 0; col < width; col++)
             {
                 ChessPiece fromPiece = board[row, col];
-                if (fromPiece.IsEmpty) yield break;
-                if (!fromPiece.IsSameColor(turnColor)) yield break;
+                if (fromPiece.IsEmpty) continue;
+                if (!fromPiece.IsSameColor(turnColor)) continue;
 
-                int maxSteps = 8;
+                int maxSteps = Math.Max(width, height);
 
-                (int x, int y) forward = fromPiece.ForwardAxis();
+                var (fx, fy) = fromPiece.ForwardAxis();
                 foreach (ChessPattern pattern in GetPatterns(fromPiece))
                 {
-                    int dx = pattern.Delta.X * forward.x;
-                    int dy = pattern.Delta.Y * forward.y;
-                    int x = row;
-                    int y = col;
+                    int dx = pattern.Delta.X * fx;
+                    int dy = pattern.Delta.Y * fy;
+                    int x = col; // column is x
+                    int y = row; // row is y
                     int steps = 0;
 
                     do
@@ -166,13 +182,21 @@ public static class ChessHistoryUtility
 
                         if (x < 0 || x >= width || y < 0 || y >= height) break;
 
-                        ChessPiece toPiece = board[x, y];
+                        // if this is the two-step pawn move, only allow from the starting rank
+                        if (pattern.Delta == Vector2.ZeroByTwo)
+                        {
+                            if (fromPiece.IsWhite && row != 1) break;
+                            if (!fromPiece.IsWhite && row != 6) break;
+                        }
+
+                        ChessPiece toPiece = board[y, x];
                         if (toPiece.IsEmpty && pattern.Captures == CaptureBehavior.CaptureOnly) break;
                         if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOnly) break;
                         if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor)) break;
 
+                        // ChessPosition expects (row, col)
                         yield return new ChessActionCandidate(
-                            new ChessAction(new ChessPosition(row, col), new ChessPosition(x, y)),
+                            new ChessAction(new ChessPosition(row, col), new ChessPosition(y, x)),
                             pattern,
                             steps
                         );

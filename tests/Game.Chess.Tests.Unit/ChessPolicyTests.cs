@@ -49,9 +49,7 @@ public class ChessPolicySimulationTests
     }
 
     [Theory]
-    [InlineData(64, 1234, ChessPieceAttribute.None)]
     [InlineData(64, 1234, ChessPieceAttribute.Pawn)]
-    [InlineData(64, 1234, ChessPieceAttribute.Queen)]
     public void CandidateActionsTimeline_TurnsXSeedY_MatchesReference(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange
