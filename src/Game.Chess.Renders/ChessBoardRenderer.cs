@@ -107,10 +107,12 @@ internal static class ChessBoardStamps
         var shortestLength = cell;
         var longestLength = (int)Math.Sqrt(2 * (cell * cell));
         var lowestWidth = Math.Max(2, cell / 10);
-        var highestWidth = Math.Max(2, cell / 8);
+        // var highestWidth = Math.Max(2, cell / 9);
+        var highestWidth = lowestWidth;
         var lowestColor = color;
         //highest is the same as color but a bit more bright
-        var highestColor = Color.FromArgb(255, Math.Min(255, color.R + 20), Math.Min(255, color.G + 20), Math.Min(255, color.B + 20));
+        // var highestColor = Color.FromArgb(255, Math.Min(255, color.R + 5), Math.Min(255, color.G + 5), Math.Min(255, color.B + 5));
+        var highestColor = color;
 
         var linesToDraw = new List<(Pen pen, PointF from, PointF to, int width)>();
         foreach (var (fromR, fromF, toR, toF) in moves)

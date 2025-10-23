@@ -14,6 +14,7 @@ public static class ChessHistoryUtility
         public static readonly (int X, int Y) ZeroByOne = (0, 1);
         public static readonly (int X, int Y) OneByOne = (1, 1);
         public static readonly (int X, int Y) OneByTwo = (1, 2);
+        public static readonly (int X, int Y) TwoByOne = (2, 1);
         public static readonly (int X, int Y) ZeroByTwo = (0, 2);
     }
 
@@ -37,7 +38,8 @@ public static class ChessHistoryUtility
             ],
             var t when (t & ChessPieceAttribute.Knight) != 0 =>
             [
-                new ChessPattern(Vector2.OneByTwo, repeats: RepeatBehavior.NotRepeatable, jumps: true)
+                new ChessPattern(Vector2.OneByTwo, repeats: RepeatBehavior.NotRepeatable, jumps: true),
+                new ChessPattern(Vector2.TwoByOne, repeats: RepeatBehavior.NotRepeatable, jumps: true)
             ],
             var t when (t & ChessPieceAttribute.Bishop) != 0 =>
             [
@@ -76,13 +78,13 @@ public static class ChessHistoryUtility
         yield return new ChessPattern(pattern.Delta, MirrorBehavior.None, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.Horizontal) && pattern.Delta.X != 0)
-            yield return new ChessPattern((-pattern.Delta.X, pattern.Delta.Y), MirrorBehavior.None, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
+            yield return new ChessPattern((-pattern.Delta.X, pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.Vertical) && pattern.Delta.Y != 0)
-            yield return new ChessPattern((pattern.Delta.X, -pattern.Delta.Y), MirrorBehavior.None, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
+            yield return new ChessPattern((pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.All) && pattern.Delta.X != 0 && pattern.Delta.Y != 0)
-            yield return new ChessPattern((-pattern.Delta.X, -pattern.Delta.Y), MirrorBehavior.None, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
+            yield return new ChessPattern((-pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
     }
 
     public class ChessActionCandidate
@@ -101,8 +103,8 @@ public static class ChessHistoryUtility
 
     public static IEnumerable<ChessActionCandidate> GetActionCandidates(ChessPiece[,] board, ChessPieceAttribute turnColor)
     {
-        int height = board.GetLength(0);
-        int width = board.GetLength(1);
+        int width = board.GetLength(0);
+        int height = board.GetLength(1);
 
         for (int row = 0; row < height; row++)
         {
@@ -119,8 +121,8 @@ public static class ChessHistoryUtility
                 {
                     int dx = pattern.Delta.X * fx;
                     int dy = pattern.Delta.Y * fy;
-                    int x = col; // column is x
-                    int y = row; // row is y
+                    int x = row;
+                    int y = col;
                     int steps = 0;
 
                     do
@@ -129,7 +131,7 @@ public static class ChessHistoryUtility
                         y += dy;
                         steps++;
 
-                        if (x < 0 || x >= width || y < 0 || y >= height) break;
+                        if (y < 0 || y >= height || x < 0 || x >= width) break;
 
                         // if this is the two-step pawn move, only allow from the starting rank
                         if (pattern.Delta == Vector2.ZeroByTwo)
@@ -138,22 +140,25 @@ public static class ChessHistoryUtility
                             if (!fromPiece.IsWhite && row != 6) break;
 
                             //block if there is a piece in between
-                            ChessPiece intermediatePiece = board[row + (dy / 2), col + (dx / 2)];
+                            ChessPiece intermediatePiece = board[row + (dx / 2), col + (dy / 2)];
                             if (!intermediatePiece.IsEmpty) break;
                         }
 
-                        ChessPiece toPiece = board[y, x];
+                        ChessPiece toPiece = board[x, y];
                         if (toPiece.IsEmpty && pattern.Captures == CaptureBehavior.CaptureOnly) break;
                         if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOnly) break;
                         if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor)) break;
 
+
+
                         // ChessPosition expects (row, col)
                         yield return new ChessActionCandidate(
-                            new ChessAction(new ChessPosition(row, col), new ChessPosition(y, x)),
+                            new ChessAction(new ChessPosition(row, col), new ChessPosition(x, y)),
                             pattern,
                             steps
                         );
 
+                        if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOrCapture) break; // break so you can't jump over pieces when capturing
                         if (pattern.Repeats == RepeatBehavior.NotRepeatable) break;
                         if (pattern.Repeats == RepeatBehavior.RepeatableOnce && steps == 1) break;
                         if (pattern.Jumps) break;

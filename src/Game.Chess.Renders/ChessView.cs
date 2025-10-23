@@ -27,8 +27,8 @@ public class ChessView : ViewBase<ChessAction, ChessState>
 
     public override byte[] RenderStatePng(ChessState state, int stateSize = 400)
     {
-    var currentTurnColorFlag = state.TurnColor;
-    var otherColor = (currentTurnColorFlag & ChessPieceAttribute.White) != 0 ? ChessPieceAttribute.Black : ChessPieceAttribute.White;
+        var currentTurnColorFlag = state.TurnColor;
+        var otherColor = (currentTurnColorFlag & ChessPieceAttribute.White) != 0 ? ChessPieceAttribute.Black : ChessPieceAttribute.White;
         using var bmp = ComposeBoard(state, stateSize);
         if (_renderBlockedCells)
             StampBlockedCells(bmp, state.GetBlockedPositions(currentTurnColorFlag), stateSize);
@@ -55,8 +55,11 @@ public class ChessView : ViewBase<ChessAction, ChessState>
             {
                 var bmpFrom = ComposeBoard(f.fromState, stateSize);
                 StampMoveHighlight(bmpFrom, f.action, Color.OrangeRed, stateSize);
+                StampPieces(bmpFrom, f.fromState.Board, Math.Max(4, stateSize / 8), 1.0f);
+                
                 var bmpTo = ComposeBoard(f.toState, stateSize);
                 StampMoveHighlight(bmpTo, f.action, Color.Red, stateSize);
+                StampPieces(bmpTo, f.toState.Board, Math.Max(4, stateSize / 8), 1.0f);
                 return new[] { bmpFrom, bmpTo };
             })
             .ToList();
@@ -68,6 +71,8 @@ public class ChessView : ViewBase<ChessAction, ChessState>
     {
         using var bmp = ComposeBoard(fromState, stateSize);
         StampMoveHighlight(bmp, action, Color.OrangeRed, stateSize);
+        StampPieces(bmp, fromState.Board, Math.Max(4, stateSize / 8), 1.0f);
+
         return ToPng(bmp);
     }
 
@@ -75,6 +80,8 @@ public class ChessView : ViewBase<ChessAction, ChessState>
     {
         using var bmp = ComposeBoard(toState, stateSize);
         StampMoveHighlight(bmp, action, Color.Red, stateSize);
+        StampPieces(bmp, toState.Board, Math.Max(4, stateSize / 8), 1.0f);
+
         return ToPng(bmp);
     }
 
@@ -82,8 +89,12 @@ public class ChessView : ViewBase<ChessAction, ChessState>
     {
         using var bmpFrom = ComposeBoard(fromState, stateSize);
         StampMoveHighlight(bmpFrom, action, Color.OrangeRed, stateSize);
+        StampPieces(bmpFrom, fromState.Board, Math.Max(4, stateSize / 8), 1.0f);
+
         using var bmpTo = ComposeBoard(toState, stateSize);
         StampMoveHighlight(bmpTo, action, Color.Red, stateSize);
+        StampPieces(bmpTo, toState.Board, Math.Max(4, stateSize / 8), 1.0f);
+
         var frames = new[]
         {
             bmpFrom,

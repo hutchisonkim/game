@@ -12,18 +12,6 @@ namespace Game.Chess.Renders.Tests.Unit;
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class ChessPolicyRenderTests
 {
-
-    // [Fact]
-    // public void RenderActionsTimeline_Turns64Seed1234_MatchesReference() =>
-    //     RenderActionsTimeline_TurnsXSeedY_MatchesReference(64, 1234);
-    // [Fact]
-    // public void RenderActionsTimeline_Turns64Seed2345_MatchesReference() =>
-    //     RenderActionsTimeline_TurnsXSeedY_MatchesReference(64, 2345);
-    // [Fact]
-    // public void RenderActionsTimeline_Turns64Seed3456_MatchesReference() =>
-    //     RenderActionsTimeline_TurnsXSeedY_MatchesReference(64, 3456);
-
-
     [Theory]
     [InlineData(64, 1234, ChessPieceAttribute.None)]
     [InlineData(64, 2345, ChessPieceAttribute.None)]
