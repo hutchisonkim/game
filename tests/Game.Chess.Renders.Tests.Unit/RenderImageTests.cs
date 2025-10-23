@@ -50,12 +50,12 @@ public class RenderStatePngTests
         // Pick a random move deterministically
         var rng = new Random(12345);
         var move = moves[rng.Next(moves.Count)];
-        var newBoard = board.Apply(move);
+        var newBoard = board.Apply(move.Action);
 
         // Act
         var chessView = new ChessView();
-        byte[] beforePng = chessView.RenderPreTransitionPng(board, newBoard, move, 400);
-        byte[] afterPng = chessView.RenderPostTransitionPng(board, newBoard, move, 400);
+        byte[] beforePng = chessView.RenderPreTransitionPng(board, newBoard, move.Action, 400);
+        byte[] afterPng = chessView.RenderPostTransitionPng(board, newBoard, move.Action, 400);
 
         // Assert
         Assert.NotNull(beforePng);
@@ -97,9 +97,9 @@ public class RenderStatePngTests
             if (moves.Count == 0) break;
 
             var move = moves[rng.Next(moves.Count)];
-            var nextBoard = currentBoard.Apply(move);
+            var nextBoard = currentBoard.Apply(move.Action);
 
-            transitions.Add((currentBoard, nextBoard, move));
+            transitions.Add((currentBoard, nextBoard, move.Action));
             currentBoard = nextBoard;
         }
 

@@ -136,8 +136,8 @@ public static class ChessHistoryUtility
 
     public static IEnumerable<ChessActionCandidate> GetActionCandidates(ChessPiece[,] board, ChessPieceAttribute turnColor)
     {
-        int width = board.GetLength(0);
-        int height = board.GetLength(1);
+        int width = 8;
+        int height = 8;
 
         for (int row = 0; row < width; row++)
         {
@@ -147,7 +147,7 @@ public static class ChessHistoryUtility
                 if (fromPiece.IsEmpty) yield break;
                 if (!fromPiece.IsSameColor(turnColor)) yield break;
 
-                int maxSteps = Math.Max(width, height);
+                int maxSteps = 8;
 
                 (int x, int y) forward = fromPiece.ForwardAxis();
                 foreach (ChessPattern pattern in GetPatterns(fromPiece))
@@ -165,6 +165,11 @@ public static class ChessHistoryUtility
                         steps++;
 
                         if (x < 0 || x >= width || y < 0 || y >= height) break;
+
+                        ChessPiece toPiece = board[x, y];
+                        if (toPiece.IsEmpty && pattern.Captures == CaptureBehavior.CaptureOnly) break;
+                        if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOnly) break;
+                        if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor)) break;
 
                         yield return new ChessActionCandidate(
                             new ChessAction(new ChessPosition(row, col), new ChessPosition(x, y)),

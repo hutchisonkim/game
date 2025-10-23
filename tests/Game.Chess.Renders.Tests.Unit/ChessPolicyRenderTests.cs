@@ -2,6 +2,7 @@
 
 using Xunit;
 using Game.Chess.History;
+using static Game.Chess.History.ChessHistoryUtility;
 
 namespace Game.Chess.Renders.Tests.Unit;
 
@@ -77,13 +78,13 @@ public class ChessPolicyRenderTests
 
         for (int turn = 0; turn < turnCount; turn++)
         {
-            List<ChessAction> actions = [.. state.GetActionCandidates()];
-            if (actions.Count == 0) break;
+            List<ChessActionCandidate> actionCandidates = [.. state.GetActionCandidates()];
+            if (actionCandidates.Count == 0) break;
 
-            ChessAction randomAction = actions[rng.Next(actions.Count)];
-            ChessState nextState = state.Apply(randomAction);
+            ChessActionCandidate randomActionCandidate = actionCandidates[rng.Next(actionCandidates.Count)];
+            ChessState nextState = state.Apply(randomActionCandidate.Action);
 
-            transitions.Add((state, nextState, randomAction));
+            transitions.Add((state, nextState, randomActionCandidate.Action));
             state = nextState;
         }
 

@@ -27,7 +27,7 @@ public record struct ChessPiece(ChessPieceAttribute Attributes)
 
     public readonly bool IsEmpty => Attributes == ChessPieceAttribute.None;
 
-    public static ChessPiece Empty { get; } = new(ChessPieceAttribute.None);
+    public static readonly ChessPiece Empty = new(ChessPieceAttribute.None);
 
     public readonly ChessPieceAttribute ColorFlag => Attributes & (ChessPieceAttribute.White | ChessPieceAttribute.Black);
     public readonly ChessPieceAttribute TypeFlag => Attributes & (ChessPieceAttribute.Pawn | ChessPieceAttribute.Rook | ChessPieceAttribute.Knight | ChessPieceAttribute.Bishop | ChessPieceAttribute.Queen | ChessPieceAttribute.King);

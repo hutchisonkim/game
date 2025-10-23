@@ -7,23 +7,27 @@ namespace Game.Chess.Serialization;
 
 public static class ChessSerializationUtility
 {
-    public static List<string> GenerateRandom(int turnCount, int seed)
+    public static List<string> GenerateRandom(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         var rng = new Random(seed);
         var state = new ChessState();
         var actionsTimeline = new List<string>();
 
+        if (pieceAttributeOverride != ChessPieceAttribute.None)
+            state.InitializeBoard(pieceAttributeOverride);
+            
         for (int turn = 0; turn < turnCount; turn++)
         {
-            IEnumerable<ChessState.PieceAction> pieceActions = state.GetAvailableActionsDetailed().PieceMoves;
-            if (pieceActions.Count() == 0) break;
+            IEnumerable<ChessHistoryUtility.ChessActionCandidate> actionCandidates = state.GetActionCandidates();
+            int count = actionCandidates.Count();
+            if (count == 0) break;
 
-            ChessState.PieceAction pieceAction = pieceActions.ElementAt(rng.Next(pieceActions.Count()));
-            ChessState nextState = state.Apply(pieceAction.ChessAction);
+            ChessHistoryUtility.ChessActionCandidate actionCandidate = actionCandidates.ElementAt(rng.Next(count));
+            ChessState nextState = state.Apply(actionCandidate.Action);
 
             // Use the serialization layer to convert the action into a string fragment.
-            var from = pieceAction.ChessAction.From;
-            var to = pieceAction.ChessAction.To;
+            var from = actionCandidate.Action.From;
+            var to = actionCandidate.Action.To;
             actionsTimeline.Add(SerializeAction(from.Row, from.Col, to.Row, to.Col));
             state = nextState;
         }
@@ -32,6 +36,10 @@ public static class ChessSerializationUtility
     }
 
     public static List<string> GenerateInitial()
+    {
+        return GenerateInitial(ChessPiece.Empty);
+    }
+    public static List<string> GenerateInitial(ChessPiece pieceOverride)
     {
         ChessState state = new();
         var actions = new List<string>();
@@ -42,6 +50,7 @@ public static class ChessSerializationUtility
             {
                 ChessPiece piece = board[row, col];
                 if (piece.IsEmpty) continue;
+                piece = pieceOverride.IsEmpty ? piece : pieceOverride;
                 string toPositionDescription = PositionToText(row, col);
                 string pieceTypeDescription = PieceTypeDescription(piece.Attributes);
                 actions.Add(SerializeInitialSquare(toPositionDescription, pieceTypeDescription));

@@ -23,35 +23,45 @@ public class ChessState : IState<ChessAction, ChessState>
         // PrintBoard();
     }
 
-    public void InitializeBoard()
+    public void InitializeBoard(ChessPieceAttribute pieceAttributeOverride = ChessPieceAttribute.None)
     {
+        bool hasOverride = pieceAttributeOverride != ChessPieceAttribute.None;
+        ChessPieceAttribute pieceAttr;
 
+
+        pieceAttr = hasOverride ? pieceAttributeOverride : ChessPieceAttribute.Pawn;
         for (int x = 0; x < 8; x++)
         {
-            _board[1, x] = new ChessPiece(ChessPieceAttribute.White | ChessPieceAttribute.Pawn);
-            _board[6, x] = new ChessPiece(ChessPieceAttribute.Black | ChessPieceAttribute.Pawn);
+            _board[1, x] = new ChessPiece(ChessPieceAttribute.White | pieceAttr);
+            _board[6, x] = new ChessPiece(ChessPieceAttribute.Black | pieceAttr);
         }
 
         // Rooks
-        _board[0, 0] = _board[0, 7] = new ChessPiece(ChessPieceAttribute.White | ChessPieceAttribute.Rook);
-        _board[7, 0] = _board[7, 7] = new ChessPiece(ChessPieceAttribute.Black | ChessPieceAttribute.Rook);
+        pieceAttr = hasOverride ? pieceAttributeOverride : ChessPieceAttribute.Rook;
+        _board[0, 0] = _board[0, 7] = new ChessPiece(ChessPieceAttribute.White | pieceAttr);
+        _board[7, 0] = _board[7, 7] = new ChessPiece(ChessPieceAttribute.Black | pieceAttr);
 
         // Knights
-        _board[0, 1] = _board[0, 6] = new ChessPiece(ChessPieceAttribute.White | ChessPieceAttribute.Knight);
-        _board[7, 1] = _board[7, 6] = new ChessPiece(ChessPieceAttribute.Black | ChessPieceAttribute.Knight);
+        pieceAttr = hasOverride ? pieceAttributeOverride : ChessPieceAttribute.Knight;
+        _board[0, 1] = _board[0, 6] = new ChessPiece(ChessPieceAttribute.White | pieceAttr);
+        _board[7, 1] = _board[7, 6] = new ChessPiece(ChessPieceAttribute.Black | pieceAttr);
 
         // Bishops
-        _board[0, 2] = _board[0, 5] = new ChessPiece(ChessPieceAttribute.White | ChessPieceAttribute.Bishop);
-        _board[7, 2] = _board[7, 5] = new ChessPiece(ChessPieceAttribute.Black | ChessPieceAttribute.Bishop);
+        pieceAttr = hasOverride ? pieceAttributeOverride : ChessPieceAttribute.Bishop;
+        _board[0, 2] = _board[0, 5] = new ChessPiece(ChessPieceAttribute.White | pieceAttr);
+        _board[7, 2] = _board[7, 5] = new ChessPiece(ChessPieceAttribute.Black | pieceAttr);
 
         // Queens
-        _board[0, 3] = new ChessPiece(ChessPieceAttribute.White | ChessPieceAttribute.Queen);
-        _board[7, 3] = new ChessPiece(ChessPieceAttribute.Black | ChessPieceAttribute.Queen);
+        pieceAttr = hasOverride ? pieceAttributeOverride : ChessPieceAttribute.Queen;
+        _board[0, 3] = new ChessPiece(ChessPieceAttribute.White | pieceAttr);
+        _board[7, 3] = new ChessPiece(ChessPieceAttribute.Black | pieceAttr);
 
         // Kings
-        _board[0, 4] = new ChessPiece(ChessPieceAttribute.White | ChessPieceAttribute.King);
-        _board[7, 4] = new ChessPiece(ChessPieceAttribute.Black | ChessPieceAttribute.King);
+        pieceAttr = hasOverride ? pieceAttributeOverride : ChessPieceAttribute.King;
+        _board[0, 4] = new ChessPiece(ChessPieceAttribute.White | pieceAttr);
+        _board[7, 4] = new ChessPiece(ChessPieceAttribute.Black | pieceAttr);
 
+        TurnCount = 0;
     }
 
 

@@ -3,6 +3,7 @@ using System.Drawing.Imaging;
 using Game.Core.Renders;
 using Game.Chess.Entity;
 using Game.Chess.History;
+using static Game.Chess.History.ChessHistoryUtility;
 namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
@@ -36,9 +37,9 @@ public class ChessView : ViewBase<ChessAction, ChessState>
         if (_renderAttackedCells)
             StampAttackedCells(bmp, state.GetAttackingActionCandidates(currentTurnColorFlag), stateSize);
         if (_renderThreatenedCells)
-            StampThreatenedCells(bmp, state.GetThreatenedCells(otherColor), stateSize);
+            StampThreatenedCells(bmp, state.GetThreateningActionCandidates(currentTurnColorFlag), stateSize);
         if (_renderCheckedCells)
-            StampCheckedCells(bmp, state.GetCheckedCells(otherColor), stateSize);
+            StampCheckedCells(bmp, state.GetCheckingActionCandidates(currentTurnColorFlag), stateSize);
 
         StampPieces(bmp, state.Board, Math.Max(4, stateSize / 8), 1.0f); // render pieces with 50% opacity when overlays are active
 
@@ -129,7 +130,7 @@ public class ChessView : ViewBase<ChessAction, ChessState>
         ChessBoardStamps.StampMoves(g, cell, moveList, color);
     }
 
-    private static void StampBlockedCells(Bitmap bmp, IEnumerable<ChessState.Cell> cells, int stateSize)
+    private static void StampBlockedCells(Bitmap bmp, IEnumerable<(int Row, int Col)> cells, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
@@ -138,42 +139,40 @@ public class ChessView : ViewBase<ChessAction, ChessState>
         positions = positions.Select(p => (7 - p.Item1, p.Item2, 7 - p.Item3, p.Item4)).ToList();
         ChessBoardStamps.StampCells_InnerContour(g, cell, positions, color: Color.Gray, thickness: 5);
     }
-    private static void StampPinnedCells(Bitmap bmp, IEnumerable<ChessState.Cell> cells, int stateSize)
+    private static void StampPinnedCells(Bitmap bmp, IEnumerable<(int Row, int Col)> cells, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
         var positions = cells.Select(c => (c.Row, c.Col, c.Row, c.Col)).ToList();
         ChessBoardStamps.StampCells_InnerContour(g, cell, positions, color: Color.Black, thickness: 5);
     }
-    private static void StampAttackedCells(Bitmap bmp, IEnumerable<ChessState.AttackedCell> cells, int stateSize)
+    private static void StampAttackedCells(Bitmap bmp, IEnumerable<ChessActionCandidate> attackingCandidates, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
-        var positions = cells.Select(c => (c.Row, c.Col, c.Row, c.Col)).ToList();
+        var positions = attackingCandidates.Select(c => (c.Action.To.Row, c.Action.To.Col, c.Action.To.Row, c.Action.To.Col)).ToList();
         //invert positions on the y axis
         positions = positions.Select(p => (7 - p.Item1, p.Item2, 7 - p.Item3, p.Item4)).ToList();
         ChessBoardStamps.StampCells_InnerContour(g, cell, positions, color: Color.Orange, thickness: 5);
         // for each attacked cell, draw an arrow from the attacker to the cell (c.AttackingMoves)
-        var attackingMovesList = cells.SelectMany(c => c.AttackingPieceActions);
-        var rawAttackingMovesList = attackingMovesList.Select(m => (m.ChessAction.From.Row, m.ChessAction.From.Col, m.ChessAction.To.Row, m.ChessAction.To.Col));
         //invert positions on the y axis
-        rawAttackingMovesList = rawAttackingMovesList.Select(p => (7 - p.Item1, p.Item2, 7 - p.Item3, p.Item4));
+        var rawAttackingMovesList = attackingCandidates.Select(p => (7 - p.Action.From.Row, p.Action.From.Col, 7 - p.Action.To.Row, p.Action.To.Col));
         ChessBoardStamps.StampMoves(g, cell, rawAttackingMovesList, Color.Orange);
     }
 
-    private static void StampThreatenedCells(Bitmap bmp, IEnumerable<ChessState.Cell> cells, int stateSize)
+    private static void StampThreatenedCells(Bitmap bmp, IEnumerable<ChessActionCandidate> threateningCandidates, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
-        var positions = cells.Select(c => (c.Row, c.Col, c.Row, c.Col)).ToList();
+        var positions = threateningCandidates.Select(c => (c.Action.To.Row, c.Action.To.Col, c.Action.To.Row, c.Action.To.Col)).ToList();
         ChessBoardStamps.StampCells_InnerContour(g, cell, positions, color: Color.OrangeRed, thickness: 2);
     }
 
-    private static void StampCheckedCells(Bitmap bmp, IEnumerable<ChessState.Cell> cells, int stateSize)
+    private static void StampCheckedCells(Bitmap bmp, IEnumerable<ChessActionCandidate> cells, int stateSize)
     {
         int cell = Math.Max(4, stateSize / 8);
         using var g = Graphics.FromImage(bmp);
-        var positions = cells.Select(c => (c.Row, c.Col, c.Row, c.Col)).ToList();
+        var positions = cells.Select(c => (c.Action.To.Row, c.Action.To.Col, c.Action.To.Row, c.Action.To.Col)).ToList();
         ChessBoardStamps.StampCells_InnerContour(g, cell, positions, color: Color.LightBlue, thickness: 1);
     }
 
