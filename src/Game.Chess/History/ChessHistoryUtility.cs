@@ -24,7 +24,7 @@ public static class ChessHistoryUtility
             var t when (t & ChessPieceAttribute.Pawn) != 0 =>
             [
                 // single-step pawn move
-                new ChessPattern(vector: Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
+                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
                 // two-step initial pawn move (separate pattern so we don't duplicate the single-step)
                 new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
                 // pawn captures
@@ -60,8 +60,6 @@ public static class ChessHistoryUtility
     }
 
 
-
-
     public static IEnumerable<ChessPattern> GetPatterns(ChessPiece piece)
     {
         foreach (ChessPattern pattern in GetBasePatterns(piece))
@@ -85,55 +83,6 @@ public static class ChessHistoryUtility
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.All) && pattern.Delta.X != 0 && pattern.Delta.Y != 0)
             yield return new ChessPattern((-pattern.Delta.X, -pattern.Delta.Y), MirrorBehavior.None, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
-    }
-
-    public static IEnumerable<ChessAction> GetActionCandidates(ChessPiece[,] board, (int X, int Y) from, ChessPieceAttribute turnColorAttribute)
-    {
-        ChessPiece fromPiece = board[from.Y, from.X];
-        if (fromPiece.IsEmpty) yield break;
-        if (!fromPiece.IsSameColor(turnColorAttribute)) yield break;
-
-        int height = board.GetLength(0);
-        int width = board.GetLength(1);
-        int maxSteps = Math.Max(width, height);
-
-        (int x, int y) forward = fromPiece.ForwardAxis();
-        foreach (ChessPattern pattern in GetPatterns(fromPiece))
-        {
-            int dx = pattern.Delta.X * forward.x;
-            int dy = pattern.Delta.Y * forward.y;
-            int x = from.X;
-            int y = from.Y;
-            int steps = 0;
-
-            do
-            {
-                x += dx;
-                y += dy;
-                steps++;
-
-                // check bounds using width/height as the limits
-                if (x < 0 || x >= width || y < 0 || y >= height) break;
-
-                // if this is the two-step pawn move, only allow from the starting rank
-                if (pattern.Delta == Vector2.ZeroByTwo)
-                {
-                    // from.Y is the row (0..7); white pawns start at row 1, black at row 6
-                    var pieceAtFrom = board[from.Y, from.X];
-                    if (pieceAtFrom.IsWhite && from.Y != 1) break;
-                    if (!pieceAtFrom.IsWhite && from.Y != 6) break;
-                }
-
-                // ChessPosition expects (row, col) so pass (y, x)
-                yield return new ChessAction(new ChessPosition(from.Y, from.X), new ChessPosition(y, x));
-
-                if (pattern.Repeats == RepeatBehavior.NotRepeatable) break;
-                if (pattern.Repeats == RepeatBehavior.RepeatableOnce && steps == 1) break;
-                if (pattern.Jumps) break;
-                if (steps >= maxSteps) break;
-
-            } while (true);
-        }
     }
 
     public class ChessActionCandidate
@@ -187,7 +136,7 @@ public static class ChessHistoryUtility
                         {
                             if (fromPiece.IsWhite && row != 1) break;
                             if (!fromPiece.IsWhite && row != 6) break;
-                            
+
                             //block if there is a piece in between
                             ChessPiece intermediatePiece = board[row + (dy / 2), col + (dx / 2)];
                             if (!intermediatePiece.IsEmpty) break;

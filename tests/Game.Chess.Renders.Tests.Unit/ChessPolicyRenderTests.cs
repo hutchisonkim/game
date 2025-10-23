@@ -3,32 +3,44 @@
 using Xunit;
 using Game.Chess.History;
 using static Game.Chess.History.ChessHistoryUtility;
+using Game.Chess.Entity;
 
 namespace Game.Chess.Renders.Tests.Unit;
 
 [Trait("Category", "Unit")]
-[Trait("Feature", "RenderAvailableActions")]
+[Trait("Feature", "RenderTimeline")]
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class ChessPolicyRenderTests
 {
 
-    [Fact]
-    public void RenderActionsTimeline_Turns64Seed1234_MatchesReference() =>
-        AvailableActionsTimeline_TurnsXSeedY_MatchesReference(64, 1234);
-    [Fact]
-    public void AvailableActionsTimeline_Turns64Seed2345_MatchesReference() =>
-        AvailableActionsTimeline_TurnsXSeedY_MatchesReference(64, 2345);
-    [Fact]
-    public void AvailableActionsTimeline_Turns64Seed3456_MatchesReference() =>
-        AvailableActionsTimeline_TurnsXSeedY_MatchesReference(64, 3456);
+    // [Fact]
+    // public void RenderActionsTimeline_Turns64Seed1234_MatchesReference() =>
+    //     RenderActionsTimeline_TurnsXSeedY_MatchesReference(64, 1234);
+    // [Fact]
+    // public void RenderActionsTimeline_Turns64Seed2345_MatchesReference() =>
+    //     RenderActionsTimeline_TurnsXSeedY_MatchesReference(64, 2345);
+    // [Fact]
+    // public void RenderActionsTimeline_Turns64Seed3456_MatchesReference() =>
+    //     RenderActionsTimeline_TurnsXSeedY_MatchesReference(64, 3456);
 
-    private static void AvailableActionsTimeline_TurnsXSeedY_MatchesReference(int turnCount, int seed)
+
+    [Theory]
+    [InlineData(64, 1234, ChessPieceAttribute.None)]
+    [InlineData(64, 2345, ChessPieceAttribute.None)]
+    [InlineData(64, 3456, ChessPieceAttribute.None)]
+    [InlineData(64, 1234, ChessPieceAttribute.Pawn)]
+    [InlineData(64, 1234, ChessPieceAttribute.Rook)]
+    [InlineData(64, 1234, ChessPieceAttribute.Knight)]
+    [InlineData(64, 1234, ChessPieceAttribute.Bishop)]
+    [InlineData(64, 1234, ChessPieceAttribute.Queen)]
+    [InlineData(64, 1234, ChessPieceAttribute.King)]
+    public void RenderActionsTimeline_TurnsXSeedY_MatchesReference(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange
-        string fileName = $"RenderAvailableActions_Turns{turnCount}Seed{seed}_MatchesReference.gif";
+        string fileName = $"RenderActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesReference.gif";
 
         // Act
-        byte[] gifBytes = GenerateTimelineGif(seed: seed, turnCount: turnCount);
+        byte[] gifBytes = GenerateTimelineGif(seed: seed, turnCount: turnCount, pieceAttributeOverride: pieceAttributeOverride);
 
         // Assert
         Assert.NotNull(gifBytes);
@@ -69,11 +81,13 @@ public class ChessPolicyRenderTests
         return File.ReadAllBytes(inputPath);
     }
 
-    private static byte[] GenerateTimelineGif(int seed, int turnCount)
+    private static byte[] GenerateTimelineGif(int seed, int turnCount, ChessPieceAttribute pieceAttributeOverride)
     {
         Random rng = new(seed);
         ChessView view = new();
         ChessState state = new();
+        if (pieceAttributeOverride != ChessPieceAttribute.None)
+            state.InitializeBoard(pieceAttributeOverride);
         List<(ChessState fromState, ChessState toState, ChessAction action)> transitions = [];
 
         for (int turn = 0; turn < turnCount; turn++)

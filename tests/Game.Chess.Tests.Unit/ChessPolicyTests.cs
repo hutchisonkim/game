@@ -22,11 +22,6 @@ public class ChessPolicySimulationTests
     public void ActionsTimeline_TurnsXSeedY_MatchesReference(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange
-
-        //TODO: rename the test renders as RenderActionsTimeline_* rather than RenderAvailableActions_*
-        //TODO: add tests than do collect actions as RenderAvailableActions_*
-
-
         string fileName = $"ActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesReference.json";
         string outputPath = TestFileHelper.GetOutputPath(fileName);
         string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
