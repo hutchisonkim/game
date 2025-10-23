@@ -187,6 +187,10 @@ public static class ChessHistoryUtility
                         {
                             if (fromPiece.IsWhite && row != 1) break;
                             if (!fromPiece.IsWhite && row != 6) break;
+                            
+                            //block if there is a piece in between
+                            ChessPiece intermediatePiece = board[row + (dy / 2), col + (dx / 2)];
+                            if (!intermediatePiece.IsEmpty) break;
                         }
 
                         ChessPiece toPiece = board[y, x];
