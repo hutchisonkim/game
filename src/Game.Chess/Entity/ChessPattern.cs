@@ -27,5 +27,5 @@ public class ChessPattern
 
 [Flags]
 public enum MirrorBehavior { None = 0, Horizontal = 1, Vertical = 2, All = Horizontal | Vertical }
-public enum RepeatBehavior { NotRepeatable, Repeatable, RepeatableOnce }
+public enum RepeatBehavior { NotRepeatable, Repeatable }
 public enum CaptureBehavior { MoveOnly, CaptureOnly, MoveOrCapture, CastleOnly }

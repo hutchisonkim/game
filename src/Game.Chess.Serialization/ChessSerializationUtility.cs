@@ -1,5 +1,3 @@
-// src\Game.Chess.Serialization\SerializationUtility.cs
-
 using Game.Chess.Entity;
 using Game.Chess.History;
 
@@ -28,7 +26,7 @@ public static class ChessSerializationUtility
             // Use the serialization layer to convert the action into a string fragment.
             var from = actionCandidate.Action.From;
             var to = actionCandidate.Action.To;
-            actionsTimeline.Add(SerializeAction(from.Row, from.Col, to.Row, to.Col));
+            actionsTimeline.Add(SerializeAction(from.X, from.Y, to.X, to.Y));
             state = nextState;
         }
 
@@ -44,14 +42,14 @@ public static class ChessSerializationUtility
         ChessState state = new();
         var actions = new List<string>();
         ChessPiece[,] board = state.Board;
-        for (int row = 0; row < 8; row++)
+        for (int x = 0; x < 8; x++)
         {
-            for (int col = 1; col < 8; col++)
+            for (int y = 1; y < 8; y++)
             {
-                ChessPiece piece = board[row, col];
+                ChessPiece piece = board[x, y];
                 if (piece.IsEmpty) continue;
                 piece = pieceOverride.IsEmpty ? piece : pieceOverride;
-                string toPositionDescription = PositionToText(row, col);
+                string toPositionDescription = PositionToText(x, y);
                 string pieceTypeDescription = PieceTypeDescription(piece.Attributes);
                 actions.Add(SerializeInitialSquare(toPositionDescription, pieceTypeDescription));
             }
@@ -83,16 +81,16 @@ public static class ChessSerializationUtility
         => ToFenChar(typeFlagValue).ToString();
 
     // Convert a domain Position (row,col) into a short chess coordinate like "e4".
-    public static string PositionToText(int row, int col)
+    public static string PositionToText(int x, int y)
     {
         static string RowToRank(int r) => (8 - r).ToString();
         static char ColToFile(int c) => (char)('a' + c);
-        return $"{ColToFile(col)}{RowToRank(row)}";
+        return $"{ColToFile(x)}{RowToRank(y)}";
     }
 
     // Serialize a ChessAction as a simple fragment: "from-to:" where from/to are position texts.
-    public static string SerializeAction(int fromRow, int fromCol, int toRow, int toCol)
-        => $"{PositionToText(fromRow, fromCol)}:{PositionToText(toRow, toCol)}:";
+    public static string SerializeAction(int fromX, int fromY, int toX, int toY)
+        => $"{PositionToText(fromX, fromY)}:{PositionToText(toX, toY)}:";
 
     // Serialize an initial-setup fragment for a square with position and piece type description.
     // positionText should already be computed by the domain (e.g., Position.ToString()).

@@ -21,7 +21,7 @@ public record struct ChessPiece(ChessPieceAttribute Attributes)
 {
     public ChessPieceAttribute Attributes { get; } = Attributes;
 
-    public readonly bool IsWhite => (Attributes & ChessPieceAttribute.White) != 0;
+    public readonly bool IsWhite => (Attributes & ChessPieceAttribute.White) == ChessPieceAttribute.White;
 
     public readonly (int X, int Y) ForwardAxis() => (1, IsWhite ? 1 : -1);
 

@@ -23,10 +23,10 @@ internal static class ChessBoardStamps
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.White);
 
-        StampSquares(g, cell);
+        StampSquares(g, cell, boardSize);
 
         if (includePieces)
-            StampPieces(g, state.Board, cell);
+            StampPieces(g, state.Board, cell, boardSize);
 
         return bmp;
     }
@@ -34,52 +34,53 @@ internal static class ChessBoardStamps
     // ─────────────────────────────────────────────────────────────
     // CELLS
     // ─────────────────────────────────────────────────────────────
-    internal static void StampSquares(Graphics g, int cell, Color? lightColor = null, Color? darkColor = null)
+    internal static void StampSquares(Graphics g, int cell, int boardSize, Color? lightColor = null, Color? darkColor = null)
     {
         lightColor ??= Color.Beige;
         darkColor ??= Color.SaddleBrown;
 
-        for (int r = 0; r < 8; r++)
-            for (int f = 0; f < 8; f++)
+        for (int x = 0; x < boardSize; x++)
+            for (int y = 0; y < boardSize; y++)
             {
-                bool light = (r + f) % 2 == 0;
-                var rect = new Rectangle(f * cell, r * cell, cell, cell);
+                bool light = (x + y) % 2 == 0;
+                var rect = new Rectangle(x * cell, y * cell, cell, cell);
+                var inverseRect = InverseRectangleVertically(rect, cell, boardSize);
                 using var brush = new SolidBrush(light ? lightColor.Value : darkColor.Value);
-                g.FillRectangle(brush, rect);
+                g.FillRectangle(brush, inverseRect);
             }
     }
 
-    internal static Bitmap StampSquaresLayer(int cell, Color? lightColor = null, Color? darkColor = null)
+    internal static Bitmap StampSquaresLayer(int cell, int boardSize, Color? lightColor = null, Color? darkColor = null)
     {
-        var bmp = new Bitmap(cell * 8, cell * 8);
+        var bmp = new Bitmap(cell * boardSize, cell * boardSize);
         using var g = Graphics.FromImage(bmp);
-        StampSquares(g, cell, lightColor, darkColor);
+        StampSquares(g, cell, boardSize, lightColor, darkColor);
         return bmp;
     }
 
     // ─────────────────────────────────────────────────────────────
     // PIECES
     // ─────────────────────────────────────────────────────────────
-    internal static void StampPieces(Graphics g, ChessPiece[,] board, int cell, float opacity = 1.0f)
+    internal static void StampPieces(Graphics g, ChessPiece[,] board, int cell, int boardSize, float opacity = 1.0f)
     {
-        for (int r = 0; r < 8; r++)
-            for (int f = 0; f < 8; f++)
+        for (int x = 0; x < boardSize; x++)
+            for (int y = 0; y < boardSize; y++)
             {
-                var piece = board[r, f];
+                var piece = board[x, y];
                 if (!piece.IsEmpty)
                 {
-                    var y_flipped = (7 - r) * cell; // flip vertical to match board array mapping
-                    var rect = new Rectangle(f * cell, y_flipped, cell, cell);
-                    StampPiece(g, rect, piece, cell, opacity);
+                    var rect = new Rectangle(x * cell, y * cell, cell, cell);
+                    var inverseRect = InverseRectangleVertically(rect, cell, boardSize);
+                    StampPiece(g, inverseRect, piece, cell, opacity);
                 }
             }
     }
 
-    internal static Bitmap StampPiecesLayer(ChessPiece[,] board, int cell, float opacity = 1.0f)
+    internal static Bitmap StampPiecesLayer(ChessPiece[,] board, int cell, int boardSize, float opacity = 1.0f)
     {
-        var bmp = new Bitmap(cell * 8, cell * 8);
+        var bmp = new Bitmap(cell * boardSize, cell * boardSize);
         using var g = Graphics.FromImage(bmp);
-        StampPieces(g, board, cell, opacity);
+        StampPieces(g, board, cell, boardSize, opacity);
         return bmp;
     }
 
@@ -101,7 +102,7 @@ internal static class ChessBoardStamps
     // ─────────────────────────────────────────────────────────────
     // MOVES
     // ─────────────────────────────────────────────────────────────
-    internal static void StampMoves(Graphics g, int cell, IEnumerable<(int fromR, int fromF, int toR, int toF)> moves, Color color, bool lengthDrivesWidth = true)
+    internal static void StampMoves(Graphics g, int cell, IEnumerable<(int fromX, int fromY, int toX, int toY)> moves, Color color, bool lengthDrivesWidth = true)
     {
         // calculate the longest and shortest lines. shortest is 1 cell, longest is from one corner to the opposite corner
         var shortestLength = cell;
@@ -115,9 +116,9 @@ internal static class ChessBoardStamps
         var highestColor = color;
 
         var linesToDraw = new List<(Pen pen, PointF from, PointF to, int width)>();
-        foreach (var (fromR, fromF, toR, toF) in moves)
+        foreach (var (fromX, fromY, toX, toY) in moves)
         {
-            var length = (int)Math.Sqrt((fromR - toR) * (fromR - toR) + (fromF - toF) * (fromF - toF)) * cell;
+            var length = (int)Math.Sqrt((fromY - toY) * (fromY - toY) + (fromX - toX) * (fromX - toX)) * cell;
             var traverse = (float)(length - shortestLength) / (longestLength - shortestLength);
             var lineWidth = lengthDrivesWidth
                 ? lowestWidth + (int)((highestWidth - lowestWidth) * traverse)
@@ -129,15 +130,15 @@ internal static class ChessBoardStamps
                     Math.Min(255, lowestColor.G + (int)((highestColor.G - lowestColor.G) * traverse)),
                     Math.Min(255, lowestColor.B + (int)((highestColor.B - lowestColor.B) * traverse)))
                 : color;
-            
+
             var pen = new Pen(lineColor, lineWidth)
             {
                 EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor
             };
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            var fromCenter = new PointF(fromF * cell + cell / 2f, fromR * cell + cell / 2f);
-            var toCenter = new PointF(toF * cell + cell / 2f, toR * cell + cell / 2f);
+            var fromCenter = new PointF(fromX * cell + cell / 2f, fromY * cell + cell / 2f);
+            var toCenter = new PointF(toX * cell + cell / 2f, toY * cell + cell / 2f);
             // g.DrawLine(pen, fromCenter, toCenter);
             linesToDraw.Add((pen, fromCenter, toCenter, (int)lineWidth));
         }
@@ -145,11 +146,13 @@ internal static class ChessBoardStamps
         linesToDraw = linesToDraw.OrderByDescending(l => l.width).ToList();
         foreach (var (pen, from, to, width) in linesToDraw)
         {
-            g.DrawLine(pen, from, to);
+            var inverseFrom = InversePointVertically(from, 8, cell);
+            var inverseTo = InversePointVertically(to, 8, cell);
+            g.DrawLine(pen, inverseFrom, inverseTo);
         }
     }
 
-    internal static Bitmap StampMovesLayer(int cell, IEnumerable<(int fromR, int fromF, int toR, int toF)> moves, Color color)
+    internal static Bitmap StampMovesLayer(int cell, IEnumerable<(int fromX, int fromY, int toX, int toY)> moves, Color color)
     {
         var bmp = new Bitmap(cell * 8, cell * 8);
         using var g = Graphics.FromImage(bmp);
@@ -190,7 +193,7 @@ internal static class ChessBoardStamps
         return "?";
     }
 
-    internal static void StampCells_InnerContour(Graphics g, int cell, List<(int, int, int, int)> positions, Color color, int thickness)
+    internal static void StampCells_InnerContour(Graphics g, int cell, int boardSize, List<(int, int, int, int)> positions, Color color, int thickness)
     {
         using var pen = new Pen(color, thickness)
         {
@@ -200,13 +203,44 @@ internal static class ChessBoardStamps
         };
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-        foreach (var (fromR, fromF, toR, toF) in positions)
+        foreach ((int fromX, int fromY, int toX, int toY) position in positions)
         {
-            var rect = new Rectangle(fromF * cell + thickness / 2, fromR * cell + thickness / 2, cell - thickness, cell - thickness);
-            g.DrawRectangle(pen, rect);
+            Rectangle rect = new(position.fromX * cell + thickness / 2, position.fromY * cell + thickness / 2, cell - thickness, cell - thickness);
+            var inverseRect = InverseRectangleVertically(rect, boardSize, cell);
+            g.DrawRectangle(pen, inverseRect);
             //also fill the rectangle with a  semi-transparent version of the color
             using var brush = new SolidBrush(Color.FromArgb(150, color));
-            g.FillRectangle(brush, rect);
+            g.FillRectangle(brush, inverseRect);
         }
     }
+
+    internal static Rectangle InverseRectangleVertically(Rectangle rectangle, int boardSizeInSquares, int cell)
+    {
+        int boardSizePx = boardSizeInSquares * cell;
+        return new Rectangle(
+            rectangle.X,
+            boardSizePx - rectangle.Y - rectangle.Height,
+            rectangle.Width,
+            rectangle.Height
+        );
+    }
+
+    internal static PointF InversePointVertically(PointF point, int boardSizeInSquares, int cell)
+    {
+        float boardSizePx = boardSizeInSquares * cell;
+        return new PointF(point.X, boardSizePx - point.Y);
+    }
+
+    internal static (int fromX, int fromY, int toX, int toY) InversePositionVertically(
+        (int fromX, int fromY, int toX, int toY) positions, int boardSizeInSquares)
+    {
+        return (
+            positions.fromX,
+            boardSizeInSquares - 1 - positions.fromY,
+            positions.toX,
+            boardSizeInSquares - 1 - positions.toY
+        );
+    }
+
+
 }

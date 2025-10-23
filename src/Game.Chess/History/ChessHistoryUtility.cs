@@ -24,11 +24,11 @@ public static class ChessHistoryUtility
         {
             var t when (t & ChessPieceAttribute.Pawn) != 0 =>
             [
-                // single-step pawn move
+                // forward 1-step move
                 new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
-                // two-step initial pawn move (separate pattern so we don't duplicate the single-step)
+                // forward 2-step move
                 new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
-                // pawn captures
+                // diagonal capture
                 new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.CaptureOnly, forwardOnly: true)
             ],
             var t when (t & ChessPieceAttribute.Rook) != 0 =>
@@ -106,61 +106,78 @@ public static class ChessHistoryUtility
         int width = board.GetLength(0);
         int height = board.GetLength(1);
 
-        for (int row = 0; row < height; row++)
+        for (int fromX = 0; fromX < width; fromX++)
         {
-            for (int col = 0; col < width; col++)
+            for (int fromY = 0; fromY < height; fromY++)
             {
-                ChessPiece fromPiece = board[row, col];
+                ChessPiece fromPiece = board[fromX, fromY];
                 if (fromPiece.IsEmpty) continue;
                 if (!fromPiece.IsSameColor(turnColor)) continue;
 
                 int maxSteps = Math.Max(width, height);
 
                 var (fx, fy) = fromPiece.ForwardAxis();
+                // Console.WriteLine($"****({fromX},{fromY}) fromPiece.Attributes: {fromPiece.Attributes}");
                 foreach (ChessPattern pattern in GetPatterns(fromPiece))
                 {
                     int dx = pattern.Delta.X * fx;
                     int dy = pattern.Delta.Y * fy;
-                    int x = row;
-                    int y = col;
+                    int toX = fromX;
+                    int toY = fromY;
                     int steps = 0;
 
                     do
                     {
-                        x += dx;
-                        y += dy;
+                        toX += dx;
+                        toY += dy;
                         steps++;
 
-                        if (y < 0 || y >= height || x < 0 || x >= width) break;
+                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
+                        //     Console.WriteLine($"A From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
+
+                        if (toY < 0 || toY >= height || toX < 0 || toX >= width) break;
+
+                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
+                        //     Console.WriteLine($"B From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
 
                         // if this is the two-step pawn move, only allow from the starting rank
                         if (pattern.Delta == Vector2.ZeroByTwo)
                         {
-                            if (fromPiece.IsWhite && row != 1) break;
-                            if (!fromPiece.IsWhite && row != 6) break;
+                            if (fromPiece.IsWhite && fromY != 1) break;
+                            // if (pattern.ForwardOnly && fromPiece.IsWhite)
+                            //     Console.WriteLine($"B1 From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
+                            if (!fromPiece.IsWhite && fromY != 6) break;
+                            // if (pattern.ForwardOnly && fromPiece.IsWhite)
+                            //     Console.WriteLine($"B2 From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
 
                             //block if there is a piece in between
-                            ChessPiece intermediatePiece = board[row + (dx / 2), col + (dy / 2)];
+                            ChessPiece intermediatePiece = board[fromX + (dx / 2), fromY + (dy / 2)];
                             if (!intermediatePiece.IsEmpty) break;
+                            // if (pattern.ForwardOnly && fromPiece.IsWhite)
+                            //     Console.WriteLine($"B3 From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
                         }
 
-                        ChessPiece toPiece = board[x, y];
+                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
+                        //     Console.WriteLine($"C From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
+                        ChessPiece toPiece = board[toX, toY];
                         if (toPiece.IsEmpty && pattern.Captures == CaptureBehavior.CaptureOnly) break;
+                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
+                        //     Console.WriteLine($"D From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps} toPiece.Attributes: {toPiece.Attributes}");
                         if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOnly) break;
+                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
+                        //     Console.WriteLine($"E From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
                         if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor)) break;
+                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
+                        //     Console.WriteLine($"S From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
 
-
-
-                        // ChessPosition expects (row, col)
                         yield return new ChessActionCandidate(
-                            new ChessAction(new ChessPosition(row, col), new ChessPosition(x, y)),
+                            new ChessAction(new ChessPosition(fromX, fromY), new ChessPosition(toX, toY)),
                             pattern,
                             steps
                         );
 
                         if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOrCapture) break; // break so you can't jump over pieces when capturing
                         if (pattern.Repeats == RepeatBehavior.NotRepeatable) break;
-                        if (pattern.Repeats == RepeatBehavior.RepeatableOnce && steps == 1) break;
                         if (pattern.Jumps) break;
                         if (steps >= maxSteps) break;
 

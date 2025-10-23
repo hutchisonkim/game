@@ -71,8 +71,8 @@ public class ChessPolicySimulationTests
 
             var candidateActionsThisTurn = actionCandidates
                 .Select(ac => ChessSerializationUtility.SerializeAction(
-                    ac.Action.From.Row, ac.Action.From.Col,
-                    ac.Action.To.Row, ac.Action.To.Col))
+                    ac.Action.From.X, ac.Action.From.Y,
+                    ac.Action.To.X, ac.Action.To.Y))
                 .ToList();
 
             candidateActionsTimeline.Add(candidateActionsThisTurn);
