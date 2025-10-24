@@ -103,8 +103,8 @@ public class ChessState : IState<ChessAction, ChessState>
     public ChessPieceAttribute TurnColor => (TurnCount % 2 == 0) ? ChessPieceAttribute.White : ChessPieceAttribute.Black;
 
     //refactor below as ChessActionCandidate methods
-    public IEnumerable<ChessActionCandidate> GetActionCandidates() =>
-        ChessHistoryUtility.GetActionCandidates(_board, TurnColor, false, false);
+    public IEnumerable<ChessActionCandidate> GetActionCandidates(ChessPieceAttribute colorOverride = ChessPieceAttribute.None) =>
+        ChessHistoryUtility.GetActionCandidates(_board, colorOverride == ChessPieceAttribute.None ? TurnColor : colorOverride, false, false);
 
     public IEnumerable<ChessActionCandidate> GetAttackingActionCandidates(ChessPieceAttribute attackingColor, bool includeTargetless, bool includeFriendlyfire) =>
         ChessHistoryUtility.GetActionCandidates(_board, attackingColor, includeTargetless, includeFriendlyfire)

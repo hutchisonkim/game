@@ -109,23 +109,42 @@ public class ChessView : ViewBase<ChessAction, ChessState>
 
                 var bmpFrom = ComposeBoard(turnTransitions.First().fromState, stateSize);
                 var bmpTo = ComposeBoard(turnTransitions.First().toState, stateSize);
+                // var bmpNext = ComposeBoard(turnTransitions.First().toState, stateSize);
 
                 foreach (var turnCandidateTransition in turnCandidateTransitions)
                 {
                     StampMoveHighlight(bmpFrom, turnCandidateTransition.action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
                 }
 
-                foreach (var turnTransition in turnTransitions)
-                {
-                    StampMoveHighlight(bmpFrom, turnTransition.action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
-                    StampPieces(bmpFrom, turnTransition.fromState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+                // get the first selected transition for this turn
+                // var currentColor = turnTransitions.First().fromState.TurnColor;
+                // var nextState = turnTransitions.First().toState;
+                // List<(ChessState fromState, ChessState toState, ChessAction action, bool selected)> nextTurnCandidateTransitions = nextState.GetActionCandidates(currentColor).ToList()
+                //     .Select(ac => (nextState, nextState.Apply(ac.Action), ac.Action, false)).ToList();
 
-                    StampMoveHighlight(bmpTo, turnTransition.action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
-                    StampPieces(bmpTo, turnTransition.toState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+
+                foreach (var turnCandidateTransition in turnCandidateTransitions)
+                {
+                    StampMoveHighlight(bmpTo, turnCandidateTransition.action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
                 }
+                // foreach (var turnCandidateTransition in nextTurnCandidateTransitions)
+                // {
+                //     StampMoveHighlight(bmpNext, turnCandidateTransition.action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
+                // }
+
+                var turnTransition = turnTransitions.First();
+
+                StampMoveHighlight(bmpFrom, turnTransition.action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
+                StampMoveHighlight(bmpTo, turnTransition.action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
+
+                StampPieces(bmpFrom, turnTransition.fromState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+                StampPieces(bmpTo, turnTransition.toState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+                // StampPieces(bmpNext, turnTransition.toState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+
 
                 bitmaps.Add(bmpFrom);
                 bitmaps.Add(bmpTo);
+                // bitmaps.Add(bmpNext);
             }
         }
 
