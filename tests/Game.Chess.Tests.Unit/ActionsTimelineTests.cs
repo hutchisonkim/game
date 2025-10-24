@@ -10,8 +10,8 @@ using Game.Chess.History;
 namespace Game.Chess.Tests.Unit;
 
 [Trait("Category", "Unit")]
-[Trait("Feature", "PolicySimulation")]
-public class ChessPolicySimulationTests
+[Trait("Feature", "ActionsTimeline")]
+public class ActionsTimelineTests
 {
     [Theory]
     [InlineData(64, 1234, ChessPieceAttribute.None)]

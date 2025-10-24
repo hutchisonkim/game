@@ -8,9 +8,9 @@ using Game.Chess.Entity;
 namespace Game.Chess.Renders.Tests.Unit;
 
 [Trait("Category", "Unit")]
-[Trait("Feature", "RenderTimeline")]
+[Trait("Feature", "ChessRenderTests")]
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-public class ChessPolicyRenderTests
+public class ChessRenderTests
 {
     [Theory]
     [InlineData(64, 1234, ChessPieceAttribute.None)]
@@ -22,10 +22,10 @@ public class ChessPolicyRenderTests
     [InlineData(64, 1234, ChessPieceAttribute.Bishop)]
     [InlineData(64, 1234, ChessPieceAttribute.Queen)]
     [InlineData(64, 1234, ChessPieceAttribute.King)]
-    public void RenderActionsTimeline_TurnsXSeedY_MatchesReference(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
+    public void RenderHistoryActions_TurnsXXSeedYYPieceZZ_MatchesRef(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange
-        string fileName = $"RenderActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesReference.gif";
+        string fileName = $"RenderHistoryActions_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesRef.gif";
 
         // Act
         byte[] gifBytes = GenerateTimelineGif(seed: seed, turnCount: turnCount, pieceAttributeOverride: pieceAttributeOverride);

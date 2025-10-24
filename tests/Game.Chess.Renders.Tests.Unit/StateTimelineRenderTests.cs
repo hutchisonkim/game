@@ -6,11 +6,10 @@ namespace Game.Chess.Renders.Tests.Unit;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 [Trait("Category", "Unit")]
-public class PolicyEnforcementTests
+[Trait("Feature", "StateTimelineRenderTests")]
+public class StateTimelineRenderTests
 {
-
     [Fact]
-    [Trait("Feature", "PngRendering")]
     public void RenderDetailedCellsPng_InitialSetup_ProducesPng()
     {
         // Arrange
