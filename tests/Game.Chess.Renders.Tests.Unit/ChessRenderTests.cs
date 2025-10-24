@@ -22,10 +22,10 @@ public class ChessRenderTests
     [InlineData(64, 1234, ChessPieceAttribute.Bishop)]
     [InlineData(64, 1234, ChessPieceAttribute.Queen)]
     [InlineData(64, 1234, ChessPieceAttribute.King)]
-    public void RenderHistoryActions_TurnsXXSeedYYPieceZZ_MatchesRef(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
+    public void RenderActionsTimeline_TurnsXXSeedYYPieceZZ_MatchesRef(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange
-        string fileName = $"RenderHistoryActions_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesRef.gif";
+        string fileName = $"RenderActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesRef.gif";
 
         // Act
         byte[] gifBytes = GenerateTimelineGif(seed: seed, turnCount: turnCount, pieceAttributeOverride: pieceAttributeOverride);
@@ -93,9 +93,5 @@ public class ChessRenderTests
         // Act
         byte[] gifBytes = view.RenderTransitionSequenceGif(transitions, 200);
         return gifBytes;
-    }
-    private static byte[] ReadTimelineGif(string path)
-    {
-        return File.ReadAllBytes(path);
     }
 }

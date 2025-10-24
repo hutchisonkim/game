@@ -23,10 +23,10 @@ public class ActionsTimelineTests
     [InlineData(64, 1234, ChessPieceAttribute.Bishop)]
     [InlineData(64, 1234, ChessPieceAttribute.Queen)]
     [InlineData(64, 1234, ChessPieceAttribute.King)]
-    public void ActionsTimeline_TurnsXSeedY_MatchesReference(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
+    public void ActionsTimeline_TurnsXXSeedYYPieceZZ_MatchesReference(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange
-        string fileName = $"ActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesReference.json";
+        string fileName = $"ActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesRef.json";
         string outputPath = TestFileHelper.GetOutputPath(fileName);
         string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
 
@@ -49,10 +49,10 @@ public class ActionsTimelineTests
 
     [Theory]
     [InlineData(64, 1234, ChessPieceAttribute.Pawn)]
-    public void CandidateActionsTimeline_TurnsXSeedY_MatchesReference(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
+    public void CandidateActionsTimeline_TurnsXXSeedYYPieceZZ_MatchesReference(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange
-        string fileName = $"CandidateActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesReference.json";
+        string fileName = $"CandidateActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesRef.json";
         string outputPath = TestFileHelper.GetOutputPath(fileName);
         string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
 
@@ -82,31 +82,6 @@ public class ActionsTimelineTests
         }
 
         string json = JsonSerializer.Serialize(candidateActionsTimeline, new JsonSerializerOptions { WriteIndented = true });
-
-        // Act
-        TestFileHelper.SaveTextToFile(json, outputPath);
-
-        // Assert
-        Assert.True(File.Exists(outputPath), $"Output file missing: {outputPath}");
-        Assert.True(File.Exists(referencePath), $"Reference file missing: {referencePath}");
-
-        // Act
-        string referenceJson = File.ReadAllText(referencePath);
-
-        // Assert
-        Assert.Equal(referenceJson, json);
-    }
-
-    [Fact]
-    public void ActionsTimeline_Turns0_MatchesReference()
-    {
-        // Arrange
-        string fileName = $"ActionsTimeline_Turns0_MatchesReference.json";
-        string outputPath = TestFileHelper.GetOutputPath(fileName);
-        string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
-
-        List<string> actionsTimeline = ChessSerializationUtility.GenerateInitial();
-        string json = JsonSerializer.Serialize(actionsTimeline, new JsonSerializerOptions { WriteIndented = true });
 
         // Act
         TestFileHelper.SaveTextToFile(json, outputPath);
