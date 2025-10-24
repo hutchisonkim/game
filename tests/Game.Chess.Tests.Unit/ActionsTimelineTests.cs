@@ -48,7 +48,15 @@ public class ActionsTimelineTests
     }
 
     [Theory]
+    [InlineData(64, 1234, ChessPieceAttribute.None)]
+    [InlineData(64, 2345, ChessPieceAttribute.None)]
+    [InlineData(64, 3456, ChessPieceAttribute.None)]
     [InlineData(64, 1234, ChessPieceAttribute.Pawn)]
+    [InlineData(64, 1234, ChessPieceAttribute.Rook)]
+    [InlineData(64, 1234, ChessPieceAttribute.Knight)]
+    [InlineData(64, 1234, ChessPieceAttribute.Bishop)]
+    [InlineData(64, 1234, ChessPieceAttribute.Queen)]
+    [InlineData(64, 1234, ChessPieceAttribute.King)]
     public void CandidateActionsTimeline_TurnsXXSeedYYPieceZZ_MatchesReference(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange

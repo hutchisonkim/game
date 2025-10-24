@@ -54,8 +54,8 @@ public class RenderStatePngTests
 
         // Act
         var chessView = new ChessView();
-        byte[] beforePng = chessView.RenderPreTransitionPng(board, newBoard, move.Action, 400);
-        byte[] afterPng = chessView.RenderPostTransitionPng(board, newBoard, move.Action, 400);
+        byte[] beforePng = chessView.RenderPreTransitionPng(board, newBoard, move.Action, 400, anchorTip: true);
+        byte[] afterPng = chessView.RenderPostTransitionPng(board, newBoard, move.Action, 400, anchorTip: true);
 
         // Assert
         Assert.NotNull(beforePng);
@@ -86,7 +86,7 @@ public class RenderStatePngTests
     {
         // Arrange
         var board = new ChessState();
-        var transitions = new List<(ChessState fromState, ChessState toState, ChessAction action)>();
+        var transitions = new List<(ChessState fromState, ChessState toState, ChessAction action, bool selected)>();
         var rng = new Random(12345);
         var chessView = new ChessView();
         var currentBoard = board;
@@ -99,12 +99,12 @@ public class RenderStatePngTests
             var move = moves[rng.Next(moves.Count)];
             var nextBoard = currentBoard.Apply(move.Action);
 
-            transitions.Add((currentBoard, nextBoard, move.Action));
+            transitions.Add((currentBoard, nextBoard, move.Action, selected: true));
             currentBoard = nextBoard;
         }
 
         // Act
-        byte[] gifBytes = chessView.RenderTransitionSequenceGif(transitions, 200);
+        byte[] gifBytes = chessView.RenderTransitionSequenceGif(transitions, 200, anchorTip: true);
 
         // Assert
         Assert.NotNull(gifBytes);

@@ -102,7 +102,7 @@ internal static class ChessBoardStamps
     // ─────────────────────────────────────────────────────────────
     // MOVES
     // ─────────────────────────────────────────────────────────────
-    internal static void StampMoves(Graphics g, int cell, IEnumerable<(int fromX, int fromY, int toX, int toY)> moves, Color color, bool lengthDrivesWidth = true)
+    internal static void StampMoves(Graphics g, int cell, IEnumerable<(int fromX, int fromY, int toX, int toY)> moves, Color color, bool lengthDrivesWidth, bool anchorTip)
     {
         // calculate the longest and shortest lines. shortest is 1 cell, longest is from one corner to the opposite corner
         var shortestLength = cell;
@@ -134,8 +134,8 @@ internal static class ChessBoardStamps
             var pen = new Pen(lineColor, lineWidth)
             {
                 // EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor
-                EndCap = System.Drawing.Drawing2D.LineCap.Round,
-                StartCap = System.Drawing.Drawing2D.LineCap.Round
+                EndCap = anchorTip ? System.Drawing.Drawing2D.LineCap.RoundAnchor : System.Drawing.Drawing2D.LineCap.Round,
+                StartCap = System.Drawing.Drawing2D.LineCap.Round,
             };
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
@@ -154,11 +154,11 @@ internal static class ChessBoardStamps
         }
     }
 
-    internal static Bitmap StampMovesLayer(int cell, IEnumerable<(int fromX, int fromY, int toX, int toY)> moves, Color color)
+    internal static Bitmap StampMovesLayer(int cell, IEnumerable<(int fromX, int fromY, int toX, int toY)> moves, Color color, bool anchorTip)
     {
         var bmp = new Bitmap(cell * 8, cell * 8);
         using var g = Graphics.FromImage(bmp);
-        StampMoves(g, cell, moves, color, false);
+        StampMoves(g, cell, moves, color, false, anchorTip);
         return bmp;
     }
 
