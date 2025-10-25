@@ -25,11 +25,11 @@ public static class ChessHistoryUtility
             var t when (t & ChessPieceAttribute.Pawn) != 0 =>
             [
                 // forward 1-step move
-                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
+                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
                 // forward 2-step move
-                new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
+                new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
                 // diagonal capture
-                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: RepeatBehavior.NotRepeatable, captures: CaptureBehavior.CaptureOnly, forwardOnly: true)
+                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.CaptureOnly, forwardOnly: true)
             ],
             var t when (t & ChessPieceAttribute.Rook) != 0 =>
             [
@@ -38,8 +38,8 @@ public static class ChessHistoryUtility
             ],
             var t when (t & ChessPieceAttribute.Knight) != 0 =>
             [
-                new ChessPattern(Vector2.OneByTwo, repeats: RepeatBehavior.NotRepeatable, jumps: true),
-                new ChessPattern(Vector2.TwoByOne, repeats: RepeatBehavior.NotRepeatable, jumps: true)
+                new ChessPattern(Vector2.OneByTwo, repeats: false),
+                new ChessPattern(Vector2.TwoByOne, repeats: false)
             ],
             var t when (t & ChessPieceAttribute.Bishop) != 0 =>
             [
@@ -53,9 +53,9 @@ public static class ChessHistoryUtility
             ],
             var t when (t & ChessPieceAttribute.King) != 0 =>
             [
-                new ChessPattern(Vector2.ZeroByOne, repeats: RepeatBehavior.NotRepeatable),
-                new ChessPattern(Vector2.OneByZero, repeats: RepeatBehavior.NotRepeatable),
-                new ChessPattern(Vector2.OneByOne, repeats: RepeatBehavior.NotRepeatable)
+                new ChessPattern(Vector2.ZeroByOne, repeats: false),
+                new ChessPattern(Vector2.OneByZero, repeats: false),
+                new ChessPattern(Vector2.OneByOne, repeats: false)
             ],
             _ => Array.Empty<ChessPattern>()
         };
@@ -75,16 +75,16 @@ public static class ChessHistoryUtility
 
     internal static IEnumerable<ChessPattern> GetMirroredPatterns(ChessPattern pattern)
     {
-        yield return new ChessPattern(pattern.Delta, MirrorBehavior.None, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
+        yield return new ChessPattern(pattern.Delta, MirrorBehavior.None, pattern.Repeats, pattern.Captures, pattern.ForwardOnly);
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.Horizontal) && pattern.Delta.X != 0)
-            yield return new ChessPattern((-pattern.Delta.X, pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
+            yield return new ChessPattern((-pattern.Delta.X, pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly);
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.Vertical) && pattern.Delta.Y != 0)
-            yield return new ChessPattern((pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
+            yield return new ChessPattern((pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly);
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.All) && pattern.Delta.X != 0 && pattern.Delta.Y != 0)
-            yield return new ChessPattern((-pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly, pattern.Jumps);
+            yield return new ChessPattern((-pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly);
     }
 
     public class ChessActionCandidate
@@ -156,8 +156,7 @@ public static class ChessHistoryUtility
                         );
 
                         if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOrCapture) break; // break so you can't jump over pieces when capturing
-                        if (pattern.Repeats == RepeatBehavior.NotRepeatable) break;
-                        if (pattern.Jumps) break;
+                        if (!pattern.Repeats) break;
                         if (steps >= maxSteps) break;
 
                     } while (true);
