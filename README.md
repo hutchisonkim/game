@@ -10,20 +10,42 @@ This repo is a starter kit for creating basic games using autonomous coding agen
   - Move rendering/IO-heavy tests to an integration test project (`Game.*.Tests.Integration`); keep pure logic tests in unit projects with mocks.  
   - Split core vs chess: decouple `Game.Core` (generic policy/state/action) from `Game.Chess` specifics so other games can be implemented without chess coupling.  
 
-# test 1
+# Test Results References
 
-![Alt1](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceNone_MatchesRef.gif) ![Alt2](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed2345PieceNone_MatchesRef.gif)
+Below are the reference render GIFs produced by the `Game.Chess.Renders` tests. Images are grouped by timeline type.
 
-# test 2
+## Actions timeline
 
-<table>
-  <tr>
-    <td><img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceNone_MatchesRef.gif" alt="Seed 1234" width="45%"></td>
-    <td><img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed2345PieceNone_MatchesRef.gif" alt="Seed 2345" width="45%"></td>
-  </tr>
-</table>
+![RenderActionsTimeline_Turns32Seed1234PieceBishop_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceBishop_MatchesRef.gif)
+![RenderActionsTimeline_Turns32Seed1234PieceKing_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceKing_MatchesRef.gif)
+![RenderActionsTimeline_Turns32Seed1234PieceKnight_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceKnight_MatchesRef.gif)
+![RenderActionsTimeline_Turns32Seed1234PieceNone_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceNone_MatchesRef.gif)
+![RenderActionsTimeline_Turns32Seed1234PiecePawn_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PiecePawn_MatchesRef.gif)
+![RenderActionsTimeline_Turns32Seed1234PieceQueen_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceQueen_MatchesRef.gif)
+![RenderActionsTimeline_Turns32Seed1234PieceRook_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceRook_MatchesRef.gif)
+![RenderActionsTimeline_Turns32Seed2345PieceNone_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed2345PieceNone_MatchesRef.gif)
+![RenderActionsTimeline_Turns32Seed3456PieceNone_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed3456PieceNone_MatchesRef.gif)
 
-# test 3
+## Candidate actions timeline
 
-<img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceNone_MatchesRef.gif" width="45%">
-<img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed2345PieceNone_MatchesRef.gif" width="45%">
+![RenderCandidateActionsTimeline_Turns16Seed1234PieceBishop_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderCandidateActionsTimeline_Turns16Seed1234PieceBishop_MatchesRef.gif)
+![RenderCandidateActionsTimeline_Turns16Seed1234PieceKing_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderCandidateActionsTimeline_Turns16Seed1234PieceKing_MatchesRef.gif)
+![RenderCandidateActionsTimeline_Turns16Seed1234PieceKnight_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderCandidateActionsTimeline_Turns16Seed1234PieceKnight_MatchesRef.gif)
+![RenderCandidateActionsTimeline_Turns16Seed1234PieceNone_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderCandidateActionsTimeline_Turns16Seed1234PieceNone_MatchesRef.gif)
+![RenderCandidateActionsTimeline_Turns16Seed1234PiecePawn_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderCandidateActionsTimeline_Turns16Seed1234PiecePawn_MatchesRef.gif)
+![RenderCandidateActionsTimeline_Turns16Seed1234PieceQueen_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderCandidateActionsTimeline_Turns16Seed1234PieceQueen_MatchesRef.gif)
+![RenderCandidateActionsTimeline_Turns16Seed1234PieceRook_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderCandidateActionsTimeline_Turns16Seed1234PieceRook_MatchesRef.gif)
+![RenderCandidateActionsTimeline_Turns16Seed2345PieceNone_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderCandidateActionsTimeline_Turns16Seed2345PieceNone_MatchesRef.gif)
+![RenderCandidateActionsTimeline_Turns16Seed3456PieceNone_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderCandidateActionsTimeline_Turns16Seed3456PieceNone_MatchesRef.gif)
+
+## Threat timeline
+
+![RenderThreatTimeline_Turns64Seed1234PieceBishop_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderThreatTimeline_Turns64Seed1234PieceBishop_MatchesRef.gif)
+![RenderThreatTimeline_Turns64Seed1234PieceKing_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderThreatTimeline_Turns64Seed1234PieceKing_MatchesRef.gif)
+![RenderThreatTimeline_Turns64Seed1234PieceKnight_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderThreatTimeline_Turns64Seed1234PieceKnight_MatchesRef.gif)
+![RenderThreatTimeline_Turns64Seed1234PieceNone_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderThreatTimeline_Turns64Seed1234PieceNone_MatchesRef.gif)
+![RenderThreatTimeline_Turns64Seed1234PiecePawn_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderThreatTimeline_Turns64Seed1234PiecePawn_MatchesRef.gif)
+![RenderThreatTimeline_Turns64Seed1234PieceQueen_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderThreatTimeline_Turns64Seed1234PieceQueen_MatchesRef.gif)
+![RenderThreatTimeline_Turns64Seed1234PieceRook_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderThreatTimeline_Turns64Seed1234PieceRook_MatchesRef.gif)
+![RenderThreatTimeline_Turns64Seed2345PieceNone_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderThreatTimeline_Turns64Seed2345PieceNone_MatchesRef.gif)
+![RenderThreatTimeline_Turns64Seed3456PieceNone_MatchesRef](TestResultsReference/Game.Chess.Renders/RenderThreatTimeline_Turns64Seed3456PieceNone_MatchesRef.gif)
