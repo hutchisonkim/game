@@ -25,11 +25,11 @@ public static class ChessHistoryUtility
             var t when (t & ChessPieceAttribute.Pawn) != 0 =>
             [
                 // forward 1-step move
-                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
+                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move, forwardOnly: true),
                 // forward 2-step move
-                new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.MoveOnly, forwardOnly: true),
+                new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move, forwardOnly: true),
                 // diagonal capture
-                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.CaptureOnly, forwardOnly: true)
+                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Capture, forwardOnly: true)
             ],
             var t when (t & ChessPieceAttribute.Rook) != 0 =>
             [
@@ -64,13 +64,13 @@ public static class ChessHistoryUtility
 
     public static IEnumerable<ChessPattern> GetPatterns(ChessPiece piece)
     {
-        foreach (ChessPattern pattern in GetBasePatterns(piece))
-        {
-            foreach (ChessPattern mirroredPattern in GetMirroredPatterns(pattern))
+            foreach (ChessPattern pattern in GetBasePatterns(piece))
             {
-                yield return mirroredPattern;
+                foreach (ChessPattern mirroredPattern in GetMirroredPatterns(pattern))
+                {
+                    yield return mirroredPattern;
+                }
             }
-        }
     }
 
     internal static IEnumerable<ChessPattern> GetMirroredPatterns(ChessPattern pattern)
@@ -145,8 +145,10 @@ public static class ChessHistoryUtility
                         }
 
                         ChessPiece toPiece = board[toX, toY];
-                        if (toPiece.IsEmpty && pattern.Captures == CaptureBehavior.CaptureOnly && !includeTargetless) break;
-                        if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOnly) break;
+                        // if the target square is empty but this pattern only allows captures (no moves), skip
+                        if (toPiece.IsEmpty && pattern.Captures.HasFlag(CaptureBehavior.Capture) && !pattern.Captures.HasFlag(CaptureBehavior.Move) && !includeTargetless) break;
+                        // if the target square has a piece but this pattern does not allow captures, skip
+                        if (!toPiece.IsEmpty && !pattern.Captures.HasFlag(CaptureBehavior.Capture)) break;
                         if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor) && !includeFriendlyfire) break;
 
                         yield return new ChessActionCandidate(
@@ -155,7 +157,8 @@ public static class ChessHistoryUtility
                             steps
                         );
 
-                        if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOrCapture) break; // break so you can't jump over pieces when capturing
+                        // if this was a capture on a pattern that also allows move (Move|Capture), stop further tiling so you can't jump over pieces when capturing
+                        if (!toPiece.IsEmpty && pattern.Captures.HasFlag(CaptureBehavior.Move) && pattern.Captures.HasFlag(CaptureBehavior.Capture)) break;
                         if (!pattern.Repeats) break;
                         if (steps >= maxSteps) break;
 

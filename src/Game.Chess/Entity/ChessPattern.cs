@@ -24,4 +24,5 @@ public class ChessPattern
 
 [Flags]
 public enum MirrorBehavior { None = 0, Horizontal = 1, Vertical = 2, All = Horizontal | Vertical }
-public enum CaptureBehavior { MoveOnly, CaptureOnly, MoveOrCapture, CastleOnly }
+[Flags]
+public enum CaptureBehavior { None = 0, Move = 1, Capture = 2, MoveOrCapture = Move | Capture, Castle = 4 }
