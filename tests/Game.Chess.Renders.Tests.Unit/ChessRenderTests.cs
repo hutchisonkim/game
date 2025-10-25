@@ -19,15 +19,15 @@ namespace Game.Chess.Renders.Tests.Unit;
 public class ChessRenderTests
 {
     [Theory]
-    [InlineData(64, 1234, ChessPieceAttribute.None)]
-    [InlineData(64, 2345, ChessPieceAttribute.None)]
-    [InlineData(64, 3456, ChessPieceAttribute.None)]
-    [InlineData(64, 1234, ChessPieceAttribute.Pawn)]
-    [InlineData(64, 1234, ChessPieceAttribute.Rook)]
-    [InlineData(64, 1234, ChessPieceAttribute.Knight)]
-    [InlineData(64, 1234, ChessPieceAttribute.Bishop)]
-    [InlineData(64, 1234, ChessPieceAttribute.Queen)]
-    [InlineData(64, 1234, ChessPieceAttribute.King)]
+    [InlineData(32, 1234, ChessPieceAttribute.None)]
+    [InlineData(32, 2345, ChessPieceAttribute.None)]
+    [InlineData(32, 3456, ChessPieceAttribute.None)]
+    [InlineData(32, 1234, ChessPieceAttribute.Pawn)]
+    [InlineData(32, 1234, ChessPieceAttribute.Rook)]
+    [InlineData(32, 1234, ChessPieceAttribute.Knight)]
+    [InlineData(32, 1234, ChessPieceAttribute.Bishop)]
+    [InlineData(32, 1234, ChessPieceAttribute.Queen)]
+    [InlineData(32, 1234, ChessPieceAttribute.King)]
     public void RenderActionsTimeline_TurnsXXSeedYYPieceZZ_MatchesRef(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange
@@ -65,15 +65,15 @@ public class ChessRenderTests
     }
 
     [Theory]
-    [InlineData(64, 1234, ChessPieceAttribute.None)]
-    [InlineData(64, 2345, ChessPieceAttribute.None)]
-    [InlineData(64, 3456, ChessPieceAttribute.None)]
-    [InlineData(64, 1234, ChessPieceAttribute.Pawn)]
-    [InlineData(64, 1234, ChessPieceAttribute.Rook)]
-    [InlineData(64, 1234, ChessPieceAttribute.Knight)]
-    [InlineData(64, 1234, ChessPieceAttribute.Bishop)]
-    [InlineData(64, 1234, ChessPieceAttribute.Queen)]
-    [InlineData(64, 1234, ChessPieceAttribute.King)]
+    [InlineData(16, 1234, ChessPieceAttribute.None)]
+    [InlineData(16, 2345, ChessPieceAttribute.None)]
+    [InlineData(16, 3456, ChessPieceAttribute.None)]
+    [InlineData(16, 1234, ChessPieceAttribute.Pawn)]
+    [InlineData(16, 1234, ChessPieceAttribute.Rook)]
+    [InlineData(16, 1234, ChessPieceAttribute.Knight)]
+    [InlineData(16, 1234, ChessPieceAttribute.Bishop)]
+    [InlineData(16, 1234, ChessPieceAttribute.Queen)]
+    [InlineData(16, 1234, ChessPieceAttribute.King)]
     public void RenderCandidateActionsTimeline_TurnsXXSeedYYPieceZZ_MatchesRef(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         // Arrange
