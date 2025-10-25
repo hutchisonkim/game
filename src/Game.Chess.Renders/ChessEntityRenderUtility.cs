@@ -1,35 +1,12 @@
 using System.Drawing;
-using Game.Chess.History;
 using Game.Chess.Entity;
 
 namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-internal static class EntityRenderUtility
+internal static class ChessEntityRenderUtility
 {
-    // ─────────────────────────────────────────────────────────────
-    // MAIN ENTRY POINT — returns a ready board layer with pieces
-    // ─────────────────────────────────────────────────────────────
-    internal static Bitmap StampBoard(ChessState state, int boardSize, bool includePieces = true)
-    {
-        if (state is null)
-            throw new ArgumentNullException(nameof(state));
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("Bitmap rendering is only supported on Windows.");
 
-        int cell = Math.Max(4, boardSize / 8);
-        var bmp = new Bitmap(cell * 8, cell * 8);
-
-        using var g = Graphics.FromImage(bmp);
-        g.Clear(Color.White);
-
-        StampSquares(g, cell, boardSize);
-
-        if (includePieces)
-            StampPieces(g, state.Board, cell, boardSize);
-
-        return bmp;
-    }
 
     // ─────────────────────────────────────────────────────────────
     // CELLS
@@ -154,13 +131,7 @@ internal static class EntityRenderUtility
         }
     }
 
-    internal static Bitmap StampMovesLayer(int cell, IEnumerable<(int fromX, int fromY, int toX, int toY)> moves, Color color, bool anchorTip)
-    {
-        var bmp = new Bitmap(cell * 8, cell * 8);
-        using var g = Graphics.FromImage(bmp);
-        StampMoves(g, cell, moves, color, false, anchorTip);
-        return bmp;
-    }
+
 
     // ─────────────────────────────────────────────────────────────
     // UTILS
@@ -236,17 +207,5 @@ internal static class EntityRenderUtility
         float boardSizePx = boardSizeInSquares * cell;
         return new PointF(point.X, boardSizePx - point.Y);
     }
-
-    internal static (int fromX, int fromY, int toX, int toY) InversePositionVertically(
-        (int fromX, int fromY, int toX, int toY) positions, int boardSizeInSquares)
-    {
-        return (
-            positions.fromX,
-            boardSizeInSquares - 1 - positions.fromY,
-            positions.toX,
-            boardSizeInSquares - 1 - positions.toY
-        );
-    }
-
 
 }

@@ -161,7 +161,7 @@ public class ChessRenderTests
     private static byte[] GenerateTimelineGif(int seed, int turnCount, ChessPieceAttribute pieceAttributeOverride, bool anchorTip)
     {
         Random rng = new(seed);
-        HistoryRender view = new();
+        ChessHistoryRender view = new();
         ChessState state = new();
         if (pieceAttributeOverride != ChessPieceAttribute.None)
             state.InitializeBoard(pieceAttributeOverride);
@@ -188,7 +188,7 @@ public class ChessRenderTests
     private static byte[] GenerateCandidateTimelineGif(int seed, int turnCount, ChessPieceAttribute pieceAttributeOverride, bool anchorTip)
     {
         Random rng = new(seed);
-        HistoryRender view = new();
+        ChessHistoryRender view = new();
         ChessState state = new();
         if (pieceAttributeOverride != ChessPieceAttribute.None)
             state.InitializeBoard(pieceAttributeOverride);
@@ -221,7 +221,7 @@ public class ChessRenderTests
     private static byte[] GenerateThreatTimelineGif(int seed, int turnCount, ChessPieceAttribute pieceAttributeOverride, bool anchorTip)
     {
         Random rng = new(seed);
-        HistoryRender view = new();
+        ChessHistoryRender view = new();
         ChessState state = new();
         if (pieceAttributeOverride != ChessPieceAttribute.None)
             state.InitializeBoard(pieceAttributeOverride);

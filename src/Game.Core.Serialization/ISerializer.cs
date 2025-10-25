@@ -5,7 +5,7 @@ namespace Game.Core.Serialization;
 /// Implementations should use only simple/primitive public types in their API.
 /// </summary>
 /// <typeparam name="T">Type that will be serialized/deserialized.</typeparam>
-public interface ISerializable<T>
+public interface ISerializer<T>
 {
     /// <summary>
     /// Serialize the provided object to a string representation.

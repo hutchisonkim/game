@@ -1,10 +1,10 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 
-namespace Game.Chess.Renders;
+namespace Game.Core.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-public static class HistoryRenderUtility
+public static class RenderUtility
 {
     /// <summary>
     /// Combine a list of bitmaps into a single animated GIF.
