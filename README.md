@@ -1,11 +1,9 @@
 # Game
 
-> [!NOTE]
-> This repo serves as a best-practice example for autonomous coding agents to replicate composable game architecture patterns using test-driven development.
+This repo is a starter kit for creating basic games using autonomous coding agents.
 
-- History vs Entity  
-  - History holds rules and (policy, state, action).  
-  - Entity holds domain objects (boards, pieces, patterns).  
+> [!WARNING]
+> Work in progress. Not everything you see here is final.
 
 - TODO  
   - Missing mocks: renderers, GIF composer and IO need mockable interfaces so unit tests can isolate policy/state/action.  
@@ -24,3 +22,8 @@
     <td><img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed2345PieceNone_MatchesRef.gif" alt="Seed 2345" width="45%"></td>
   </tr>
 </table>
+
+# test 3
+
+<img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceNone_MatchesRef.gif" width="45%">
+<img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed2345PieceNone_MatchesRef.gif" width="45%">
