@@ -13,7 +13,7 @@
   - Split core vs chess: decouple `Game.Core` (generic policy/state/action) from `Game.Chess` specifics so other games can be implemented without chess coupling.  
 
 <p>
-  <img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceNone_MatchesRef.gif">
-  <img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed2345PieceNone_MatchesRef.gif">
-  <img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed3456PieceNone_MatchesRef.gif">
+  <img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed1234PieceNone_MatchesRef.gif" width="100" />
+  <img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed2345PieceNone_MatchesRef.gif" width="100" />
+  <img src="TestResultsReference/Game.Chess.Renders/RenderActionsTimeline_Turns32Seed3456PieceNone_MatchesRef.gif" width="100" />
 </p>
