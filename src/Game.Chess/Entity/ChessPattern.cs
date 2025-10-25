@@ -6,19 +6,16 @@ public class ChessPattern
     public MirrorBehavior Mirrors { get; }
     public bool Repeats { get; }
     public CaptureBehavior Captures { get; }
-    public bool ForwardOnly { get; }
 
     public ChessPattern((int X, int Y) vector,
         MirrorBehavior mirrors = MirrorBehavior.All,
         bool repeats = true,
-        CaptureBehavior captures = CaptureBehavior.MoveOrCapture,
-        bool forwardOnly = false)
+        CaptureBehavior captures = CaptureBehavior.MoveOrCapture)
     {
         Delta = vector;
         Mirrors = mirrors;
         Repeats = repeats;
         Captures = captures;
-        ForwardOnly = forwardOnly;
     }
 }
 

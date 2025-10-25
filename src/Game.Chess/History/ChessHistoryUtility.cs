@@ -25,11 +25,11 @@ public static class ChessHistoryUtility
             var t when (t & ChessPieceAttribute.Pawn) != 0 =>
             [
                 // forward 1-step move
-                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move, forwardOnly: true),
+                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move),
                 // forward 2-step move
-                new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move, forwardOnly: true),
+                new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move),
                 // diagonal capture
-                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Capture, forwardOnly: true)
+                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Capture)
             ],
             var t when (t & ChessPieceAttribute.Rook) != 0 =>
             [
@@ -75,16 +75,16 @@ public static class ChessHistoryUtility
 
     internal static IEnumerable<ChessPattern> GetMirroredPatterns(ChessPattern pattern)
     {
-        yield return new ChessPattern(pattern.Delta, MirrorBehavior.None, pattern.Repeats, pattern.Captures, pattern.ForwardOnly);
+        yield return new ChessPattern(pattern.Delta, MirrorBehavior.None, pattern.Repeats, pattern.Captures);
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.Horizontal) && pattern.Delta.X != 0)
-            yield return new ChessPattern((-pattern.Delta.X, pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly);
+            yield return new ChessPattern((-pattern.Delta.X, pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures);
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.Vertical) && pattern.Delta.Y != 0)
-            yield return new ChessPattern((pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly);
+            yield return new ChessPattern((pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures);
 
         if (pattern.Mirrors.HasFlag(MirrorBehavior.All) && pattern.Delta.X != 0 && pattern.Delta.Y != 0)
-            yield return new ChessPattern((-pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures, pattern.ForwardOnly);
+            yield return new ChessPattern((-pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures);
     }
 
     public class ChessActionCandidate
