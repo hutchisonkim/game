@@ -7,7 +7,7 @@ using static Game.Chess.History.ChessHistoryUtility;
 namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-public class ChessView : ViewBase<ChessAction, ChessState>
+public class ChessView
 {
     // add constructor arguments for potentially rendering attacked cells, threatened cells, and checked cells.
     private readonly bool _renderAttackedCells;
@@ -25,7 +25,7 @@ public class ChessView : ViewBase<ChessAction, ChessState>
         _renderBlockedCells = renderBlockedCells;
     }
 
-    public override byte[] RenderStatePng(ChessState state, int stateSize)
+    public byte[] RenderStatePng(ChessState state, int stateSize)
     {
         var currentTurnColorFlag = state.TurnColor;
         var otherColor = (currentTurnColorFlag & ChessPieceAttribute.White) != 0 ? ChessPieceAttribute.Black : ChessPieceAttribute.White;
@@ -47,14 +47,48 @@ public class ChessView : ViewBase<ChessAction, ChessState>
         return ToPng(bmp);
     }
 
-    public override byte[] RenderTransitionSequenceGif(
-        IEnumerable<(ChessState fromState, ChessState toState, ChessAction action, bool selected)> transitions,
+    public byte[] RenderThreatSequenceGif(IEnumerable<(ChessState fromState, ChessState toState, ChessActionCandidate candidate, bool selected)> attackingTransitions, int stateSize, bool anchorTip)
+    {
+        var boardSize = 8;
+
+        var turnTransitionsDict = new Dictionary<int, List<(ChessState fromState, ChessState toState, ChessActionCandidate candidate, bool selected)>>();
+        foreach (var transition in attackingTransitions)
+        {
+            int turn = transition.fromState.TurnCount;
+            if (!turnTransitionsDict.ContainsKey(turn))
+                turnTransitionsDict[turn] = [];
+            turnTransitionsDict[turn].Add(transition);
+        }
+        var frames = new List<Bitmap>();
+        var turns = turnTransitionsDict.Keys.OrderBy(t => t);
+        foreach (var turn in turns)
+        {
+            var turnTransitions = turnTransitionsDict[turn];
+            var firstTurnTransition = turnTransitions.First();
+
+            var bmpFrom = ComposeBoard(firstTurnTransition.fromState, stateSize);
+
+            StampAttackedCells(bmpFrom, turnTransitions.Select(t => t.candidate), stateSize);
+            foreach (var turnTransition in turnTransitions)
+            {
+                StampMoveHighlight(bmpFrom, turnTransition.candidate.Action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
+            }
+
+            StampPieces(bmpFrom, firstTurnTransition.fromState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+
+            frames.Add(bmpFrom);
+        }
+        return GifComposer.Combine(frames);
+    }
+
+    public byte[] RenderTransitionSequenceGif(
+        IEnumerable<(ChessState fromState, ChessState toState, ChessActionCandidate candidate, bool selected)> transitions,
         int stateSize,
         bool anchorTip)
     {
         var boardSize = 8;
-        var turnTransitionsDict = new Dictionary<int, List<(ChessState fromState, ChessState toState, ChessAction action, bool selected)>>();
-        var turnCandidateTransitionsDict = new Dictionary<int, List<(ChessState fromState, ChessState toState, ChessAction action, bool selected)>>();
+        var turnTransitionsDict = new Dictionary<int, List<(ChessState fromState, ChessState toState, ChessActionCandidate candidate, bool selected)>>();
+        var turnCandidateTransitionsDict = new Dictionary<int, List<(ChessState fromState, ChessState toState, ChessActionCandidate candidate, bool selected)>>();
         foreach (var transition in transitions)
         {
             int turn = transition.fromState.TurnCount;
@@ -85,13 +119,13 @@ public class ChessView : ViewBase<ChessAction, ChessState>
                     var bmpFrom = ComposeBoard(turnCandidateTransitions.First().fromState, stateSize);
                     foreach (var turnCandidateTransition in turnCandidateTransitions)
                     {
-                        StampMoveHighlight(bmpFrom, turnCandidateTransition.action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
+                        StampMoveHighlight(bmpFrom, turnCandidateTransition.candidate.Action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
                     }
                     StampPieces(bmpFrom, turnCandidateTransitions.First().fromState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
                     bitmaps.Add(bmpFrom);
                 }
             }
-            {//display all selected transitions for this turn (with all candidates still in the frame)
+            {//display all candidate transitions for this turn + selected transition
                 var turnTransitions = turnTransitionsDict.ContainsKey(turn) ? turnTransitionsDict[turn] : [];
 
                 if (turnTransitions.Count == 0)
@@ -101,58 +135,38 @@ public class ChessView : ViewBase<ChessAction, ChessState>
                 }
 
                 var turnCandidateTransitions = turnCandidateTransitionsDict.ContainsKey(turn) ? turnCandidateTransitionsDict[turn] : [];
-                if (turnCandidateTransitions.Count == 0)
-                {
-                    // Console.WriteLine($"*******************************No candidate transitions for turn {turn}");
-                    // continue;
-                }
 
                 var bmpFrom = ComposeBoard(turnTransitions.First().fromState, stateSize);
                 var bmpTo = ComposeBoard(turnTransitions.First().toState, stateSize);
-                // var bmpNext = ComposeBoard(turnTransitions.First().toState, stateSize);
 
                 foreach (var turnCandidateTransition in turnCandidateTransitions)
                 {
-                    StampMoveHighlight(bmpFrom, turnCandidateTransition.action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
+                    StampMoveHighlight(bmpFrom, turnCandidateTransition.candidate.Action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
                 }
-
-                // get the first selected transition for this turn
-                // var currentColor = turnTransitions.First().fromState.TurnColor;
-                // var nextState = turnTransitions.First().toState;
-                // List<(ChessState fromState, ChessState toState, ChessAction action, bool selected)> nextTurnCandidateTransitions = nextState.GetActionCandidates(currentColor).ToList()
-                //     .Select(ac => (nextState, nextState.Apply(ac.Action), ac.Action, false)).ToList();
-
 
                 foreach (var turnCandidateTransition in turnCandidateTransitions)
                 {
-                    StampMoveHighlight(bmpTo, turnCandidateTransition.action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
+                    StampMoveHighlight(bmpTo, turnCandidateTransition.candidate.Action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
                 }
-                // foreach (var turnCandidateTransition in nextTurnCandidateTransitions)
-                // {
-                //     StampMoveHighlight(bmpNext, turnCandidateTransition.action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
-                // }
 
                 var turnTransition = turnTransitions.First();
 
-                StampMoveHighlight(bmpFrom, turnTransition.action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
-                StampMoveHighlight(bmpTo, turnTransition.action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
+                StampMoveHighlight(bmpFrom, turnTransition.candidate.Action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
+                StampMoveHighlight(bmpTo, turnTransition.candidate.Action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
 
                 StampPieces(bmpFrom, turnTransition.fromState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
                 StampPieces(bmpTo, turnTransition.toState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
-                // StampPieces(bmpNext, turnTransition.toState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
-
 
                 bitmaps.Add(bmpFrom);
                 bitmaps.Add(bmpTo);
-                // bitmaps.Add(bmpNext);
             }
         }
 
 
-        return Renders.GifComposer.Combine(bitmaps);
+        return GifComposer.Combine(bitmaps);
     }
 
-    public override byte[] RenderPreTransitionPng(ChessState fromState, ChessState toState, ChessAction action, int stateSize, bool anchorTip)
+    public byte[] RenderPreTransitionPng(ChessState fromState, ChessState toState, ChessAction action, int stateSize, bool anchorTip)
     {
         var boardSize = 8;
         using var bmp = ComposeBoard(fromState, stateSize);
@@ -162,7 +176,7 @@ public class ChessView : ViewBase<ChessAction, ChessState>
         return ToPng(bmp);
     }
 
-    public override byte[] RenderPostTransitionPng(ChessState fromState, ChessState toState, ChessAction action, int stateSize, bool anchorTip)
+    public byte[] RenderPostTransitionPng(ChessState fromState, ChessState toState, ChessAction action, int stateSize, bool anchorTip)
     {
         var boardSize = 8;
         using var bmp = ComposeBoard(toState, stateSize);
@@ -172,7 +186,7 @@ public class ChessView : ViewBase<ChessAction, ChessState>
         return ToPng(bmp);
     }
 
-    public override byte[] RenderTransitionGif(ChessState fromState, ChessState toState, ChessAction action, int stateSize, bool anchorTip)
+    public byte[] RenderTransitionGif(ChessState fromState, ChessState toState, ChessAction action, int stateSize, bool anchorTip)
     {
         var boardSize = 8;
         using var bmpFrom = ComposeBoard(fromState, stateSize);
@@ -189,7 +203,7 @@ public class ChessView : ViewBase<ChessAction, ChessState>
             bmpTo
         }.ToList();
 
-        return Renders.GifComposer.Combine(frames);
+        return GifComposer.Combine(frames);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -245,7 +259,7 @@ public class ChessView : ViewBase<ChessAction, ChessState>
         using var g = Graphics.FromImage(bmp);
         ChessBoardStamps.StampCells_InnerContour(g, cell, boardSize, positions, color: Color.Black, thickness: 5);
     }
-    private static void StampAttackedCells(Bitmap bmp, IEnumerable<ChessActionCandidate> attackingCandidates, int stateSize)
+    public static void StampAttackedCells(Bitmap bmp, IEnumerable<ChessActionCandidate> attackingCandidates, int stateSize)
     {
         int boardSize = 8;
         int cell = Math.Max(4, stateSize / boardSize);

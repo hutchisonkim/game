@@ -76,9 +76,9 @@ public class ChessRenderTests
     [InlineData(64, 1234, ChessPieceAttribute.King)]
     public void RenderCandidateActionsTimeline_TurnsXXSeedYYPieceZZ_MatchesRef(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
-    // Arrange
-    // Use the existing reference naming used for rendered action timelines so the GIF can be compared
-    string fileName = $"RenderCandidateActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesRef.gif";
+        // Arrange
+        // Use the existing reference naming used for rendered action timelines so the GIF can be compared
+        string fileName = $"RenderCandidateActionsTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesRef.gif";
 
         // Act
         byte[] gifBytes = GenerateCandidateTimelineGif(seed: seed, turnCount: turnCount, pieceAttributeOverride: pieceAttributeOverride, anchorTip: true);
@@ -100,9 +100,45 @@ public class ChessRenderTests
         Assert.True(referenceGifBytes.SequenceEqual(gifBytes), "Generated GIF does not match reference GIF");
     }
 
+    [Theory]
+    [InlineData(64, 1234, ChessPieceAttribute.None)]
+    [InlineData(64, 2345, ChessPieceAttribute.None)]
+    [InlineData(64, 3456, ChessPieceAttribute.None)]
+    [InlineData(64, 1234, ChessPieceAttribute.Pawn)]
+    [InlineData(64, 1234, ChessPieceAttribute.Rook)]
+    [InlineData(64, 1234, ChessPieceAttribute.Knight)]
+    [InlineData(64, 1234, ChessPieceAttribute.Bishop)]
+    [InlineData(64, 1234, ChessPieceAttribute.Queen)]
+    [InlineData(64, 1234, ChessPieceAttribute.King)]
+    public void RenderThreatTimeline_TurnsXXSeedYYPieceZZ_MatchesRef(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
+    {
+        // Arrange
+        // Use the existing reference naming used for rendered action timelines so the GIF can be compared
+        string fileName = $"RenderThreatTimeline_Turns{turnCount}Seed{seed}Piece{pieceAttributeOverride}_MatchesRef.gif";
+
+        // Act
+        byte[] gifBytes = GenerateThreatTimelineGif(seed: seed, turnCount: turnCount, pieceAttributeOverride: pieceAttributeOverride, anchorTip: true);
+
+        // Assert
+        Assert.NotNull(gifBytes);
+        Assert.True(gifBytes.Length > 0, "Generated GIF is empty");
+
+        string outputPath = GetOutputPath(fileName);
+        string referencePath = GetOutputPath(fileName, asReference: true);
+
+        SaveGifToFile(gifBytes, outputPath);
+
+        Assert.True(File.Exists(outputPath), $"Output file missing: {outputPath}");
+        Assert.True(File.Exists(referencePath), $"Reference file missing: {referencePath}");
+
+        byte[] referenceGifBytes = ReadGifFromFile(referencePath);
+
+        Assert.True(referenceGifBytes.SequenceEqual(gifBytes), "Generated GIF does not match reference GIF");
+    }
+
     private static string GetOutputPath(string fileName, bool asReference = false)
     {
-        string assemblyDir = Path.GetDirectoryName(typeof(RenderStatePngTests).Assembly.Location)!;
+        string assemblyDir = Path.GetDirectoryName(typeof(ChessRenderTests).Assembly.Location)!;
         string rootDir = Path.GetFullPath(Path.Combine(assemblyDir, "..\\..\\..\\..\\.."));
         return Path.Combine(rootDir, asReference ? "TestResultsReference" : "TestResults", "Game.Chess.Renders", fileName);
     }
@@ -130,7 +166,7 @@ public class ChessRenderTests
         if (pieceAttributeOverride != ChessPieceAttribute.None)
             state.InitializeBoard(pieceAttributeOverride);
 
-        var transitions = new List<(ChessState fromState, ChessState toState, ChessAction action, bool selected)>();
+        var transitions = new List<(ChessState fromState, ChessState toState, ChessActionCandidate action, bool selected)>();
 
         for (int turn = 0; turn < turnCount; turn++)
         {
@@ -140,7 +176,7 @@ public class ChessRenderTests
             var randomActionCandidate = actionCandidates[rng.Next(actionCandidates.Count)];
             ChessState nextState = state.Apply(randomActionCandidate.Action);
 
-            transitions.Add((state, nextState, randomActionCandidate.Action, selected: true));
+            transitions.Add((state, nextState, randomActionCandidate, selected: true));
             state = nextState;
         }
 
@@ -151,15 +187,13 @@ public class ChessRenderTests
 
     private static byte[] GenerateCandidateTimelineGif(int seed, int turnCount, ChessPieceAttribute pieceAttributeOverride, bool anchorTip)
     {
-        // Mirrors CandidateActionsTimeline test logic: collect candidates each turn, pick one random candidate to progress state,
-        // and render the resulting state transitions.
         Random rng = new(seed);
         ChessView view = new();
         ChessState state = new();
         if (pieceAttributeOverride != ChessPieceAttribute.None)
             state.InitializeBoard(pieceAttributeOverride);
 
-        var transitions = new List<(ChessState fromState, ChessState toState, ChessAction action, bool selected)>();
+        var transitions = new List<(ChessState fromState, ChessState toState, ChessActionCandidate candidate, bool selected)>();
 
         for (int turn = 0; turn < turnCount; turn++)
         {
@@ -167,29 +201,67 @@ public class ChessRenderTests
             int count = actionCandidates.Count;
             if (count == 0) break;
 
-            // For visual parity with the candidate timeline test, record candidate serializations (not used further here)
-            var candidateActionsThisTurn = actionCandidates
-                .Select(ac => ChessSerializationUtility.SerializeAction(ac.Action.From.X, ac.Action.From.Y, ac.Action.To.X, ac.Action.To.Y))
-                .ToList();
-
-            // First: show all candidate transitions (preview each candidate without mutating the real state)
             foreach (var candidate in actionCandidates)
             {
                 var previewNext = state.Apply(candidate.Action);
-                transitions.Add((state, previewNext, candidate.Action, selected: false));
+                transitions.Add((state, previewNext, candidate, selected: false));
             }
 
-            // Then choose one at random to actually take and advance the main state
             var chosen = actionCandidates[rng.Next(count)];
             var chosenNext = state.Apply(chosen.Action);
-            transitions.Add((state, chosenNext, chosen.Action, selected: true));
+            transitions.Add((state, chosenNext, chosen, selected: true));
 
-            // Advance the canonical state to the chosen next state
             state = chosenNext;
         }
 
-        // Render all accumulated transitions: candidates previews followed by the chosen transitions per turn
         byte[] gifBytes = view.RenderTransitionSequenceGif(transitions, 200, anchorTip);
+        return gifBytes;
+    }
+
+    private static byte[] GenerateThreatTimelineGif(int seed, int turnCount, ChessPieceAttribute pieceAttributeOverride, bool anchorTip)
+    {
+        Random rng = new(seed);
+        ChessView view = new();
+        ChessState state = new();
+        if (pieceAttributeOverride != ChessPieceAttribute.None)
+            state.InitializeBoard(pieceAttributeOverride);
+
+        var transitions = new List<(ChessState fromState, ChessState toState, ChessActionCandidate action, bool selected)>();
+
+        for (int turn = 0; turn < turnCount; turn++)
+        {
+            var candidates = state.GetActionCandidates().ToList();
+            int candidatesCount = candidates.Count;
+            if (candidatesCount == 0)
+            {
+                Assert.Fail($"No attacking action candidates available for turn {turn}.");
+                break;
+            }
+            //use the seeded RNG to pick one to be "selected", apply it to the state and continue
+            var selectedCandidate = candidates[rng.Next(candidatesCount)];
+            //simulate a move forward to check the next turn's color
+            var selectedCandidateState = state.Apply(selectedCandidate.Action);
+            var nextTurnColor = selectedCandidateState.TurnColor;
+
+            var attackingCandidates = state.GetAttackingActionCandidates(nextTurnColor, includeTargetless: true, includeFriendlyfire: false).ToList();
+            int attackingCandidatesCount = attackingCandidates.Count;
+            if (attackingCandidatesCount == 0)
+            {
+                Assert.Fail($"No attacking action candidates available for turn {turn}.");
+                break;
+            }
+
+            //add all candidates as unselected
+            foreach (var attackingCandidate in attackingCandidates)
+            {
+                var attackingCandidateState = state.Apply(attackingCandidate.Action);
+                transitions.Add((state, attackingCandidateState, attackingCandidate, selected: false));
+            }
+
+            state = selectedCandidateState;
+        }
+
+        byte[] gifBytes = view.RenderThreatSequenceGif(transitions, 200, anchorTip: anchorTip);
         return gifBytes;
     }
 }
