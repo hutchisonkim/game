@@ -64,13 +64,13 @@ public static class ChessHistoryUtility
 
     public static IEnumerable<ChessPattern> GetPatterns(ChessPiece piece)
     {
-            foreach (ChessPattern pattern in GetBasePatterns(piece))
+        foreach (ChessPattern pattern in GetBasePatterns(piece))
+        {
+            foreach (ChessPattern mirroredPattern in GetMirroredPatterns(pattern))
             {
-                foreach (ChessPattern mirroredPattern in GetMirroredPatterns(pattern))
-                {
-                    yield return mirroredPattern;
-                }
+                yield return mirroredPattern;
             }
+        }
     }
 
     internal static IEnumerable<ChessPattern> GetMirroredPatterns(ChessPattern pattern)
@@ -136,8 +136,7 @@ public static class ChessHistoryUtility
                         // if this is the two-step pawn move, only allow from the starting rank
                         if (pattern.Delta == Vector2.ZeroByTwo)
                         {
-                            if (fromPiece.IsWhite && fromY != 1) break;
-                            if (!fromPiece.IsWhite && fromY != 6) break;
+                            if (!fromPiece.IsMint) break;
 
                             //block if there is a piece in between
                             ChessPiece intermediatePiece = board[fromX + (dx / 2), fromY + (dy / 2)];

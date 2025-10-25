@@ -46,8 +46,9 @@ public class ChessState : IState<ChessAction, ChessState>
         ChessState newBoard = new();
         Array.Copy(_board, newBoard._board, _board.Length);
 
-        // Move the piece
-        newBoard._board[chessAction.To.X, chessAction.To.Y] = piece;
+        // Move the piece — when a piece moves, it ceases to be "Mint"
+        var movedAttributes = piece.Attributes & ~ChessPieceAttribute.Mint;
+        newBoard._board[chessAction.To.X, chessAction.To.Y] = new ChessPiece(movedAttributes);
         newBoard._board[chessAction.From.X, chessAction.From.Y] = ChessPiece.Empty;
 
         if (UpsTurns)
