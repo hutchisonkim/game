@@ -117,7 +117,6 @@ public static class ChessHistoryUtility
                 int maxSteps = Math.Max(width, height);
 
                 var (fx, fy) = fromPiece.ForwardAxis();
-                // Console.WriteLine($"****({fromX},{fromY}) fromPiece.Attributes: {fromPiece.Attributes}");
                 foreach (ChessPattern pattern in GetPatterns(fromPiece))
                 {
                     int dx = pattern.Delta.X * fx;
@@ -132,43 +131,23 @@ public static class ChessHistoryUtility
                         toY += dy;
                         steps++;
 
-                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
-                        //     Console.WriteLine($"A From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
-
                         if (toY < 0 || toY >= height || toX < 0 || toX >= width) break;
-
-                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
-                        //     Console.WriteLine($"B From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
 
                         // if this is the two-step pawn move, only allow from the starting rank
                         if (pattern.Delta == Vector2.ZeroByTwo)
                         {
                             if (fromPiece.IsWhite && fromY != 1) break;
-                            // if (pattern.ForwardOnly && fromPiece.IsWhite)
-                            //     Console.WriteLine($"B1 From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
                             if (!fromPiece.IsWhite && fromY != 6) break;
-                            // if (pattern.ForwardOnly && fromPiece.IsWhite)
-                            //     Console.WriteLine($"B2 From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
 
                             //block if there is a piece in between
                             ChessPiece intermediatePiece = board[fromX + (dx / 2), fromY + (dy / 2)];
                             if (!intermediatePiece.IsEmpty) break;
-                            // if (pattern.ForwardOnly && fromPiece.IsWhite)
-                            //     Console.WriteLine($"B3 From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
                         }
 
-                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
-                        //     Console.WriteLine($"C From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
                         ChessPiece toPiece = board[toX, toY];
                         if (toPiece.IsEmpty && pattern.Captures == CaptureBehavior.CaptureOnly && !includeTargetless) break;
-                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
-                        //     Console.WriteLine($"D From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps} toPiece.Attributes: {toPiece.Attributes}");
                         if (!toPiece.IsEmpty && pattern.Captures == CaptureBehavior.MoveOnly) break;
-                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
-                        //     Console.WriteLine($"E From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
                         if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor) && !includeFriendlyfire) break;
-                        // if (pattern.ForwardOnly && fromPiece.IsWhite)
-                        //     Console.WriteLine($"S From ({fromX},{fromY}) to ({toX},{toY}) via delta ({dx},{dy}) step {steps}");
 
                         yield return new ChessActionCandidate(
                             new ChessAction(new ChessPosition(fromX, fromY), new ChessPosition(toX, toY)),
