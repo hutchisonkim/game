@@ -1,9 +1,7 @@
 # Game
 
-
-> [!INFO]
-> This repo attempts to generalise game implementation patterns using chess as a concrete example. The goal is to create reusable abstractions for turn-based games, with clear separation of concerns between game logic, state management, and rendering.
-
+[!INFO]
+This repo attempts to generalise game implementation patterns using chess as a concrete example. The goal is to create reusable abstractions for turn-based games, with clear separation of concerns between game logic, state management, and rendering.
 
 - History vs Entity
   - History holds rules, move generation and timelines.
