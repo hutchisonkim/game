@@ -29,7 +29,7 @@ public static class ChessHistoryUtility
                 // forward 2-step move
                 new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move),
                 // diagonal capture
-                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Capture)
+                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Replace)
             ],
             var t when (t & ChessPieceAttribute.Rook) != 0 =>
             [
@@ -83,7 +83,7 @@ public static class ChessHistoryUtility
         if (pattern.Mirrors.HasFlag(MirrorBehavior.Vertical) && pattern.Delta.Y != 0)
             yield return new ChessPattern((pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures);
 
-        if (pattern.Mirrors.HasFlag(MirrorBehavior.All) && pattern.Delta.X != 0 && pattern.Delta.Y != 0)
+        if (pattern.Mirrors.HasFlag(MirrorBehavior.Both) && pattern.Delta.X != 0 && pattern.Delta.Y != 0)
             yield return new ChessPattern((-pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures);
     }
 
@@ -146,9 +146,9 @@ public static class ChessHistoryUtility
 
                         ChessPiece toPiece = board[toX, toY];
                         // if the target square is empty but this pattern only allows captures (no moves), skip
-                        if (toPiece.IsEmpty && pattern.Captures.HasFlag(CaptureBehavior.Capture) && !pattern.Captures.HasFlag(CaptureBehavior.Move) && !includeTargetless) break;
+                        if (toPiece.IsEmpty && pattern.Captures.HasFlag(CaptureBehavior.Replace) && !pattern.Captures.HasFlag(CaptureBehavior.Move) && !includeTargetless) break;
                         // if the target square has a piece but this pattern does not allow captures, skip
-                        if (!toPiece.IsEmpty && !pattern.Captures.HasFlag(CaptureBehavior.Capture)) break;
+                        if (!toPiece.IsEmpty && !pattern.Captures.HasFlag(CaptureBehavior.Replace)) break;
                         if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor) && !includeFriendlyfire) break;
 
                         yield return new ChessActionCandidate(
@@ -158,7 +158,7 @@ public static class ChessHistoryUtility
                         );
 
                         // if this was a capture on a pattern that also allows move (Move|Capture), stop further tiling so you can't jump over pieces when capturing
-                        if (!toPiece.IsEmpty && pattern.Captures.HasFlag(CaptureBehavior.Move) && pattern.Captures.HasFlag(CaptureBehavior.Capture)) break;
+                        if (!toPiece.IsEmpty && pattern.Captures.HasFlag(CaptureBehavior.Move) && pattern.Captures.HasFlag(CaptureBehavior.Replace)) break;
                         if (!pattern.Repeats) break;
                         if (steps >= maxSteps) break;
 

@@ -4,7 +4,7 @@ using Game.Chess.History;
 
 namespace Game.Chess.Serialization;
 
-public sealed class ChessActionSerializer : ISerializer<ChessAction>
+public sealed class ChessActionSerializer : ISerializable<ChessAction>
 {
     private readonly char _separator = ':';
     private readonly ChessPositionSerializer _pos = new();

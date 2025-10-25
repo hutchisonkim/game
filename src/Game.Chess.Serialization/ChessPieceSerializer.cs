@@ -3,7 +3,7 @@ using Game.Chess.Entity;
 
 namespace Game.Chess.Serialization;
 
-public sealed class ChessPieceSerializer : ISerializer<ChessPiece>
+public sealed class ChessPieceSerializer : ISerializable<ChessPiece>
 {
     public string Serialize(ChessPiece value) => ((int)value.Attributes).ToString();
 

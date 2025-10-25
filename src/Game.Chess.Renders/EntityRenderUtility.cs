@@ -5,7 +5,7 @@ using Game.Chess.Entity;
 namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-internal static class ChessBoardStamps
+internal static class EntityRenderUtility
 {
     // ─────────────────────────────────────────────────────────────
     // MAIN ENTRY POINT — returns a ready board layer with pieces

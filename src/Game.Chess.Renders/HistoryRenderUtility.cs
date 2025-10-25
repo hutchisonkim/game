@@ -1,14 +1,10 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 
 namespace Game.Chess.Renders;
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-public static class GifComposer
+public static class HistoryRenderUtility
 {
     /// <summary>
     /// Combine a list of bitmaps into a single animated GIF.
@@ -16,7 +12,7 @@ public static class GifComposer
     /// </summary>
     /// <param name="bitmaps">Frames to include in the GIF.</param>
     /// <param name="frameDelayMs">Delay per frame in milliseconds (default 800ms).</param>
-    public static byte[] Combine(List<Bitmap> bitmaps, int frameDelayMs = 800)
+    public static byte[] RenderGif(List<Bitmap> bitmaps, int frameDelayMs = 800)
     {
         if (bitmaps == null || bitmaps.Count == 0)
             throw new ArgumentException("No frames provided.", nameof(bitmaps));

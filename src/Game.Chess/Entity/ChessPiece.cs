@@ -17,7 +17,7 @@ public enum ChessPieceAttribute
 }
 
 
-public record struct ChessPiece(ChessPieceAttribute Attributes)
+public readonly record struct ChessPiece(ChessPieceAttribute Attributes)
 {
     public ChessPieceAttribute Attributes { get; } = Attributes;
 
