@@ -9,6 +9,7 @@ This repo is a starter kit for creating basic games using autonomous coding agen
   - Missing mocks: renderers, GIF composer and IO need mockable interfaces so unit tests can isolate.  
   - Move rendering/IO-heavy tests to an integration test project (`Game.*.Tests.Integration`); keep pure logic tests in unit projects with mocks.  
   - Split core vs chess: decouple `Game.Core` (generic policy/state/action) from `Game.Chess` specifics so other games can be implemented using a domain-agnostic core.  
+  - Refactor policy to use a OOP node-tree distributed approach rather than a monolithic policy class.
 
 # Test Results References
 
