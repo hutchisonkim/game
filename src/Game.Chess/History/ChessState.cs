@@ -80,7 +80,7 @@ public class ChessState : IState<ChessAction, ChessState>
             .Where(candidate =>
             {
                 var threatenedPiece = this[candidate.Action.To.X, candidate.Action.To.Y];
-                return (threatenedPiece.TypeFlag & ChessPieceAttribute.King) != 0;
+                return (threatenedPiece.TypeAttributes & ChessPieceAttribute.King) != 0;
             });
 
 

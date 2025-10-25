@@ -20,7 +20,7 @@ public static class ChessHistoryUtility
 
     internal static IEnumerable<ChessPattern> GetBasePatterns(ChessPiece piece)
     {
-        return piece.TypeFlag switch
+        return piece.TypeAttributes switch
         {
             var t when (t & ChessPieceAttribute.Pawn) != 0 =>
             [
@@ -116,7 +116,7 @@ public static class ChessHistoryUtility
 
                 int maxSteps = Math.Max(width, height);
 
-                var (fx, fy) = fromPiece.ForwardAxis();
+                var (fx, fy) = fromPiece.Forward();
                 foreach (ChessPattern pattern in GetPatterns(fromPiece))
                 {
                     int dx = pattern.Delta.X * fx;

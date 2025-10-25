@@ -144,7 +144,7 @@ internal static class ChessEntityRenderUtility
 
     private static string GetPieceSymbol(ChessPiece piece)
     {
-        var t = piece.TypeFlag;
+        var t = piece.TypeAttributes;
         if (piece.IsWhite)
         {
             if ((t & ChessPieceAttribute.King) != 0) return "♔";

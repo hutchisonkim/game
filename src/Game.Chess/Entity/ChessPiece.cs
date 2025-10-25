@@ -21,18 +21,19 @@ public readonly record struct ChessPiece(ChessPieceAttribute Attributes)
 {
     public ChessPieceAttribute Attributes { get; } = Attributes;
 
-    public readonly bool IsWhite => (Attributes & ChessPieceAttribute.White) == ChessPieceAttribute.White;
+    public readonly bool IsWhite => (Attributes & ChessPieceAttribute.White) != 0;
+    public readonly bool IsMint => (Attributes & ChessPieceAttribute.Mint) != 0;
 
-    public readonly (int X, int Y) ForwardAxis() => (1, IsWhite ? 1 : -1);
+    public readonly (int X, int Y) Forward() => (1, IsWhite ? 1 : -1);
 
     public readonly bool IsEmpty => Attributes == ChessPieceAttribute.None;
 
     public static readonly ChessPiece Empty = new(ChessPieceAttribute.None);
 
-    public readonly ChessPieceAttribute ColorFlag => Attributes & (ChessPieceAttribute.White | ChessPieceAttribute.Black);
-    public readonly ChessPieceAttribute TypeFlag => Attributes & (ChessPieceAttribute.Pawn | ChessPieceAttribute.Rook | ChessPieceAttribute.Knight | ChessPieceAttribute.Bishop | ChessPieceAttribute.Queen | ChessPieceAttribute.King);
+    public readonly ChessPieceAttribute ColorAttributes => Attributes & (ChessPieceAttribute.White | ChessPieceAttribute.Black);
+    public readonly ChessPieceAttribute TypeAttributes => Attributes & (ChessPieceAttribute.Pawn | ChessPieceAttribute.Rook | ChessPieceAttribute.Knight | ChessPieceAttribute.Bishop | ChessPieceAttribute.Queen | ChessPieceAttribute.King);
 
-    public readonly bool IsSameColor(ChessPieceAttribute otherColorFlag) => (ColorFlag & otherColorFlag) != 0;
-    public readonly bool IncludesType(ChessPieceAttribute otherTypeFlag) => (TypeFlag & otherTypeFlag) != 0;
+    public readonly bool IsSameColor(ChessPieceAttribute otherColorAttributes) => (ColorAttributes & otherColorAttributes) != 0;
+    public readonly bool IsSameType(ChessPieceAttribute otherTypeAttributes) => (TypeAttributes & otherTypeAttributes) != 0;
     
 }

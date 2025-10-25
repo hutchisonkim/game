@@ -64,7 +64,7 @@ namespace Game.Chess.History
                     var piece = state[x, y];
                     if (piece.IsEmpty) continue;
                     if (!piece.IsSameColor(pieceColor)) continue;
-                    if (!piece.IncludesType(pieceType)) continue;
+                    if (!piece.IsSameType(pieceType)) continue;
                     positions.Add((x, y));
                 }
             }
