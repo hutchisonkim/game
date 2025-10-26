@@ -37,7 +37,7 @@ public class ChessHistoryRender
                 StampMoveHighlight(bmpFrom, turnTransition.candidate.Action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
             }
 
-            StampPieces(bmpFrom, firstTurnTransition.fromState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+            StampPieces(bmpFrom, firstTurnTransition.fromState.Board.Cell, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
 
             frames.Add(bmpFrom);
         }
@@ -84,7 +84,7 @@ public class ChessHistoryRender
                     {
                         StampMoveHighlight(bmpFrom, turnCandidateTransition.candidate.Action, Color.Orange, stateSize, 1.0f, anchorTip: anchorTip);
                     }
-                    StampPieces(bmpFrom, turnCandidateTransitions.First().fromState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+                    StampPieces(bmpFrom, turnCandidateTransitions.First().fromState.Board.Cell, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
                     bitmaps.Add(bmpFrom);
                 }
             }
@@ -117,8 +117,8 @@ public class ChessHistoryRender
                 StampMoveHighlight(bmpFrom, turnTransition.candidate.Action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
                 StampMoveHighlight(bmpTo, turnTransition.candidate.Action, Color.Red, stateSize, 1.0f, anchorTip: anchorTip);
 
-                StampPieces(bmpFrom, turnTransition.fromState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
-                StampPieces(bmpTo, turnTransition.toState.Board, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+                StampPieces(bmpFrom, turnTransition.fromState.Board.Cell, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
+                StampPieces(bmpTo, turnTransition.toState.Board.Cell, Math.Max(4, stateSize / boardSize), boardSize, 1.0f);
 
                 bitmaps.Add(bmpFrom);
                 bitmaps.Add(bmpTo);
@@ -139,7 +139,7 @@ public class ChessHistoryRender
         int cell = Math.Max(4, stateSize / boardSize);
 
         var baseLayer = ChessEntityRenderUtility.StampSquaresLayer(cell, boardSize);
-        var pieceLayer = ChessEntityRenderUtility.StampPiecesLayer(state.Board, cell, boardSize);
+        var pieceLayer = ChessEntityRenderUtility.StampPiecesLayer(state.Board.Cell, cell, boardSize);
 
         // Composite them
         using var g = Graphics.FromImage(baseLayer);

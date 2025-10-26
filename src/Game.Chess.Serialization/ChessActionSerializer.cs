@@ -16,8 +16,8 @@ public sealed class ChessActionSerializer : ISerializer<ChessAction>
         if (parts.Length != 2) throw new FormatException("Action must be 'from-to'");
         try
         {
-            ChessPosition from = _pos.Deserialize(parts[0]);
-            ChessPosition to = _pos.Deserialize(parts[1]);
+            (int X, int Y) from = _pos.Deserialize(parts[0]);
+            (int X, int Y) to = _pos.Deserialize(parts[1]);
             return new ChessAction(from, to);
         }
         catch (FormatException ex)

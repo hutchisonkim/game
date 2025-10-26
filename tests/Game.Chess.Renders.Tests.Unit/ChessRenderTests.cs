@@ -162,9 +162,7 @@ public class ChessRenderTests
     {
         Random rng = new(seed);
         ChessHistoryRender view = new();
-        ChessState state = new();
-        if (pieceAttributeOverride != ChessPieceAttribute.None)
-            state.InitializeBoard(pieceAttributeOverride);
+        ChessState state = new(pieceAttributeOverride);
 
         var transitions = new List<(ChessState fromState, ChessState toState, ChessActionCandidate action, bool selected)>();
 
@@ -189,9 +187,7 @@ public class ChessRenderTests
     {
         Random rng = new(seed);
         ChessHistoryRender view = new();
-        ChessState state = new();
-        if (pieceAttributeOverride != ChessPieceAttribute.None)
-            state.InitializeBoard(pieceAttributeOverride);
+        ChessState state = new(pieceAttributeOverride);
 
         var transitions = new List<(ChessState fromState, ChessState toState, ChessActionCandidate candidate, bool selected)>();
 
@@ -222,9 +218,7 @@ public class ChessRenderTests
     {
         Random rng = new(seed);
         ChessHistoryRender view = new();
-        ChessState state = new();
-        if (pieceAttributeOverride != ChessPieceAttribute.None)
-            state.InitializeBoard(pieceAttributeOverride);
+        ChessState state = new(pieceAttributeOverride);
 
         var transitions = new List<(ChessState fromState, ChessState toState, ChessActionCandidate action, bool selected)>();
 

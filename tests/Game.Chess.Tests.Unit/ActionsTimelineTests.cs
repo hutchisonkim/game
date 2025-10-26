@@ -65,9 +65,7 @@ public class ActionsTimelineTests
         string referencePath = TestFileHelper.GetOutputPath(fileName, asReference: true);
 
         var rng = new Random(seed);
-        var state = new ChessState();
-        if (pieceAttributeOverride != ChessPieceAttribute.None)
-            state.InitializeBoard(pieceAttributeOverride);
+        var state = new ChessState(pieceAttributeOverride);
 
         var candidateActionsTimeline = new List<List<string>>();
 

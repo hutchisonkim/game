@@ -8,12 +8,9 @@ public static class ChessSerializationUtility
     public static List<string> GenerateRandom(int turnCount, int seed, ChessPieceAttribute pieceAttributeOverride)
     {
         var rng = new Random(seed);
-        var state = new ChessState();
+        var state = new ChessState(pieceAttributeOverride);
         var actionsTimeline = new List<string>();
 
-        if (pieceAttributeOverride != ChessPieceAttribute.None)
-            state.InitializeBoard(pieceAttributeOverride);
-            
         for (int turn = 0; turn < turnCount; turn++)
         {
             IEnumerable<ChessHistoryUtility.ChessActionCandidate> actionCandidates = state.GetActionCandidates();
@@ -23,10 +20,13 @@ public static class ChessSerializationUtility
             ChessHistoryUtility.ChessActionCandidate actionCandidate = actionCandidates.ElementAt(rng.Next(count));
             ChessState nextState = state.Apply(actionCandidate.Action);
 
-            // Use the serialization layer to convert the action into a string fragment.
-            var from = actionCandidate.Action.From;
-            var to = actionCandidate.Action.To;
-            actionsTimeline.Add(SerializeAction(from.X, from.Y, to.X, to.Y));
+            actionsTimeline.Add(SerializeAction(
+                actionCandidate.Action.From.X,
+                actionCandidate.Action.From.Y,
+                actionCandidate.Action.To.X,
+                actionCandidate.Action.To.Y
+            ));
+
             state = nextState;
         }
 

@@ -1,10 +1,9 @@
 using Game.Core;
-using Game.Chess.Entity;
 
 namespace Game.Chess.History;
 
-public sealed class ChessAction(ChessPosition from, ChessPosition to) : IAction
+public sealed class ChessAction((int X, int Y) from, (int X, int Y) to) : IAction
 {
-    public ChessPosition From { get; } = from;
-    public ChessPosition To { get; } = to;
+    public (int X, int Y) From { get; } = from;
+    public (int X, int Y) To { get; } = to;
 }

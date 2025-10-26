@@ -1,7 +1,6 @@
 using Game.Chess.Entity;
 namespace Game.Chess.History;
 
-// 🔹 Domain-agnostic piece behavior using the `Piece` record (Game.Chess.Piece)
 public static class ChessHistoryUtility
 {
     public static class Vector2
@@ -139,7 +138,7 @@ public static class ChessHistoryUtility
                         if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor) && !includeFriendlyfire) break;
 
                         yield return new ChessActionCandidate(
-                            new ChessAction(new ChessPosition(fromX, fromY), new ChessPosition(toX, toY)),
+                            new ChessAction((fromX, fromY), (toX, toY)),
                             pattern,
                             steps
                         );
