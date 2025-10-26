@@ -33,19 +33,13 @@ public class ChessState : IState<ChessAction, ChessState>
 
     public ChessState Apply(ChessAction chessAction)
     {
-        if (!Board.IsInside(chessAction.From.X, chessAction.From.Y) || !Board.IsInside(chessAction.To.X, chessAction.To.Y))
-            throw new ArgumentException("Invalid move positions.");
-
         ChessPiece piece = Board.Cell[chessAction.From.X, chessAction.From.Y];
-        if (piece.IsEmpty)
-            throw new InvalidOperationException("No piece at the source position.");
-
         ChessState newBoard = Clone();
 
         // Move the piece — when a piece moves, it ceases to be "Mint"
-        var movedAttributes = piece.Attributes & ~ChessPieceAttribute.Mint;
+        ChessPieceAttribute newPieceAttributes = piece.Attributes & ~ChessPieceAttribute.Mint;
 
-        newBoard.Board.Cell[chessAction.To.X, chessAction.To.Y] = new ChessPiece(movedAttributes);
+        newBoard.Board.Cell[chessAction.To.X, chessAction.To.Y] = new ChessPiece(newPieceAttributes);
         newBoard.Board.Cell[chessAction.From.X, chessAction.From.Y] = ChessPiece.Empty;
 
         newBoard.TurnCount = TurnCount + 1;
