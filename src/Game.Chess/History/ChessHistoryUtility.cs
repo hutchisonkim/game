@@ -85,18 +85,11 @@ public static class ChessHistoryUtility
             yield return new ChessPattern((-pattern.Delta.X, -pattern.Delta.Y), pattern.Mirrors, pattern.Repeats, pattern.Captures);
     }
 
-    public class ChessActionCandidate
+    public class ChessActionCandidate(ChessAction action, ChessPattern pattern, int steps)
     {
-        public ChessAction Action { get; }
-        public ChessPattern Pattern { get; }
-        public int Steps { get; }
-
-        public ChessActionCandidate(ChessAction action, ChessPattern pattern, int steps)
-        {
-            Action = action;
-            Pattern = pattern;
-            Steps = steps;
-        }
+        public ChessAction Action { get; } = action;
+        public ChessPattern Pattern { get; } = pattern;
+        public int Steps { get; } = steps;
     }
 
     public static IEnumerable<ChessActionCandidate> GetActionCandidates(ChessPiece[,] board, ChessPieceAttribute turnColor, bool includeTargetless, bool includeFriendlyfire)

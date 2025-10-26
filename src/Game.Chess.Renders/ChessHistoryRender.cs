@@ -8,10 +8,7 @@ namespace Game.Chess.Renders;
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class ChessHistoryRender
 {
-    public ChessHistoryRender()
-    {
-    }
-
+    public ChessHistoryRender() { }
 
     public byte[] RenderThreatSequenceGif(IEnumerable<(ChessState fromState, ChessState toState, ChessActionCandidate candidate, bool selected)> attackingTransitions, int stateSize, bool anchorTip)
     {
