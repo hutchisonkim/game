@@ -19,8 +19,6 @@ public enum ChessPieceAttribute
 
 public readonly record struct ChessPiece(ChessPieceAttribute Attributes)
 {
-    public ChessPieceAttribute Attributes { get; } = Attributes;
-
     public readonly bool IsWhite => (Attributes & ChessPieceAttribute.White) != 0;
     public readonly bool IsMint => (Attributes & ChessPieceAttribute.Mint) != 0;
 

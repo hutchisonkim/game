@@ -1,14 +1,12 @@
 namespace Game.Chess.Entity;
 
-public class ChessPattern((int X, int Y) vector,
-    MirrorBehavior mirrors = MirrorBehavior.Both,
-    bool repeats = true,
-    CaptureBehavior captures = CaptureBehavior.MoveOrReplace)
+public readonly record struct ChessPattern(
+    (int X, int Y) Delta,
+    MirrorBehavior Mirrors = MirrorBehavior.Both,
+    bool Repeats = true,
+    CaptureBehavior Captures = CaptureBehavior.MoveOrReplace)
 {
-    public (int X, int Y) Delta { get; } = vector;
-    public MirrorBehavior Mirrors { get; } = mirrors;
-    public bool Repeats { get; } = repeats;
-    public CaptureBehavior Captures { get; } = captures;
+    public bool CanCapture => Captures.HasFlag(CaptureBehavior.Replace);
 }
 
 [Flags]

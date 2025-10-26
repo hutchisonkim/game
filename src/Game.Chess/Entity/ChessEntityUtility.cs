@@ -61,14 +61,14 @@ public static class ChessEntityUtility
         {
             var t when ((t & ChessPieceAttribute.Pawn) != 0) && ((t & ChessPieceAttribute.Mint) != 0) =>
             [
-                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move),
-                new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move),
-                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Replace),
+                new ChessPattern(Vector2.ZeroByOne, Mirrors: MirrorBehavior.Horizontal, Repeats: false, Captures: CaptureBehavior.Move),
+                new ChessPattern(Vector2.ZeroByTwo, Mirrors: MirrorBehavior.Horizontal, Repeats: false, Captures: CaptureBehavior.Move),
+                new ChessPattern(Vector2.OneByOne, Mirrors: MirrorBehavior.Horizontal, Repeats: false, Captures: CaptureBehavior.Replace),
             ],
             var t when ((t & ChessPieceAttribute.Pawn) != 0) && ((t & ChessPieceAttribute.Mint) == 0) =>
             [
-                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move),
-                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Replace)
+                new ChessPattern(Vector2.ZeroByOne, Mirrors: MirrorBehavior.Horizontal, Repeats: false, Captures: CaptureBehavior.Move),
+                new ChessPattern(Vector2.OneByOne, Mirrors: MirrorBehavior.Horizontal, Repeats: false, Captures: CaptureBehavior.Replace)
             ],
             var t when (t & ChessPieceAttribute.Rook) != 0 =>
             [
@@ -77,8 +77,8 @@ public static class ChessEntityUtility
             ],
             var t when (t & ChessPieceAttribute.Knight) != 0 =>
             [
-                new ChessPattern(Vector2.OneByTwo, repeats: false),
-                new ChessPattern(Vector2.TwoByOne, repeats: false)
+                new ChessPattern(Vector2.OneByTwo, Repeats: false),
+                new ChessPattern(Vector2.TwoByOne, Repeats: false)
             ],
             var t when (t & ChessPieceAttribute.Bishop) != 0 =>
             [
@@ -92,9 +92,9 @@ public static class ChessEntityUtility
             ],
             var t when (t & ChessPieceAttribute.King) != 0 =>
             [
-                new ChessPattern(Vector2.ZeroByOne, repeats: false),
-                new ChessPattern(Vector2.OneByZero, repeats: false),
-                new ChessPattern(Vector2.OneByOne, repeats: false)
+                new ChessPattern(Vector2.ZeroByOne, Repeats: false),
+                new ChessPattern(Vector2.OneByZero, Repeats: false),
+                new ChessPattern(Vector2.OneByOne, Repeats: false)
             ],
             _ => Array.Empty<ChessPattern>()
         };

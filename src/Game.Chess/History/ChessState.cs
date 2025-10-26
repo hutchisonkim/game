@@ -62,7 +62,7 @@ public class ChessState : IState<ChessAction, ChessState>
 
     public IEnumerable<ChessActionCandidate> GetAttackingActionCandidates(ChessPieceAttribute attackingColor, bool includeTargetless, bool includeFriendlyfire) =>
         ChessHistoryUtility.GetActionCandidates(Board.Cell, attackingColor, includeTargetless, includeFriendlyfire)
-            .Where(candidate => candidate.Pattern.Captures != CaptureBehavior.Move);
+            .Where(candidate => candidate.Pattern.CanCapture);
 
 }
 
