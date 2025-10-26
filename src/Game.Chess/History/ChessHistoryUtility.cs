@@ -4,10 +4,6 @@ namespace Game.Chess.History;
 // 🔹 Domain-agnostic piece behavior using the `Piece` record (Game.Chess.Piece)
 public static class ChessHistoryUtility
 {
-    public static (int X, int Y) ForwardAxis(ChessPiece piece) => (1, piece.IsWhite ? 1 : -1); // determines the initial pattern direction that gets tiled (used for pawn movement that is forward-only)
-    public static bool IsClockwise(ChessPiece piece) => piece.IsWhite ? true : false; // determines the initial queen placement (white mirrors black)
-
-
     public static class Vector2
     {
         public static readonly (int X, int Y) OneByZero = (1, 0);
@@ -22,13 +18,15 @@ public static class ChessHistoryUtility
     {
         return piece.TypeAttributes switch
         {
-            var t when (t & ChessPieceAttribute.Pawn) != 0 =>
+            var t when ((t & ChessPieceAttribute.Pawn) != 0) && ((t & ChessPieceAttribute.Mint) != 0) =>
             [
-                // forward 1-step move
                 new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move),
-                // forward 2-step move
                 new ChessPattern(Vector2.ZeroByTwo, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move),
-                // diagonal capture
+                new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Replace),
+            ],
+            var t when ((t & ChessPieceAttribute.Pawn) != 0) && ((t & ChessPieceAttribute.Mint) == 0) =>
+            [
+                new ChessPattern(Vector2.ZeroByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Move),
                 new ChessPattern(Vector2.OneByOne, mirrors: MirrorBehavior.Horizontal, repeats: false, captures: CaptureBehavior.Replace)
             ],
             var t when (t & ChessPieceAttribute.Rook) != 0 =>
@@ -133,20 +131,17 @@ public static class ChessHistoryUtility
 
                         if (toY < 0 || toY >= height || toX < 0 || toX >= width) break;
 
-                        // if this is the two-step pawn move, only allow from the starting rank
                         if (pattern.Delta == Vector2.ZeroByTwo)
                         {
-                            if (!fromPiece.IsMint) break;
-
-                            //block if there is a piece in between
+                            //TODO: replace this block by replacing this loop and to instead use a distributed approach
+                            // using such an approach, the intermediate cell becomes one of the two cells returned by the expansion operation.
+                            // this trail mechanic would also support the castling mechanic rule about king castlings forbidden across cells that are under attack
                             ChessPiece intermediatePiece = board[fromX + (dx / 2), fromY + (dy / 2)];
                             if (!intermediatePiece.IsEmpty) break;
                         }
 
                         ChessPiece toPiece = board[toX, toY];
-                        // if the target square is empty but this pattern only allows captures (no moves), skip
                         if (toPiece.IsEmpty && pattern.Captures.HasFlag(CaptureBehavior.Replace) && !pattern.Captures.HasFlag(CaptureBehavior.Move) && !includeTargetless) break;
-                        // if the target square has a piece but this pattern does not allow captures, skip
                         if (!toPiece.IsEmpty && !pattern.Captures.HasFlag(CaptureBehavior.Replace)) break;
                         if (!toPiece.IsEmpty && toPiece.IsSameColor(turnColor) && !includeFriendlyfire) break;
 
@@ -156,7 +151,6 @@ public static class ChessHistoryUtility
                             steps
                         );
 
-                        // if this was a capture on a pattern that also allows move (Move|Capture), stop further tiling so you can't jump over pieces when capturing
                         if (!toPiece.IsEmpty && pattern.Captures.HasFlag(CaptureBehavior.Move) && pattern.Captures.HasFlag(CaptureBehavior.Replace)) break;
                         if (!pattern.Repeats) break;
                         if (steps >= maxSteps) break;
@@ -166,5 +160,6 @@ public static class ChessHistoryUtility
             }
         }
     }
+
 }
 

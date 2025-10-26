@@ -31,7 +31,7 @@ public readonly record struct ChessPiece(ChessPieceAttribute Attributes)
     public static readonly ChessPiece Empty = new(ChessPieceAttribute.None);
 
     public readonly ChessPieceAttribute ColorAttributes => Attributes & (ChessPieceAttribute.White | ChessPieceAttribute.Black);
-    public readonly ChessPieceAttribute TypeAttributes => Attributes & (ChessPieceAttribute.Pawn | ChessPieceAttribute.Rook | ChessPieceAttribute.Knight | ChessPieceAttribute.Bishop | ChessPieceAttribute.Queen | ChessPieceAttribute.King);
+    public readonly ChessPieceAttribute TypeAttributes => Attributes & (ChessPieceAttribute.Pawn | ChessPieceAttribute.Rook | ChessPieceAttribute.Knight | ChessPieceAttribute.Bishop | ChessPieceAttribute.Queen | ChessPieceAttribute.King | ChessPieceAttribute.Mint);
 
     public readonly bool IsSameColor(ChessPieceAttribute otherColorAttributes) => (ColorAttributes & otherColorAttributes) != 0;
     public readonly bool IsSameType(ChessPieceAttribute otherTypeAttributes) => (TypeAttributes & otherTypeAttributes) != 0;
