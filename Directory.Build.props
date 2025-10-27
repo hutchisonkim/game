@@ -1,12 +1,10 @@
 <Project>
   <PropertyGroup>
-    <!-- Force consistent package versions across projects to avoid binding conflicts -->
     <SystemCollectionsImmutableVersion>8.0.0</SystemCollectionsImmutableVersion>
     <SystemReflectionMetadataVersion>8.0.0</SystemReflectionMetadataVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageVersion Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" />
-    <PackageVersion Include="System.Reflection.Metadata" Version="$(SystemReflectionMetadataVersion)" />
   </ItemGroup>
 </Project>
