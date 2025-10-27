@@ -30,6 +30,9 @@ public static class ChessHistoryUtility
         {
             for (int fromY = 0; fromY < height; fromY++)
             {
+                //TODO: replace these loops to instead use a distributed approach
+                // using such an approach, the intermediate cell becomes one of the two cells returned by the expansion operation.
+                // this trail mechanic would also support the castling mechanic rule about king castlings forbidden across cells that are under attack
                 ChessPiece fromPiece = board[fromX, fromY];
                 if (fromPiece.IsEmpty) continue;
                 if (!fromPiece.IsSameColor(turnColor)) continue;
@@ -55,9 +58,6 @@ public static class ChessHistoryUtility
 
                         if (pattern.Delta == ChessEntityUtility.Vector2.ZeroByTwo)
                         {
-                            //TODO: replace this block by replacing this loop and to instead use a distributed approach
-                            // using such an approach, the intermediate cell becomes one of the two cells returned by the expansion operation.
-                            // this trail mechanic would also support the castling mechanic rule about king castlings forbidden across cells that are under attack
                             ChessPiece intermediatePiece = board[fromX + (dx / 2), fromY + (dy / 2)];
                             if (!intermediatePiece.IsEmpty) break;
                         }

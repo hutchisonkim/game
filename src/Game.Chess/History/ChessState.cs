@@ -4,7 +4,6 @@ using static Game.Chess.History.ChessHistoryUtility;
 
 namespace Game.Chess.History;
 
-// 🔹 Chess Board
 public class ChessState : IState<ChessAction, ChessState>
 {
     public ChessBoard Board { get; private set; }
