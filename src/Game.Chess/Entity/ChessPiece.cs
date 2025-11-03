@@ -13,7 +13,11 @@ public enum ChessPieceAttribute
     Knight = 1 << 5,
     Bishop = 1 << 6,
     Queen = 1 << 7,
-    King = 1 << 8
+    King = 1 << 8,
+
+    MintPawn = Mint | Pawn,
+    MintRook = Mint | Rook,
+    MintKing = Mint | King
 }
 
 
