@@ -8,18 +8,45 @@ namespace Game.Chess.Tests.Unit;
 [Trait("Feature", "ChessPolicy")]
 public class ChessPolicyTests
 {
-    private readonly SparkSession _spark;
-    private readonly ChessPolicy _policy;
+    // Create Spark and ChessPolicy lazily so tests that don't require Spark
+    // (for example, BoardInitialization_CreatesCorrectStartingPositions) don't
+    // attempt to start a Spark worker/connection when it's not available.
+    private SparkSession? _spark;
+    private ChessPolicy? _policy;
 
-    public ChessPolicyTests()
+    private SparkSession Spark
     {
-        _spark = SparkSession
-            .Builder()
-            .AppName("ChessPolicyTests")
-            .GetOrCreate();
+        get
+        {
+            if (_spark != null) return _spark;
+            // Prefer SPARK_MASTER_URL (set by CI or by docker-compose). If not provided,
+            // default to the docker-compose mapping on the host so running tests locally
+            // against the `spark` service works (compose maps 7077 to host).
+            var masterUrl = Environment.GetEnvironmentVariable("SPARK_MASTER_URL");
+            var sparkMaster = string.IsNullOrWhiteSpace(masterUrl) ? "spark://localhost:7077" : masterUrl;
 
-        _policy = new ChessPolicy(_spark);
+            try
+            {
+                _spark = SparkSession
+                    .Builder()
+                    .AppName("ChessPolicyTests")
+                    .Master(sparkMaster)
+                    .Config("spark.sql.shuffle.partitions", "1") // small local jobs
+                    .GetOrCreate();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to create Spark session: {ex}");
+                throw;
+            }
+
+            return _spark!;
+        }
     }
+
+    private ChessPolicy Policy => _policy ??= new ChessPolicy(Spark);
+
+
 
     [Fact]
     public void BoardInitialization_CreatesCorrectStartingPositions()
@@ -60,7 +87,7 @@ public class ChessPolicyTests
     {
         var board = ChessPolicy.Board.Default;
         board.Initialize();
-        var piecesDf = new ChessPolicy.PieceFactory(_spark).GetPieces(board);
+        var piecesDf = new ChessPolicy.PieceFactory(Spark).GetPieces(board);
 
         Assert.Equal(64, piecesDf.Count());
         var schema = piecesDf.Schema();
@@ -76,7 +103,7 @@ public class ChessPolicyTests
         board.Initialize();
         var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
 
-        var perspectivesDf = _policy.GetPerspectives(board, factions);
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
 
         Assert.Contains("generic_piece", perspectivesDf.Columns());
         Assert.Contains("perspective_id", perspectivesDf.Columns());
@@ -96,8 +123,8 @@ public class ChessPolicyTests
         board.Initialize();
         var factions = new[] { ChessPolicy.Piece.White };
 
-        var perspectivesDf = _policy.GetPerspectives(board, factions);
-        var patternsDf = new ChessPolicy.PatternFactory(_spark).GetPatterns();
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
 
         var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 2);
 
@@ -112,7 +139,7 @@ public class ChessPolicyTests
     [Fact]
     public void PatternFactory_ReturnsPatterns()
     {
-        var patternsDf = new ChessPolicy.PatternFactory(_spark).GetPatterns();
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
         Assert.True(patternsDf.Count() > 0);
         Assert.Contains("src_conditions", patternsDf.Columns());
         Assert.Contains("dst_conditions", patternsDf.Columns());
