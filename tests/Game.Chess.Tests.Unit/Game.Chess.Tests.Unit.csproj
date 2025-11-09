@@ -26,4 +26,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Spark" Version="2.3.0" />
   </ItemGroup>
+  <PropertyGroup>
+    <!-- Tell the build targets this project should run tests inside the docker test-runner -->
+    <RunTestsInContainer>true</RunTestsInContainer>
+  </PropertyGroup>
 </Project>

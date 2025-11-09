@@ -1,0 +1,28 @@
+<Project>
+  <PropertyGroup>
+    <!-- default compose file at repo root -->
+    <DockerComposeFile>$(MSBuildThisFileDirectory)docker-compose.yml</DockerComposeFile>
+  </PropertyGroup>
+
+  <!-- Override the VSTest target provided by Microsoft.NET.Test.Sdk
+       For projects that set RunTestsInContainer=true we will run the tests inside the test-runner container
+       so they have access to Spark/spark-submit. For other projects we fall back to dotnet vstest on the host.
+  -->
+  <Target Name="VSTest">
+    <Message Importance="high" Text="Custom VSTest target invoked for $(MSBuildProjectName). RunTestsInContainer=$(RunTestsInContainer)" />
+    <PropertyGroup>
+      <RelProj>$([System.IO.Path]::GetRelativePath('$(MSBuildThisFileDirectory)','$(MSBuildProjectDirectory)'))</RelProj>
+      <RelProjNormalized>$([System.String]::Copy('$(RelProj)').Replace('\\','/'))</RelProjNormalized>
+      <ContainerAssembly>/workspace/$(RelProjNormalized)/bin/$(Configuration)/net8.0/$(AssemblyName).dll</ContainerAssembly>
+    </PropertyGroup>
+
+    <Message Importance="high" Text="Running $(MSBuildProjectName) tests inside docker test-runner (Spark-enabled)..." Condition="'$(RunTestsInContainer)' == 'true'" />
+    <Exec Command="docker compose -f &quot;$(DockerComposeFile)&quot; up -d spark" ContinueOnError="false" Condition="'$(RunTestsInContainer)' == 'true'" />
+    <Exec Command="docker compose -f &quot;$(DockerComposeFile)&quot; run --rm test-runner bash -c 'until curl -sf http://spark:8080 ; do echo &quot;Waiting for Spark...&quot;; sleep 3; done; dotnet vstest &quot;$(ContainerAssembly)&quot; -logger:trx'" ContinueOnError="false" Condition="'$(RunTestsInContainer)' == 'true'" />
+    <Exec Command="docker compose -f &quot;$(DockerComposeFile)&quot; down -v" ContinueOnError="true" Condition="'$(RunTestsInContainer)' == 'true'" />
+
+    <Message Importance="high" Text="Running vstest on host for $(MSBuildProjectName)..." Condition="'$(RunTestsInContainer)' != 'true'" />
+    <MakeDir Directories="$(MSBuildProjectDirectory)\TestLogs" Condition="'$(RunTestsInContainer)' != 'true' and !Exists('$(MSBuildProjectDirectory)\TestLogs')" />
+    <Exec Command="dotnet vstest &quot;$(TargetPath)&quot; -logger:trx;LogFileName=$(MSBuildProjectDirectory)\TestLogs\$(MSBuildProjectName).trx" ContinueOnError="false" Condition="'$(RunTestsInContainer)' != 'true'" />
+  </Target>
+</Project>
