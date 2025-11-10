@@ -11,6 +11,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
     <PackageReference Include="xunit" Version="2.6.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.0" />
+    <PackageReference Include="DotNet.Testcontainers" Version="1.*" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +29,7 @@
   </ItemGroup>
   <PropertyGroup>
     <!-- Tell the build targets this project should run tests inside the docker test-runner -->
-    <RunTestsInContainer>true</RunTestsInContainer>
+    <!-- Run tests on the host so Testcontainers fixture can manage Spark containers directly -->
+    <RunTestsInContainer>false</RunTestsInContainer>
   </PropertyGroup>
 </Project>

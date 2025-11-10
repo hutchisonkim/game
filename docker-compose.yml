@@ -27,7 +27,11 @@ services:
       - spark
     environment:
       - SPARK_MASTER_URL=spark://spark:7077
+      - IN_TEST_RUNNER=true
     volumes:
-      - ./:/workspace:cached
+       - ./:/workspace:cached
+       # Ensure reference test artifacts are available inside the container
+       - ./TestResultsReference:/workspace/TestResultsReference:cached
+       - ./TestResults:/workspace/TestResults:cached
     working_dir: /workspace
     restart: "no"

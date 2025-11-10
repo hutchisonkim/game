@@ -6,6 +6,7 @@ using System.Linq;
 namespace Game.Chess.Tests.Unit;
 
 [Trait("Feature", "ChessPolicy")]
+[Collection("Spark collection")]
 public class ChessPolicyTests
 {
     // Create Spark and ChessPolicy lazily so tests that don't require Spark

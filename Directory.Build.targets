@@ -16,13 +16,24 @@
       <ContainerAssembly>/workspace/$(RelProjNormalized)/bin/$(Configuration)/net8.0/$(AssemblyName).dll</ContainerAssembly>
     </PropertyGroup>
 
-    <Message Importance="high" Text="Running $(MSBuildProjectName) tests inside docker test-runner (Spark-enabled)..." Condition="'$(RunTestsInContainer)' == 'true'" />
-    <Exec Command="docker compose -f &quot;$(DockerComposeFile)&quot; up -d spark" ContinueOnError="false" Condition="'$(RunTestsInContainer)' == 'true'" />
-    <Exec Command="docker compose -f &quot;$(DockerComposeFile)&quot; run --rm test-runner bash -c 'until curl -sf http://spark:8080 ; do echo &quot;Waiting for Spark...&quot;; sleep 3; done; dotnet vstest &quot;$(ContainerAssembly)&quot; -logger:trx'" ContinueOnError="false" Condition="'$(RunTestsInContainer)' == 'true'" />
-    <Exec Command="docker compose -f &quot;$(DockerComposeFile)&quot; down -v" ContinueOnError="true" Condition="'$(RunTestsInContainer)' == 'true'" />
+    <Message Importance="high" Text="Running vstest on host for $(MSBuildProjectName)... (docker-compose calls removed; use Testcontainers fixtures instead)" />
+    <MakeDir Directories="$(MSBuildProjectDirectory)\TestLogs" Condition="!Exists('$(MSBuildProjectDirectory)\TestLogs')" />
+    <Exec Command="dotnet vstest &quot;$(TargetPath)&quot; --logger:trx;LogFileName=$(MSBuildProjectDirectory)\TestLogs\$(MSBuildProjectName).trx" ContinueOnError="false" />
+  </Target>
+  
+  <Target Name="RunIntegrationTests"
+        DependsOnTargets="Build"
+        Condition="'$(RunTestsInContainer)' == 'true'">
 
-    <Message Importance="high" Text="Running vstest on host for $(MSBuildProjectName)..." Condition="'$(RunTestsInContainer)' != 'true'" />
-    <MakeDir Directories="$(MSBuildProjectDirectory)\TestLogs" Condition="'$(RunTestsInContainer)' != 'true' and !Exists('$(MSBuildProjectDirectory)\TestLogs')" />
-    <Exec Command="dotnet vstest &quot;$(TargetPath)&quot; -logger:trx;LogFileName=$(MSBuildProjectDirectory)\TestLogs\$(MSBuildProjectName).trx" ContinueOnError="false" Condition="'$(RunTestsInContainer)' != 'true'" />
+    <Message Importance="high" Text="Starting Spark for $(MSBuildProjectName)" />
+
+    <!-- Bring up Spark using healthcheck -->
+    <Exec Command="docker compose up -d spark" />
+
+    <!-- Run tests normally (shows colored output) -->
+    <Exec Command="dotnet test --logger &quot;console;verbosity=normal&quot;" />
+
+    <!-- Shutdown services -->
+    <Exec Command="docker compose down -v" />
   </Target>
 </Project>
