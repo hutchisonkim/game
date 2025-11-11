@@ -2,6 +2,8 @@
 **/obj/
 **/tmp/
 **/TestResults/
+**/TestLogs/
+**/.docker_cache/
 .vs/
 *.user
 *.suo

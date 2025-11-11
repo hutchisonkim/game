@@ -19,12 +19,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates tar procps bash \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /opt \
-    && echo "Downloading Spark ${SPARK_VERSION} (profile: ${HADOOP_PROFILE})..." \
-    && curl -fSL "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz" -o /tmp/spark.tgz \
-    && tar -xzf /tmp/spark.tgz -C /opt \
-    && mv /opt/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE} $SPARK_HOME \
-    && rm /tmp/spark.tgz
+# Allow CI or local builds to provide pre-downloaded artifacts under .docker_cache
+COPY .docker_cache /cache
 
 EXPOSE 7077 8080 4040
 
@@ -32,9 +28,27 @@ EXPOSE 7077 8080 4040
 # launch the .NET worker process. The exact version can be adjusted via the
 # DOTNET_WORKER_VERSION build-arg. This will be downloaded from GitHub
 # releases when building the image locally.
+RUN mkdir -p /opt \
+    && if [ -f /cache/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz ]; then \
+         echo "Using cached Spark tarball..."; \
+         cp /cache/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz /tmp/spark.tgz; \
+       else \
+         echo "Downloading Spark ${SPARK_VERSION}..."; \
+         curl -fSL "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz" -o /tmp/spark.tgz; \
+       fi \
+    && tar -xzf /tmp/spark.tgz -C /opt \
+    && mv /opt/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE} $SPARK_HOME \
+    && rm /tmp/spark.tgz
+
+# Install/extract Microsoft.Spark.Worker from cache or download if not present
 RUN mkdir -p ${DOTNET_WORKER_DIR} \
-    && echo "Downloading Microsoft.Spark.Worker ${DOTNET_WORKER_VERSION}..." \
-    && curl -fSL "https://github.com/dotnet/spark/releases/download/v${DOTNET_WORKER_VERSION}/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz" -o /tmp/worker.tgz \
+    && if [ -f /cache/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz ]; then \
+         echo "Using cached Microsoft.Spark.Worker..."; \
+         cp /cache/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz /tmp/worker.tgz; \
+       else \
+         echo "Downloading Microsoft.Spark.Worker ${DOTNET_WORKER_VERSION}..."; \
+         curl -fSL --retry 5 --retry-delay 5 --max-time 120 "https://github.com/dotnet/spark/releases/download/v${DOTNET_WORKER_VERSION}/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz" -o /tmp/worker.tgz; \
+       fi \
     && tar -xzf /tmp/worker.tgz -C ${DOTNET_WORKER_DIR} \
     && rm /tmp/worker.tgz \
     && chmod +x ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker || true
@@ -43,7 +57,4 @@ ENV DOTNET_WORKER_DIR=${DOTNET_WORKER_DIR}
 
 # Start a standalone master and a local worker so the image is useful for local development/tests.
 # We start both in the foreground and tail logs to keep the container running.
-CMD ["bash", "-c", "$SPARK_HOME/sbin/start-master.sh && \
-  $SPARK_HOME/sbin/start-worker.sh spark://localhost:7077 && \
-  echo 'Spark master started'; \
-  tail -F $SPARK_HOME/logs/*"]
+CMD ["bash", "-c", "# Ensure Microsoft.Spark.Worker is present (try download at container start if missing)\n  if [ ! -x \"${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker\" ]; then\n    echo 'Microsoft.Spark.Worker not found, attempting to download at container start...';\n    mkdir -p ${DOTNET_WORKER_DIR};\n    curl -fSL \"https://github.com/dotnet/spark/releases/download/v${DOTNET_WORKER_VERSION}/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz\" -o /tmp/worker.tgz && \\\\n    tar -xzf /tmp/worker.tgz -C ${DOTNET_WORKER_DIR} && \\\n    rm -f /tmp/worker.tgz || true;\n    chmod +x ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker || true;\n  fi;\n  # Start Spark master and worker\n  $SPARK_HOME/sbin/start-master.sh && \n  $SPARK_HOME/sbin/start-worker.sh spark://localhost:7077 && \n  echo 'Spark master started'; \n  # Start Microsoft.Spark.Worker in background if available (this provides the .NET/JVM bridge support inside the container)\n  if [ -x \"${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker\" ]; then\n    echo 'Starting Microsoft.Spark.Worker in background';\n    ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker &\n  fi;\n  tail -F $SPARK_HOME/logs/*"]

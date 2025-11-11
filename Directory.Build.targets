@@ -18,7 +18,10 @@
 
     <Message Importance="high" Text="Running vstest on host for $(MSBuildProjectName)... (docker-compose calls removed; use Testcontainers fixtures instead)" />
     <MakeDir Directories="$(MSBuildProjectDirectory)\TestLogs" Condition="!Exists('$(MSBuildProjectDirectory)\TestLogs')" />
-    <Exec Command="dotnet vstest &quot;$(TargetPath)&quot; --logger:trx;LogFileName=$(MSBuildProjectDirectory)\TestLogs\$(MSBuildProjectName).trx" ContinueOnError="false" />
+    <!-- Run a helper PowerShell script that reserves a free port and sets DOTNETBACKEND_PORT
+      in the same process that executes vstest. The script takes two args: the target dll
+      and the desired trx path. -->
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)scripts\pretest-run-vstest.ps1&quot; &quot;$(TargetPath)&quot; &quot;$(MSBuildProjectDirectory)\TestLogs\$(MSBuildProjectName).trx&quot;" ContinueOnError="false" />
   </Target>
   
   <Target Name="RunIntegrationTests"
@@ -30,8 +33,9 @@
     <!-- Bring up Spark using healthcheck -->
     <Exec Command="docker compose up -d spark" />
 
-    <!-- Run tests normally (shows colored output) -->
-    <Exec Command="dotnet test --logger &quot;console;verbosity=normal&quot;" />
+    <!-- Run tests inside the test-runner container so Spark and the Microsoft.Spark.Worker
+      are available in the same container network (CI-friendly, more reliable). -->
+    <Exec Command='docker compose run --rm test-runner bash -c "dotnet test /workspace/$(RelProjNormalized)/$(MSBuildProjectName).csproj --logger \"console;verbosity=normal\""' />
 
     <!-- Shutdown services -->
     <Exec Command="docker compose down -v" />
