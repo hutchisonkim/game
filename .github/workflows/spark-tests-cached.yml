@@ -18,8 +18,8 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/spark-dotnet:3.5.3-2.3.0
       options: --init
       credentials:
-        username: x-access-token
-        password: ${{ secrets.GITHUB_TOKEN }}
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PAT }}
 
     env:
       TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
