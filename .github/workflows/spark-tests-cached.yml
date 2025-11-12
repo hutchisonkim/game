@@ -44,12 +44,11 @@ jobs:
 
           echo
           echo "=== Restoring Project Packages (minimal logging) ==="
-          # Only show errors and warnings, not full detailed output
           dotnet restore Game.Chess.Tests.Unit.csproj --verbosity minimal --force-evaluate
 
           echo
           echo "=== Checking for Microsoft.Spark.dll ==="
-          # Only show if found, otherwise print a single warning
+          # Look in the NuGet cache
           MS_SPARK=$(find ~/.nuget/packages -type f -name "Microsoft.Spark.dll" || true)
           if [ -z "$MS_SPARK" ]; then
             echo "WARNING: Microsoft.Spark.dll not found in NuGet cache!"
