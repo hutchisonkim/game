@@ -26,6 +26,7 @@ jobs:
       SPARK_HOME: /opt/spark
       DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_CLI_HOME: /github/home
 
     steps:
       - name: Prepare Microsoft.Spark.dll for build
@@ -38,11 +39,22 @@ jobs:
           fi
 
           echo "✅ Found Microsoft.Spark.dll at: $WORKER_DLL"
-          echo "Creating symlink in NuGet package directory..."
+          echo "Copying to expected NuGet package directory..."
+
           NUGET_DIR="/github/home/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1"
           mkdir -p "$NUGET_DIR"
-          ln -sf "$WORKER_DLL" "$NUGET_DIR/Microsoft.Spark.dll"
+          cp "$WORKER_DLL" "$NUGET_DIR/Microsoft.Spark.dll"
+
+          # Ensure correct ownership and readability for the runner user
+          chmod 644 "$NUGET_DIR/Microsoft.Spark.dll"
+          chown "$(id -u):$(id -g)" "$NUGET_DIR/Microsoft.Spark.dll"
+
+          echo "✅ Copied Microsoft.Spark.dll to: $NUGET_DIR"
           ls -la "$NUGET_DIR"
+
+          echo "Verifying accessibility..."
+          dotnet --info | grep 'Base Path' || true
+          ls -la /github/home/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1
 
       - uses: actions/checkout@v4
 
