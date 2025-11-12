@@ -1,131 +1,3 @@
-name: Spark Tests (Cached)
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  packages: read
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    env:
-      SPARK_VERSION: 3.5.3
-      # Primary profile; fallback profiles will be tried by the download step
-      HADOOP_PROFILE: hadoop3
-      SPARK_DIR: spark-3.5.3-bin-hadoop3
-      WORKER_VERSION: 2.3.0
-      TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
-      JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 8 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Install Java
-        run: sudo apt-get update && sudo apt-get install -y openjdk-11-jdk
-
-      - name: Cache Spark
-        id: cache-spark
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.SPARK_DIR }}
-          key: spark-${{ env.SPARK_VERSION }}-${{ env.HADOOP_PROFILE }}
-
-      - name: Download Spark if not cached
-        if: steps.cache-spark.outputs.cache-hit != 'true'
-        run: |
-          set -euxo pipefail
-          SPARK_VERSION="${SPARK_VERSION}"
-          CANDID_PROFILES=("${HADOOP_PROFILE}" "hadoop3.3" "hadoop3.3.2" "hadoop3.2" "hadoop3.1")
-          MIRRORS=(
-            "https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}"
-            "https://downloads.apache.org/spark/spark-${SPARK_VERSION}"
-            "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}"
-          )
-
-          downloaded=0
-          for profile in "${CANDID_PROFILES[@]}"; do
-            TGZ="spark-${SPARK_VERSION}-bin-${profile}.tgz"
-            echo "Trying candidate: $TGZ"
-            for base in "${MIRRORS[@]}"; do
-              url="$base/$TGZ"
-              echo "  Attempting $url"
-              if curl --retry 3 --retry-delay 2 --fail -SL -o "$TGZ" "$url"; then
-                echo "  Downloaded $TGZ from $url"
-                tar -xzf "$TGZ"
-                EXTRACTED_DIR="spark-${SPARK_VERSION}-bin-${profile}"
-                if [ -d "$EXTRACTED_DIR" ]; then
-                  mv "$EXTRACTED_DIR" "${SPARK_DIR}" || true
-                fi
-                rm -f "$TGZ"
-                downloaded=1
-                break 2
-              else
-                echo "  Failed to download from $url"
-              fi
-            done
-          done
-
-          if [ "$downloaded" -ne 1 ]; then
-            echo "ERROR: Spark download failed from all mirrors and candidate names"
-            for profile in "${CANDID_PROFILES[@]}"; do
-              for base in "${MIRRORS[@]}"; do
-                echo "--- HEAD $base/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-${profile}.tgz ---"
-                curl -I "$base/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-${profile}.tgz" || true
-              done
-            done
-            ls -la || true
-            exit 8
-          fi
-
-      - name: Cache Microsoft.Spark.Worker
-        id: cache-worker
-        uses: actions/cache@v4
-        with:
-          path: Microsoft.Spark.Worker/net8.0/linux-x64
-          key: worker-${{ env.WORKER_VERSION }}-linux-x64
-
-      - name: Download Worker if not cached
-        if: steps.cache-worker.outputs.cache-hit != 'true'
-        run: |
-          set -euxo pipefail
-          mkdir -p Microsoft.Spark.Worker/net8.0/linux-x64
-          WORKER_TGZ="Microsoft.Spark.Worker.net8.0.linux-x64-${WORKER_VERSION}.tar.gz"
-          curl --retry 3 --retry-delay 2 -fSL -o "$WORKER_TGZ" "https://github.com/dotnet/spark/releases/download/v${WORKER_VERSION}/${WORKER_TGZ}" || (
-            echo "ERROR: Failed to download Microsoft.Spark.Worker (curl exit $? ); showing HTTP headers for diagnosis:";
-            curl -I "https://github.com/dotnet/spark/releases/download/v${WORKER_VERSION}/${WORKER_TGZ}" || true;
-            ls -la Microsoft.Spark.Worker || true;
-            exit 8
-          )
-          tar -xzf "$WORKER_TGZ" -C Microsoft.Spark.Worker/net8.0/linux-x64
-          rm "$WORKER_TGZ"
-
-      - name: Export Spark environment
-        run: |
-          echo "SPARK_HOME=${{ github.workspace }}/${{ env.SPARK_DIR }}" >> $GITHUB_ENV
-          echo "DOTNET_WORKER_PATH=${{ github.workspace }}/Microsoft.Spark.Worker/net8.0/linux-x64" >> $GITHUB_ENV
-          echo "${{ github.workspace }}/${{ env.SPARK_DIR }}/bin" >> $GITHUB_PATH
-
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
-
-      - name: Run Spark tests
-        run: |
-          dotnet test \
-            --no-build \
-            --filter "FullyQualifiedName~${TEST_CLASS}" \
-            --verbosity normal
 name: Spark Tests (Prebuilt Image)
 
 on:
@@ -134,13 +6,6 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-
-# Allow the runner to authenticate to GitHub Packages (GHCR) before job containers
-# are started. Container image pulls happen before job-level permissions apply, so
-# set these at the workflow root.
-permissions:
-  contents: read
-  packages: read
 
 jobs:
   test:
@@ -154,14 +19,16 @@ jobs:
     env:
       TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
       SPARK_HOME: /opt/spark
-    env:
-      SPARK_VERSION: 3.5.3
-      # Primary profile; fallback profiles will be tried by the download step
-      HADOOP_PROFILE: hadoop3
-      SPARK_DIR: spark-3.5.3-bin-hadoop3
-      WORKER_VERSION: 2.3.0
-      TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
-      JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+      DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
