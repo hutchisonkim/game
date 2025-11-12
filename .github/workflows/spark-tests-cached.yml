@@ -28,16 +28,21 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
 
     steps:
-      - name: Check for Microsoft.Spark.dll
+      - name: Prepare Microsoft.Spark.dll for build
         run: |
-          echo "Looking for Microsoft.Spark.dll in DOTNET_WORKER_DIR ($DOTNET_WORKER_DIR)..."
-          if [ -f "$DOTNET_WORKER_DIR/Microsoft.Spark.dll" ]; then
-            echo "✅ Found Microsoft.Spark.dll at $DOTNET_WORKER_DIR/Microsoft.Spark.dll"
-          else
-            echo "❌ Microsoft.Spark.dll not found in $DOTNET_WORKER_DIR"
-            echo "Searching recursively in DOTNET_WORKER_DIR..."
-            find "$DOTNET_WORKER_DIR" -type f -name "Microsoft.Spark.dll" || echo "DLL not found!"
+          echo "🔧 Checking for Microsoft.Spark.dll..."
+          WORKER_DLL=$(find "$DOTNET_WORKER_DIR" -type f -name "Microsoft.Spark.dll" | head -n 1 || true)
+          if [ -z "$WORKER_DLL" ]; then
+            echo "❌ Could not locate Microsoft.Spark.dll in $DOTNET_WORKER_DIR"
+            exit 1
           fi
+
+          echo "✅ Found Microsoft.Spark.dll at: $WORKER_DLL"
+          echo "Creating symlink in NuGet package directory..."
+          NUGET_DIR="/github/home/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1"
+          mkdir -p "$NUGET_DIR"
+          ln -sf "$WORKER_DLL" "$NUGET_DIR/Microsoft.Spark.dll"
+          ls -la "$NUGET_DIR"
 
       - uses: actions/checkout@v4
 
@@ -47,8 +52,6 @@ jobs:
           cd tests/Game.Chess.Tests.Unit
 
           echo "=== Info ==="
-
-          echo "dotnet --info"
           dotnet --info
 
           echo
@@ -65,17 +68,6 @@ jobs:
           echo "ls ~/.nuget/packages/microsoft.spark -R || true"
           ls -la ~/.nuget/packages/microsoft.spark || true
           find ~/.nuget/packages -type f -name "Microsoft.Spark.dll" -print || true
-
-          echo
-          echo "=== Checking for Microsoft.Spark.dll ==="
-          # Look in the NuGet cache
-          MS_SPARK=$(find ~/.nuget/packages -type f -name "Microsoft.Spark.dll" || true)
-          if [ -z "$MS_SPARK" ]; then
-            echo "WARNING: Microsoft.Spark.dll not found in NuGet cache!"
-          else
-            echo "Found Microsoft.Spark.dll at:"
-            echo "$MS_SPARK"
-          fi
 
           echo
           echo "=== Building Project (minimal logging) ==="
