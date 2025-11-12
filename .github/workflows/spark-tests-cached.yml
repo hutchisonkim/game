@@ -47,14 +47,34 @@ jobs:
         run: |
           set -euxo pipefail
           SPARK_TGZ="spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz"
-          # Use curl with retries and fail-fast on HTTP errors. If download fails,
-          # print HTTP headers for debugging.
-          curl --retry 5 --retry-delay 2 -fSL -o "$SPARK_TGZ" "https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}" || (
-            echo "ERROR: Failed to download Spark tarball (curl exit $? ); showing HTTP headers for diagnosis:";
-            curl -I "https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}" || true;
-            ls -la || true;
-            exit 8
+          MIRRORS=(
+            "https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}"
+            "https://downloads.apache.org/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}"
+            "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}"
           )
+
+          downloaded=0
+          for url in "${MIRRORS[@]}"; do
+            echo "Attempting download from: $url"
+            if curl --retry 3 --retry-delay 2 -fSL -o "$SPARK_TGZ" "$url"; then
+              echo "Downloaded from $url"
+              downloaded=1
+              break
+            else
+              echo "Download failed from $url (exit $?)"
+            fi
+          done
+
+          if [ "$downloaded" -ne 1 ]; then
+            echo "ERROR: All mirror download attempts failed. Showing headers for debugging:"
+            for url in "${MIRRORS[@]}"; do
+              echo "--- HEAD for $url ---"
+              curl -I "$url" || true
+            done
+            ls -la || true
+            exit 8
+          fi
+
           tar -xzf "$SPARK_TGZ"
           rm "$SPARK_TGZ"
 
