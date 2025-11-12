@@ -11,14 +11,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # ✅ Use the prebuilt Spark + .NET image for the entire job
-    container:
-      image: ghcr.io/hutchisonkim/spark-dotnet:3.5.3-2.3.0
-      options: --init
-
     permissions:
       contents: read
       packages: read
+      
+    container:
+      image: ghcr.io/hutchisonkim/spark-dotnet:3.5.3-2.3.0
+      options: --init
+      credentials:
+        username: hutchisonkim
+        password: ${{ secrets.GHCR_PAT }}
 
     env:
       TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
@@ -26,18 +28,8 @@ jobs:
       DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
 
     steps:
-      # 1️⃣ Checkout repo
       - uses: actions/checkout@v4
 
-      # 2️⃣ Log in to GHCR (only needed if the image is private)
-      - name: Log in to GHCR
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: hutchisonkim
-          password: ${{ secrets.GHCR_PAT }}
-
-      # 3️⃣ Build and run tests inside the container
       - name: Build & Run Spark tests
         run: |
           # Navigate to the test project folder
