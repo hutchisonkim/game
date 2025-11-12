@@ -7,6 +7,13 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Allow the runner to authenticate to GitHub Packages (GHCR) before job containers
+# are started. Container image pulls happen before job-level permissions apply, so
+# set these at the workflow root.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
