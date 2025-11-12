@@ -32,8 +32,10 @@ jobs:
 
       - name: Build & Run Spark tests
         run: |
-          # Navigate to the test project folder
           cd tests/Game.Chess.Tests.Unit
+
+          echo "Restoring test project..."
+          dotnet restore Game.Chess.Tests.Unit.csproj
 
           echo "Building test project..."
           dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --no-restore
