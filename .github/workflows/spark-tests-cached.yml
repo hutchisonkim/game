@@ -30,20 +30,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build & Run Spark tests
+      - name: Build & Run Spark tests with verbose logging
         run: |
+          set -e
           cd tests/Game.Chess.Tests.Unit
-          
-          echo "dotnet --info"
+
+          echo "=== .NET SDK Info ==="
           dotnet --info
 
-          echo "Restoring test project..."
-          dotnet restore Game.Chess.Tests.Unit.csproj
+          echo
+          echo "=== Restoring NuGet Packages ==="
+          # Show which package sources are available
+          dotnet nuget list source
+          
+          # Restore project with detailed verbosity
+          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity detailed
 
-          echo "Building test project..."
-          dotnet build Game.Chess.Tests.Unit.csproj --configuration Release
+          echo
+          echo "=== Listing Microsoft.Spark.dll after restore (debug) ==="
+          find ~/.nuget/packages -type f -name "Microsoft.Spark.dll" || echo "Microsoft.Spark.dll not found!"
 
-          echo "Running specified Spark test class..."
+          echo
+          echo "=== Building Project ==="
+          dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --verbosity detailed
+
+          echo
+          echo "=== Running Specified Spark Test Class ==="
           dotnet test Game.Chess.Tests.Unit.csproj \
             --no-build \
             --filter "FullyQualifiedName~${TEST_CLASS}" \
