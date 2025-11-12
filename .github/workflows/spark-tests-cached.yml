@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build & Run Spark tests with verbose logging
+      - name: Build & Run Spark tests (focused logging)
         run: |
           set -e
           cd tests/Game.Chess.Tests.Unit
@@ -39,20 +39,28 @@ jobs:
           dotnet --info
 
           echo
-          echo "=== Restoring NuGet Packages ==="
-          # Show which package sources are available
+          echo "=== NuGet Sources ==="
           dotnet nuget list source
-          
-          # Restore project with detailed verbosity
-          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity detailed
 
           echo
-          echo "=== Listing Microsoft.Spark.dll after restore (debug) ==="
-          find ~/.nuget/packages -type f -name "Microsoft.Spark.dll" || echo "Microsoft.Spark.dll not found!"
+          echo "=== Restoring Project Packages (minimal logging) ==="
+          # Only show errors and warnings, not full detailed output
+          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity minimal
 
           echo
-          echo "=== Building Project ==="
-          dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --verbosity detailed
+          echo "=== Checking for Microsoft.Spark.dll ==="
+          # Only show if found, otherwise print a single warning
+          MS_SPARK=$(find ~/.nuget/packages -type f -name "Microsoft.Spark.dll" || true)
+          if [ -z "$MS_SPARK" ]; then
+            echo "WARNING: Microsoft.Spark.dll not found in NuGet cache!"
+          else
+            echo "Found Microsoft.Spark.dll at:"
+            echo "$MS_SPARK"
+          fi
+
+          echo
+          echo "=== Building Project (minimal logging) ==="
+          dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --verbosity minimal
 
           echo
           echo "=== Running Specified Spark Test Class ==="
