@@ -75,7 +75,7 @@ public class ActionsTimelineTests
             int count = actionCandidates.Count();
             if (count == 0) break;
 
-            var candidateActionsThisTurn = actionCandidates
+            List<string> candidateActionsThisTurn = actionCandidates
                 .Select(ac => ChessSerializationUtility.SerializeAction(
                     ac.Action.From.X, ac.Action.From.Y,
                     ac.Action.To.X, ac.Action.To.Y))

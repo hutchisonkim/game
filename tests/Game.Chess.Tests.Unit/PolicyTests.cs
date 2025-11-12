@@ -1,7 +1,4 @@
 using Xunit;
-using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Containers;
-using DotNet.Testcontainers.Configurations;
 using System.Net.Sockets;
 using Microsoft.Spark.Sql;
 using Game.Chess.HistoryB;
