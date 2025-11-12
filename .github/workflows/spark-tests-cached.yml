@@ -29,6 +29,19 @@ jobs:
       DOTNET_CLI_HOME: /github/home
 
     steps:
+      - name: Inject Directory.Build.props for CI
+        run: |
+          cat > Directory.Build.props <<'EOF'
+          <Project>
+            <PropertyGroup>
+              <!-- Let MSBuild know where the Spark DLL lives -->
+              <AdditionalReferencePath>/opt/microsoft-spark-worker/Microsoft.Spark.Worker-2.3.0</AdditionalReferencePath>
+            </PropertyGroup>
+          </Project>
+          EOF
+          echo "✅ Injected Directory.Build.props:"
+          cat Directory.Build.props
+
       - name: Prepare Microsoft.Spark.dll for build
         run: |
           echo "🔧 Checking for Microsoft.Spark.dll..."
