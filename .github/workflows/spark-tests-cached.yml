@@ -87,6 +87,11 @@ jobs:
           echo "=== Restoring Project Packages (detailed logging) ==="
           dotnet restore Game.Chess.Tests.Unit.csproj --verbosity detailed --runtime linux-x64
 
+          echo
+          echo "=== Verifying Microsoft.Spark.dll Presence ==="
+          ls ~/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1/
+
+
           echo "dotnet list package (after restore)"
           dotnet list package --include-transitive
 
