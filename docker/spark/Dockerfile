@@ -59,6 +59,12 @@ RUN mkdir -p ${DOTNET_WORKER_DIR} \
 
 ENV DOTNET_WORKER_DIR=${DOTNET_WORKER_DIR}
 
+# Install .NET 8 SDK
+RUN apt-get update && apt-get install -y wget apt-transport-https gnupg ca-certificates \
+    && wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && apt-get update && apt-get install -y dotnet-sdk-8.0
+
 # Start a standalone master and a local worker so the image is useful for local development/tests.
 # We start both in the foreground and tail logs to keep the container running.
 CMD ["bash", "-c", "# Ensure Microsoft.Spark.Worker is present (try download at container start if missing)\n  if [ ! -x \"${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker\" ]; then\n    echo 'Microsoft.Spark.Worker not found, attempting to download at container start...';\n    mkdir -p ${DOTNET_WORKER_DIR};\n    curl -fSL \"https://github.com/dotnet/spark/releases/download/v${DOTNET_WORKER_VERSION}/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz\" -o /tmp/worker.tgz && \\\\n    tar -xzf /tmp/worker.tgz -C ${DOTNET_WORKER_DIR} && \\\n    rm -f /tmp/worker.tgz || true;\n    chmod +x ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker || true;\n  fi;\n  # Start Spark master and worker\n  $SPARK_HOME/sbin/start-master.sh && \n  $SPARK_HOME/sbin/start-worker.sh spark://localhost:7077 && \n  echo 'Spark master started'; \n  # Start Microsoft.Spark.Worker in background if available (this provides the .NET/JVM bridge support inside the container)\n  if [ -x \"${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker\" ]; then\n    echo 'Starting Microsoft.Spark.Worker in background';\n    ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker &\n  fi;\n  tail -F $SPARK_HOME/logs/*"]
