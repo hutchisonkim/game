@@ -10,9 +10,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/hutchisonkim/spark-dotnet:3.5.3-2.3.0
-      options: --init
     permissions:
       contents: read
       packages: read
@@ -22,19 +19,33 @@ jobs:
       DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
 
     steps:
+      # 1️⃣ Checkout code
       - uses: actions/checkout@v4
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+      # 2️⃣ Log in to GitHub Container Registry (GHCR)
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
         with:
-          dotnet-version: 8.0.x
+          registry: ghcr.io
+          username: hutchisonkim
+          password: ${{ secrets.GHCR_PAT }}
 
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
+      # 3️⃣ Pull prebuilt Spark image
+      - name: Pull Spark Docker image
+        run: docker pull ghcr.io/hutchisonkim/spark-dotnet:3.5.3-2.3.0
 
-      - name: Run Spark test
-        run: |
-          dotnet test \
-            --no-build \
-            --filter "FullyQualifiedName~${TEST_CLASS}" \
-            --verbosity normal
+      # 4️⃣ Run steps inside the container
+      - name: Run in Spark container
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ghcr.io/hutchisonkim/spark-dotnet:3.5.3-2.3.0
+          options: --init
+          run: |
+            # Setup .NET inside container
+            dotnet build --configuration Release --no-restore
+
+            # Run only the specified Spark test class
+            dotnet test \
+              --no-build \
+              --filter "FullyQualifiedName~${TEST_CLASS}" \
+              --verbosity normal
