@@ -11,7 +11,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/<your-username>/spark-dotnet:3.5.3-2.3.0
+      image: ghcr.io/hutchisonkim/spark-dotnet:3.5.3-2.3.0
       options: --init
     permissions:
       contents: read
