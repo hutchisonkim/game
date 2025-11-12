@@ -20,6 +20,17 @@ public class ChessSparkPolicyTests
     {
         try
         {
+            // If DOTNETBACKEND_PORT is already set (for example when running inside
+            // the compose test-runner which reserves it), reuse that value instead
+            // of reserving a new port. This avoids races where the test overrides
+            // the port reserved by the runner and causes the JVM/backend mismatch.
+            var existing = Environment.GetEnvironmentVariable("DOTNETBACKEND_PORT");
+            if (!string.IsNullOrWhiteSpace(existing) && int.TryParse(existing, out var existingPort))
+            {
+                Console.WriteLine($"[STATIC] Using existing DOTNETBACKEND_PORT={existingPort} from environment");
+                return;
+            }
+
             var listener = new TcpListener(System.Net.IPAddress.Loopback, 0);
             listener.Start();
             var backendPort = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
@@ -77,6 +88,19 @@ public class ChessSparkPolicyTests
     private static void EnsureSparkContainerStarted()
     {
         if (s_testContainer != null) return;
+
+        // If running inside the compose/test-runner container, do not attempt to
+        // start a new Docker container via Testcontainers (no Docker daemon access).
+        // Rely on the compose-provided `spark` service and env vars instead.
+        var runningInCompose = string.Equals(Environment.GetEnvironmentVariable("RUN_TESTS_IN_COMPOSE"), "1")
+            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"));
+        if (runningInCompose)
+        {
+            Console.WriteLine("[TEST] Running inside compose/test-runner; skipping Testcontainers creation.");
+            Environment.SetEnvironmentVariable("SPARK_MASTER_URL", Environment.GetEnvironmentVariable("SPARK_MASTER_URL") ?? "spark://spark:7077");
+            Environment.SetEnvironmentVariable("DOTNETBACKEND_HOST", Environment.GetEnvironmentVariable("DOTNETBACKEND_HOST") ?? "test-runner");
+            return;
+        }
 
         // Reuse the DOTNETBACKEND_PORT if the static constructor already set it,
         // otherwise reserve one now (rare). This ensures the same port is used by

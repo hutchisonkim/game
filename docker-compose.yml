@@ -8,6 +8,11 @@ services:
       - SPARK_MASTER_HOST=0.0.0.0
       - SPARK_MASTER_PORT=7077
       - SPARK_MASTER_WEBUI_PORT=8080
+      # When running tests via docker compose, the Spark JVM needs to know how
+      # to connect back to the .NET backend. Set DOTNETBACKEND_HOST to the
+      # test-runner service name and a fixed port so the JVM can reach it.
+      - DOTNETBACKEND_HOST=test-runner
+      - DOTNETBACKEND_PORT=5567
     ports:
       - "7077:7077"   # Spark master (client connections)
       - "8080:8080"   # Spark master web UI
@@ -28,6 +33,11 @@ services:
     environment:
       - SPARK_MASTER_URL=spark://spark:7077
       - IN_TEST_RUNNER=true
+      # Tell the test-runner to use a fixed backend port matching the spark
+      # service so the JVM can connect back to the tests running inside this
+      # container.
+      - DOTNETBACKEND_HOST=test-runner
+      - DOTNETBACKEND_PORT=5567
     volumes:
        - ./:/workspace:cached
        # Ensure reference test artifacts are available inside the container

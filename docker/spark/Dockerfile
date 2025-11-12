@@ -45,6 +45,10 @@ RUN mkdir -p ${DOTNET_WORKER_DIR} \
     && if [ -f /cache/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz ]; then \
          echo "Using cached Microsoft.Spark.Worker..."; \
          cp /cache/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz /tmp/worker.tgz; \
+       elif [ -f /cache/Microsoft.Spark.Worker.net8.0.linux-x64-${DOTNET_WORKER_VERSION}.tar.gz ]; then \
+         # Support alternate archive name used in local cache
+         echo "Using cached Microsoft.Spark.Worker (alternate name)..."; \
+         cp /cache/Microsoft.Spark.Worker.net8.0.linux-x64-${DOTNET_WORKER_VERSION}.tar.gz /tmp/worker.tgz; \
        else \
          echo "Downloading Microsoft.Spark.Worker ${DOTNET_WORKER_VERSION}..."; \
          curl -fSL --retry 5 --retry-delay 5 --max-time 120 "https://github.com/dotnet/spark/releases/download/v${DOTNET_WORKER_VERSION}/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz" -o /tmp/worker.tgz; \

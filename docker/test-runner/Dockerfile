@@ -7,7 +7,7 @@ ENV RUN_TESTS_IN_COMPOSE=1
 
 # Install curl for health checks and other small utilities
 RUN apt-get update \
-        && apt-get install -y --no-install-recommends curl ca-certificates openjdk-17-jdk tar procps bash \
+    && apt-get install -y --no-install-recommends curl ca-certificates openjdk-17-jdk tar procps bash iproute2 net-tools \
         && rm -rf /var/lib/apt/lists/*
 
 # Allow CI or local builds to provide pre-downloaded artifacts under .docker_cache
@@ -42,6 +42,9 @@ RUN mkdir -p ${DOTNET_WORKER_DIR} \
         && if [ -f /cache/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz ]; then \
                  echo "Using cached Microsoft.Spark.Worker from /cache"; \
                  cp /cache/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz /tmp/worker.tgz; \
+             elif [ -f /cache/Microsoft.Spark.Worker.net8.0.linux-x64-${DOTNET_WORKER_VERSION}.tar.gz ]; then \
+                 echo "Using cached Microsoft.Spark.Worker (alternate name) from /cache"; \
+                 cp /cache/Microsoft.Spark.Worker.net8.0.linux-x64-${DOTNET_WORKER_VERSION}.tar.gz /tmp/worker.tgz; \
              else \
                  echo "Downloading Microsoft.Spark.Worker ${DOTNET_WORKER_VERSION}..."; \
                  curl -fSL --retry 5 --retry-delay 5 --max-time 120 "https://github.com/dotnet/spark/releases/download/v${DOTNET_WORKER_VERSION}/microsoft-spark-worker_${DOTNET_WORKER_VERSION}_linux-x64.tar.gz" -o /tmp/worker.tgz; \
@@ -56,6 +59,17 @@ ENV DOTNET_WORKER_DIR=${DOTNET_WORKER_DIR}
 # mount the repository as a volume which will override this copy, but copying
 # here allows building the image and verifying Dockerfile syntax.
 COPY . /workspace
+
+# Build the reserve-port helper and make it available in PATH so the runtime
+# entry script can pick an ephemeral port inside the container before running tests.
+RUN if [ -d /workspace/ReservePort ]; then \
+            echo "Building ReservePort helper..." && \
+            dotnet publish /workspace/ReservePort -c Release -r linux-x64 -o /opt/tools/reserveport --self-contained false; \
+            printf '#!/bin/sh\nexec dotnet /opt/tools/reserveport/ReservePort.dll "$@"' > /usr/local/bin/reserveport; \
+            chmod +x /usr/local/bin/reserveport; \
+        else \
+            echo "No ReservePort project found, skipping build"; \
+        fi
 
 # Default entrypoint: run the single test specified by the compose command.
 ENTRYPOINT ["bash","-c"]
