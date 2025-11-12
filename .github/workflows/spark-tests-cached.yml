@@ -45,7 +45,7 @@ jobs:
           echo
           echo "=== Restoring Project Packages (minimal logging) ==="
           # Only show errors and warnings, not full detailed output
-          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity minimal
+          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity minimal --force-evaluate
 
           echo
           echo "=== Checking for Microsoft.Spark.dll ==="
