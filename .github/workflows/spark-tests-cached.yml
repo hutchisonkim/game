@@ -1,0 +1,84 @@
+name: Spark Tests (Cached)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      SPARK_VERSION: 3.5.3
+      HADOOP_PROFILE: hadoop3
+      SPARK_DIR: spark-3.5.3-bin-hadoop3
+      WORKER_VERSION: 2.3.0
+      TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
+      JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+
+    steps:
+      # 1️⃣ Checkout repo
+      - uses: actions/checkout@v4
+
+      # 2️⃣ Setup .NET SDK
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # 3️⃣ Install Java (Spark runtime dependency)
+      - name: Install Java
+        run: sudo apt-get update && sudo apt-get install -y openjdk-11-jdk
+
+      # 4️⃣ Cache Spark binaries
+      - name: Cache Spark
+        id: cache-spark
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SPARK_DIR }}
+          key: spark-${{ env.SPARK_VERSION }}-${{ env.HADOOP_PROFILE }}
+
+      # 5️⃣ Download Spark only if cache is missing
+      - name: Download Spark if not cached
+        if: steps.cache-spark.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz
+          tar -xzf spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz
+          rm spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz
+
+      # 6️⃣ Cache Microsoft Spark Worker
+      - name: Cache Microsoft.Spark.Worker
+        id: cache-worker
+        uses: actions/cache@v4
+        with:
+          path: Microsoft.Spark.Worker/net8.0/linux-x64
+          key: worker-${{ env.WORKER_VERSION }}-linux-x64
+
+      # 7️⃣ Download Worker only if cache is missing
+      - name: Download Worker if not cached
+        if: steps.cache-worker.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p Microsoft.Spark.Worker/net8.0/linux-x64
+          wget -q https://github.com/dotnet/spark/releases/download/v${WORKER_VERSION}/Microsoft.Spark.Worker.net8.0.linux-x64-${WORKER_VERSION}.tar.gz
+          tar -xzf Microsoft.Spark.Worker.net8.0.linux-x64-${WORKER_VERSION}.tar.gz -C Microsoft.Spark.Worker/net8.0/linux-x64
+          rm Microsoft.Spark.Worker.net8.0.linux-x64-${WORKER_VERSION}.tar.gz
+
+      # 8️⃣ Set environment variables for Spark + Worker
+      - name: Export Spark environment
+        run: |
+          echo "SPARK_HOME=${{ github.workspace }}/${{ env.SPARK_DIR }}" >> $GITHUB_ENV
+          echo "DOTNET_WORKER_PATH=${{ github.workspace }}/Microsoft.Spark.Worker/net8.0/linux-x64" >> $GITHUB_ENV
+          echo "${{ github.workspace }}/${{ env.SPARK_DIR }}/bin" >> $GITHUB_PATH
+
+      # 9️⃣ Build the project
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      # 🔟 Run only the Spark test class
+      - name: Run Spark tests
+        run: |
+          dotnet test \
+            --no-build \
+            --filter "FullyQualifiedName~${TEST_CLASS}" \
+            --verbosity normal
