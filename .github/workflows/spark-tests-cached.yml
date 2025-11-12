@@ -1,120 +1,38 @@
-name: Spark Tests (Cached)
+name: Spark Tests (Prebuilt Image)
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  # Allow manual runs via `gh workflow run` or GitHub UI
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/<your-username>/spark-dotnet:3.5.3-2.3.0
+      options: --init
+    permissions:
+      contents: read
+      packages: read
     env:
-      SPARK_VERSION: 3.5.3
-      HADOOP_PROFILE: hadoop3
-      SPARK_DIR: spark-3.5.3-bin-hadoop3
-      WORKER_VERSION: 2.3.0
       TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
-      JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+      SPARK_HOME: /opt/spark
+      DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
 
     steps:
-      # 1️⃣ Checkout repo
       - uses: actions/checkout@v4
 
-      # 2️⃣ Setup .NET SDK
-      - name: Setup .NET 8 SDK
+      - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
-      # 3️⃣ Install Java (Spark runtime dependency)
-      - name: Install Java
-        run: sudo apt-get update && sudo apt-get install -y openjdk-11-jdk
-
-      # 4️⃣ Cache Spark binaries
-      - name: Cache Spark
-        id: cache-spark
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.SPARK_DIR }}
-          key: spark-${{ env.SPARK_VERSION }}-${{ env.HADOOP_PROFILE }}
-
-      # 5️⃣ Download Spark only if cache is missing
-      - name: Download Spark if not cached
-        if: steps.cache-spark.outputs.cache-hit != 'true'
-        run: |
-          set -euxo pipefail
-          SPARK_TGZ="spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz"
-          MIRRORS=(
-            "https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}"
-            "https://downloads.apache.org/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}"
-            "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}"
-          )
-
-          downloaded=0
-          for url in "${MIRRORS[@]}"; do
-            echo "Attempting download from: $url"
-            if curl --retry 3 --retry-delay 2 -fSL -o "$SPARK_TGZ" "$url"; then
-              echo "Downloaded from $url"
-              downloaded=1
-              break
-            else
-              echo "Download failed from $url (exit $?)"
-            fi
-          done
-
-          if [ "$downloaded" -ne 1 ]; then
-            echo "ERROR: All mirror download attempts failed. Showing headers for debugging:"
-            for url in "${MIRRORS[@]}"; do
-              echo "--- HEAD for $url ---"
-              curl -I "$url" || true
-            done
-            ls -la || true
-            exit 8
-          fi
-
-          tar -xzf "$SPARK_TGZ"
-          rm "$SPARK_TGZ"
-
-      # 6️⃣ Cache Microsoft Spark Worker
-      - name: Cache Microsoft.Spark.Worker
-        id: cache-worker
-        uses: actions/cache@v4
-        with:
-          path: Microsoft.Spark.Worker/net8.0/linux-x64
-          key: worker-${{ env.WORKER_VERSION }}-linux-x64
-
-      # 7️⃣ Download Worker only if cache is missing
-      - name: Download Worker if not cached
-        if: steps.cache-worker.outputs.cache-hit != 'true'
-        run: |
-          set -euxo pipefail
-          mkdir -p Microsoft.Spark.Worker/net8.0/linux-x64
-          WORKER_TGZ="Microsoft.Spark.Worker.net8.0.linux-x64-${WORKER_VERSION}.tar.gz"
-          curl --retry 5 --retry-delay 2 -fSL -o "$WORKER_TGZ" "https://github.com/dotnet/spark/releases/download/v${WORKER_VERSION}/${WORKER_TGZ}" || (
-            echo "ERROR: Failed to download Microsoft.Spark.Worker (curl exit $? ); showing HTTP headers for diagnosis:";
-            curl -I "https://github.com/dotnet/spark/releases/download/v${WORKER_VERSION}/${WORKER_TGZ}" || true;
-            ls -la Microsoft.Spark.Worker || true;
-            exit 8
-          )
-          tar -xzf "$WORKER_TGZ" -C Microsoft.Spark.Worker/net8.0/linux-x64
-          rm "$WORKER_TGZ"
-
-      # 8️⃣ Set environment variables for Spark + Worker
-      - name: Export Spark environment
-        run: |
-          echo "SPARK_HOME=${{ github.workspace }}/${{ env.SPARK_DIR }}" >> $GITHUB_ENV
-          echo "DOTNET_WORKER_PATH=${{ github.workspace }}/Microsoft.Spark.Worker/net8.0/linux-x64" >> $GITHUB_ENV
-          echo "${{ github.workspace }}/${{ env.SPARK_DIR }}/bin" >> $GITHUB_PATH
-
-      # 9️⃣ Build the project
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      # 🔟 Run only the Spark test class
-      - name: Run Spark tests
+      - name: Run Spark test
         run: |
           dotnet test \
             --no-build \
