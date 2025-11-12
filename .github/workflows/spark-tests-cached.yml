@@ -26,19 +26,46 @@ jobs:
       TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
       SPARK_HOME: /opt/spark
       DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Prepare NuGet cache dir
+        run: mkdir -p $NUGET_PACKAGES
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Authenticate to GitHub Packages
+        run: |
+          dotnet nuget add source \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.GHCR_PAT }} \
+            --store-password-in-clear-text \
+            --name github "https://nuget.pkg.github.com/hutchisonkim/index.json"
 
       - name: Build & Run Spark tests
         run: |
           cd tests/Game.Chess.Tests.Unit
 
+          echo "dotnet --info"
+          dotnet --info
+
           echo "Restoring test project..."
-          dotnet restore Game.Chess.Tests.Unit.csproj
+          dotnet restore Game.Chess.Tests.Unit.csproj --packages $NUGET_PACKAGES
 
           echo "Building test project..."
-          dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --no-restore
+          dotnet build Game.Chess.Tests.Unit.csproj --configuration Release
+
+          echo "Listing Microsoft.Spark.dll files in packages (debug)"
+          find $NUGET_PACKAGES -type f -name 'Microsoft.Spark.dll' -print || true
 
           echo "Running specified Spark test class..."
           dotnet test Game.Chess.Tests.Unit.csproj \
