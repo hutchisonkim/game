@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <IsTestProject>true</IsTestProject>
