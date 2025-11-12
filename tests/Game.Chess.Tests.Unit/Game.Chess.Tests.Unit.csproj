@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <IsTestProject>true</IsTestProject>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
