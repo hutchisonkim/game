@@ -5,6 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  # Allow manual runs via `gh workflow run` or GitHub UI
+  workflow_dispatch:
 
 jobs:
   test:
@@ -43,9 +45,18 @@ jobs:
       - name: Download Spark if not cached
         if: steps.cache-spark.outputs.cache-hit != 'true'
         run: |
-          wget -q https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz
-          tar -xzf spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz
-          rm spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz
+          set -euxo pipefail
+          SPARK_TGZ="spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz"
+          # Use curl with retries and fail-fast on HTTP errors. If download fails,
+          # print HTTP headers for debugging.
+          curl --retry 5 --retry-delay 2 -fSL -o "$SPARK_TGZ" "https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}" || (
+            echo "ERROR: Failed to download Spark tarball (curl exit $? ); showing HTTP headers for diagnosis:";
+            curl -I "https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/${SPARK_TGZ}" || true;
+            ls -la || true;
+            exit 8
+          )
+          tar -xzf "$SPARK_TGZ"
+          rm "$SPARK_TGZ"
 
       # 6️⃣ Cache Microsoft Spark Worker
       - name: Cache Microsoft.Spark.Worker
@@ -59,10 +70,17 @@ jobs:
       - name: Download Worker if not cached
         if: steps.cache-worker.outputs.cache-hit != 'true'
         run: |
+          set -euxo pipefail
           mkdir -p Microsoft.Spark.Worker/net8.0/linux-x64
-          wget -q https://github.com/dotnet/spark/releases/download/v${WORKER_VERSION}/Microsoft.Spark.Worker.net8.0.linux-x64-${WORKER_VERSION}.tar.gz
-          tar -xzf Microsoft.Spark.Worker.net8.0.linux-x64-${WORKER_VERSION}.tar.gz -C Microsoft.Spark.Worker/net8.0/linux-x64
-          rm Microsoft.Spark.Worker.net8.0.linux-x64-${WORKER_VERSION}.tar.gz
+          WORKER_TGZ="Microsoft.Spark.Worker.net8.0.linux-x64-${WORKER_VERSION}.tar.gz"
+          curl --retry 5 --retry-delay 2 -fSL -o "$WORKER_TGZ" "https://github.com/dotnet/spark/releases/download/v${WORKER_VERSION}/${WORKER_TGZ}" || (
+            echo "ERROR: Failed to download Microsoft.Spark.Worker (curl exit $? ); showing HTTP headers for diagnosis:";
+            curl -I "https://github.com/dotnet/spark/releases/download/v${WORKER_VERSION}/${WORKER_TGZ}" || true;
+            ls -la Microsoft.Spark.Worker || true;
+            exit 8
+          )
+          tar -xzf "$WORKER_TGZ" -C Microsoft.Spark.Worker/net8.0/linux-x64
+          rm "$WORKER_TGZ"
 
       # 8️⃣ Set environment variables for Spark + Worker
       - name: Export Spark environment
