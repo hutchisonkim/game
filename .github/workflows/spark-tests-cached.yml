@@ -44,7 +44,7 @@ jobs:
 
           echo
           echo "=== Restoring Project Packages (minimal logging) ==="
-          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity minimal --force-evaluate
+          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity minimal --runtime linux-x64
 
           echo
           echo "=== Checking for Microsoft.Spark.dll ==="
@@ -59,11 +59,12 @@ jobs:
 
           echo
           echo "=== Building Project (minimal logging) ==="
-          dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --verbosity minimal
+          dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --verbosity minimal --runtime linux-x64
 
           echo
           echo "=== Running Specified Spark Test Class ==="
           dotnet test Game.Chess.Tests.Unit.csproj \
             --no-build \
+            --runtime linux-x64 \
             --filter "FullyQualifiedName~${TEST_CLASS}" \
             --verbosity normal
