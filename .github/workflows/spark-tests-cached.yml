@@ -148,31 +148,41 @@ jobs:
           DOTNETBACKEND_PORT: 5567
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
         run: |
-          WORKER="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker"
+          WORKER_DIR="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker"
+          WORKER_DLL="$WORKER_DIR/Microsoft.Spark.Worker.dll"
 
-          echo "=== Starting .NET Spark Worker ==="
-          ls -la "$WORKER" "$WORKER.dll"
+          echo "=== Worker directory structure ==="
+          ls -la "$DOTNET_WORKER_DIR"
+          echo "=== Inside worker folder ==="
+          ls -la "$WORKER_DIR"
 
-          # DO NOT chmod +x or ./ — use dotnet
-          nohup dotnet "$WORKER" --port 5567 > /tmp/spark-worker.log 2>&1 &
+          # Verify DLL exists
+          if [ ! -f "$WORKER_DLL" ]; then
+            echo "❌ Worker DLL not found at $WORKER_DLL"
+            exit 1
+          fi
 
-          # Install netcat (for port check)
+          echo "=== Starting .NET Spark Worker (nested DLL) ==="
+          nohup dotnet "$WORKER_DLL" --port 5567 > /tmp/spark-worker.log 2>&1 &
+
+          # Install netcat for port check
           apt-get update && apt-get install -y netcat-openbsd
 
           # Wait for port 5567
           timeout=30
           while [ $timeout -gt 0 ]; do
             if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "Spark worker is READY on 5567"
+              echo "✅ Spark .NET worker is running on 5567"
               break
             fi
-            echo "Waiting... ($timeout)"
+            echo "Waiting for worker... ($timeout)"
             sleep 1
             timeout=$((timeout - 1))
           done
 
           if [ $timeout -eq 0 ]; then
-            echo "Worker failed"
+            echo "❌ Worker failed to start after 30s"
+            echo "=== Worker Log ==="
             cat /tmp/spark-worker.log
             exit 1
           fi
