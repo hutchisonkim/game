@@ -40,7 +40,6 @@ jobs:
           echo "NUGET_PACKAGES=$NUGET_PACKAGES"
           echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
-          find / -type d -name ".nuget" 2>/dev/null || true
 
       - name: Clear and prepare NuGet caches
         run: |
