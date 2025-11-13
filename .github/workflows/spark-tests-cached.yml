@@ -172,20 +172,6 @@ jobs:
           $SPARK_HOME/bin/spark-submit \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
-            "$SPARK_JAR" dotnet "$DOTNET_DLL" &
-
-          # Give it a few seconds to start
-          sleep 10
-
-      - name: Run Spark tests
-        run: |
-          set -e
-          cd tests/Game.Chess.Tests.Unit
-          echo "=== Running Specified Spark Test Class ==="
-          dotnet test Game.Chess.Tests.Unit.csproj \
-            --configuration Release \
-            --no-build \
-            --runtime linux-x64 \
-            --filter "FullyQualifiedName~${TEST_CLASS}" \
-            --verbosity normal
+            "$SPARK_JAR" "$DOTNET_DLL" \
+            -- dotnet test Game.Chess.Tests.Unit.dll --no-build --verbosity normal
 
