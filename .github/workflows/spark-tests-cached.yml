@@ -139,6 +139,15 @@ jobs:
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
 
+      # --- NEW STEP: Check DOTNETBACKEND_PORT before running tests ---
+      - name: Check DOTNETBACKEND_PORT
+        run: |
+          if [ -z "$DOTNETBACKEND_PORT" ]; then
+            echo "⚠️ DOTNETBACKEND_PORT is not set. The JVM backend may not be reachable."
+          else
+            echo "✅ DOTNETBACKEND_PORT is set to $DOTNETBACKEND_PORT"
+          fi
+          
       - name: Run Spark unit tests
         run: |
           cd tests/Game.Chess.Tests.Unit
