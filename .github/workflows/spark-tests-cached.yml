@@ -77,25 +77,26 @@ jobs:
       - name: Fix Windows-style paths in NuGet cache
         run: |
           echo "=== Checking for Windows-style paths in NuGet packages ==="
-          # Look for any file names that contain backslashes
-          BACKSLASH_FILES=$(find $NUGET_PACKAGES -type f -name '*\\*' || true)
-          if [ -z "$BACKSLASH_FILES" ]; then
-            echo "✅ No backslash filenames detected."
-          else
-            echo "⚠️ Found files with backslashes, fixing paths..."
-            for f in $BACKSLASH_FILES; do
-              # Convert backslashes to forward slashes in path
-              NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
-              # Ensure target directory exists
-              mkdir -p "$(dirname "$NEW_PATH")"
-              # Move the file
-              mv "$f" "$NEW_PATH"
-              echo "Moved $f -> $NEW_PATH"
-            done
-            echo "✅ Windows-style paths fixed."
-          fi
 
-          # Optional: verify Microsoft.Spark.dll now exists
+          # Traverse all paths containing backslashes, depth-first
+          find "$NUGET_PACKAGES" -depth -name '*\\*' | while read f; do
+            NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
+
+            if [ -d "$f" ]; then
+              # Directory: create target, move contents, remove original
+              mkdir -p "$NEW_PATH"
+              mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
+              rmdir "$f" 2>/dev/null || true
+              echo "Fixed directory: $f -> $NEW_PATH"
+            else
+              # File: ensure parent exists, then move
+              mkdir -p "$(dirname "$NEW_PATH")"
+              mv "$f" "$NEW_PATH"
+              echo "Fixed file: $f -> $NEW_PATH"
+            fi
+          done
+
+          # Verify Microsoft.Spark.dll exists now
           SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
           if [ -f "$SPARK_DLL" ]; then
             echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
@@ -103,7 +104,6 @@ jobs:
             echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
             exit 1
           fi
-
 
       - name: Check Spark worker DLL
         run: |
