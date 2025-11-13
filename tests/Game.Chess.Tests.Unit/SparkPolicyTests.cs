@@ -19,18 +19,11 @@ public class ChessSparkPolicyTests
         {
             if (_spark != null) return _spark;
 
-            // Prefer SPARK_MASTER_URL (set by CI or by docker-compose). If not provided,
-            // default to the docker-compose mapping on the host so running tests locally
-            // against the `spark` service works (compose maps 7077 to host).
-            var masterUrl = Environment.GetEnvironmentVariable("SPARK_MASTER_URL");
-            var sparkMaster = string.IsNullOrWhiteSpace(masterUrl) ? "spark://localhost:7077" : masterUrl;
-
             try
             {
                 _spark = SparkSession
                     .Builder()
                     .AppName("ChessPolicyTests")
-                    .Master(sparkMaster)
                     .Config("spark.sql.shuffle.partitions", "1") // small local jobs
                     .GetOrCreate();
             }
