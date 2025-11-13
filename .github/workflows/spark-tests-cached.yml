@@ -144,34 +144,20 @@ jobs:
             --verbosity minimal \
             --runtime linux-x64
 
-      - name: Start Spark JVM backend
+      - name: Run Spark tests
         run: |
-          echo "Starting Spark JVM backend..."
           cd tests/Game.Chess.Tests.Unit
-
-          # Locate Spark jar and .NET assembly
           SPARK_JAR=$(find ./bin/Release/net8.0 -type f -name "microsoft-spark-3-5_2.12-2.3.0.jar" | head -n 1)
           DOTNET_DLL=$(find ./bin/Release/net8.0/linux-x64 -type f -name "Game.Chess.Tests.Unit.dll" | head -n 1)
-
-          # Verify files exist
-          if [ -z "$SPARK_JAR" ]; then
-            echo "❌ Could not find Microsoft Spark jar in build output"
-            exit 1
-          fi
-
-          if [ -z "$DOTNET_DLL" ]; then
-            echo "❌ Could not find .NET assembly DLL in build output"
-            exit 1
-          fi
 
           echo "Using Spark jar: $SPARK_JAR"
           echo "Using .NET assembly: $DOTNET_DLL"
 
-          # Start Spark JVM backend using DotnetRunner
-          # Pass 'dotnet' explicitly as the command to execute the DLL
           $SPARK_HOME/bin/spark-submit \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
             "$SPARK_JAR" "$DOTNET_DLL" \
             -- dotnet test Game.Chess.Tests.Unit.dll --no-build --verbosity normal
+
+
 
