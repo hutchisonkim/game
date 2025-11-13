@@ -141,28 +141,25 @@ jobs:
         run: |
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
-          
+
       - name: Start Spark .NET Worker
         shell: bash
         env:
           DOTNETBACKEND_PORT: 5567
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
         run: |
-          WORKER_BIN="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker"
+          WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker.dll"
 
-          # Debug: Show current permissions
-          echo "=== Worker binary permissions ==="
-          ls -la "$WORKER_BIN"
-          file "$WORKER_BIN"
+          echo "=== Worker files ==="
+          ls -la "$DOTNET_WORKER_DIR/Microsoft.Spark.Worker"*
+          echo "File type:"
+          file "$WORKER_DLL"
 
-          # CRITICAL: Force executable bit
-          chmod +x "$WORKER_BIN"
-          echo "After chmod:"
-          ls -la "$WORKER_BIN"
+          # Must be readable
+          [ -r "$WORKER_DLL" ] || (echo "DLL not readable"; exit 1)
 
-          # Start worker
-          echo "Starting Microsoft.Spark.Worker on port 5567..."
-          nohup "$WORKER_BIN" --port 5567 > /tmp/spark-worker.log 2>&1 &
+          echo "Starting .NET worker via dotnet..."
+          nohup dotnet "$WORKER_DLL" --port 5567 > /tmp/spark-worker.log 2>&1 &
 
           # Install netcat
           apt-get update && apt-get install -y netcat-openbsd
@@ -171,17 +168,16 @@ jobs:
           timeout=30
           while [ $timeout -gt 0 ]; do
             if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "Spark worker is ready on 5567"
+              echo "Spark .NET worker is ready on 5567"
               break
             fi
-            echo "Waiting for worker on 5567... ($timeout)"
+            echo "Waiting... ($timeout)"
             sleep 1
             timeout=$((timeout - 1))
           done
 
           if [ $timeout -eq 0 ]; then
-            echo "Failed to start worker"
-            echo "=== LOG ==="
+            echo "Worker failed to start"
             cat /tmp/spark-worker.log
             exit 1
           fi
