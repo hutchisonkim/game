@@ -68,6 +68,13 @@ jobs:
           echo "Verifying accessibility..."
           dotnet --info | grep 'Base Path' || true
           ls -la /github/home/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1
+          
+      - name: Verify compile-time reference visibility
+        run: |
+          echo "Listing Microsoft.Spark DLLs known to dotnet:"
+          find ~/.nuget/packages -type f -name "Microsoft.Spark.dll"
+          echo "Running msbuild project references..."
+          dotnet msbuild Game.Chess.Tests.Unit/Game.Chess.Tests.Unit.csproj -pp | grep Microsoft.Spark || true
 
       - uses: actions/checkout@v4
 
