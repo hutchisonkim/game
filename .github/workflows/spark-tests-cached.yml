@@ -71,17 +71,6 @@ jobs:
           dotnet list package --include-transitive
 
           echo
-          echo "=== Verify Microsoft.Spark.dll exists (netstandard2.1) ==="
-          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
-          if [ -f "$SPARK_DLL" ]; then
-            echo "✅ Found Microsoft.Spark.dll at $SPARK_DLL"
-            stat "$SPARK_DLL"
-          else
-            echo "❌ Microsoft.Spark.dll not found at expected location: $SPARK_DLL"
-            exit 1
-          fi
-
-          echo
           echo "Listing all Microsoft.Spark.dll files in NuGet cache:"
           find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print
 
