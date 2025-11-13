@@ -78,12 +78,12 @@ jobs:
         run: |
           echo "=== Checking for Windows-style paths in NuGet packages ==="
 
-          # Traverse all paths containing backslashes, depth-first
-          find "$NUGET_PACKAGES" -depth -name '*\\*' | while read f; do
+          # Find all files and directories with backslashes, depth-first, handling spaces and special chars
+          find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
             NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
 
             if [ -d "$f" ]; then
-              # Directory: create target, move contents, remove original
+              # Directory: create target and move contents
               mkdir -p "$NEW_PATH"
               mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
               rmdir "$f" 2>/dev/null || true
@@ -104,6 +104,7 @@ jobs:
             echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
             exit 1
           fi
+
 
       - name: Check Spark worker DLL
         run: |
