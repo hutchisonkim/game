@@ -150,6 +150,7 @@ jobs:
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
           SPARK_HOME: /opt/spark
           SPARK_VERSION: "3.5.3"
+          DOTNET_WORKER_SPARK_VERSION: "2.3.0"
         run: |
           WORKER_DIR="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker"
           WORKER_DLL="$WORKER_DIR/Microsoft.Spark.Worker.dll"
@@ -158,6 +159,7 @@ jobs:
           echo "SPARK_HOME=$SPARK_HOME"
           echo "SPARK_VERSION=$SPARK_VERSION"
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
+          echo "DOTNET_WORKER_SPARK_VERSION=$DOTNET_WORKER_SPARK_VERSION"
 
           # Verify SPARK_HOME is valid
           if [ ! -d "$SPARK_HOME" ]; then
@@ -182,7 +184,7 @@ jobs:
           fi
 
           echo "=== Starting .NET Spark Worker (nested DLL) ==="
-          nohup dotnet "$WORKER_DLL" 2.3.0 --port 5567 > /tmp/spark-worker.log 2>&1 &
+          nohup dotnet "$WORKER_DLL" $DOTNET_WORKER_SPARK_VERSION --port 5567 > /tmp/spark-worker.log 2>&1 &
 
           # Install netcat for port check
           apt-get update && apt-get install -y netcat-openbsd
