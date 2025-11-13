@@ -27,13 +27,32 @@ jobs:
       DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_CLI_HOME: /github/home
+      # Force both restore and build to use the same global NuGet cache
+      NUGET_PACKAGES: /opt/nuget
 
     steps:
-
       - uses: actions/checkout@v4
 
-      - name: Clear NuGet caches
-        run: dotnet nuget locals all --clear
+      - name: Show environment diagnostics
+        run: |
+          echo "=== Environment ==="
+          whoami
+          echo "HOME=$HOME"
+          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
+          echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
+          echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
+          echo "Listing existing .nuget directories:"
+          find / -type d -name ".nuget" 2>/dev/null || true
+
+      - name: Clear and prepare NuGet caches
+        run: |
+          echo "=== Clearing NuGet caches ==="
+          dotnet nuget locals all --clear
+          mkdir -p "$NUGET_PACKAGES"
+          chmod -R 777 "$NUGET_PACKAGES"
+
+          echo "NuGet cache path is: $NUGET_PACKAGES"
+          dotnet nuget locals all --list
 
       - name: Restore Spark tests
         run: |
@@ -51,15 +70,14 @@ jobs:
           echo "=== Restoring Project Packages (detailed logging) ==="
           dotnet restore Game.Chess.Tests.Unit.csproj --verbosity detailed --runtime linux-x64
 
+          echo
           echo "dotnet list package (after restore)"
           dotnet list package --include-transitive
 
-          echo "package cache contents:"
-          ls -R /github/home/.nuget/packages/
-
-          echo "ls ~/.nuget/packages/microsoft.spark -R || true"
-          ls -la ~/.nuget/packages/microsoft.spark || true
-          find ~/.nuget/packages -type f -name "Microsoft.Spark.dll" -print || true
+          echo
+          echo "=== NuGet Cache Listing (post-restore) ==="
+          ls -R $NUGET_PACKAGES/microsoft.spark || true
+          find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print || true
 
       - name: Check Spark DLLs before build
         run: |
@@ -69,10 +87,9 @@ jobs:
           echo "🔧 Checking for Spark worker..."
           WORKER_DLL=$(find "$DOTNET_WORKER_DIR" -type f -name "Microsoft.Spark.dll" | head -n 1 || true)
           if [ -z "$WORKER_DLL" ]; then
-            echo "❌ Could not locate Spark worker DLL in worker dir ($DOTNET_WORKER_DIR"
+            echo "❌ Could not locate Spark worker DLL in worker dir ($DOTNET_WORKER_DIR)"
             exit 1
           fi
-
           echo "✅ Found Spark worker at: $WORKER_DLL"
 
           echo "Verifying accessibility..."
@@ -80,10 +97,24 @@ jobs:
 
       - name: Verify compile-time reference visibility
         run: |
-          echo "Listing Microsoft.Spark DLLs known to dotnet:"
-          find ~/.nuget/packages -type f -name "Microsoft.Spark.dll"
-          echo "Running msbuild project references..."
-          dotnet msbuild Game.Chess.Tests.Unit/Game.Chess.Tests.Unit.csproj -pp | grep Microsoft.Spark || true
+          cd tests/Game.Chess.Tests.Unit
+          echo "=== Verifying reference visibility ==="
+          echo "HOME=$HOME"
+          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
+          echo
+          echo "Listing Spark DLLs visible to compiler:"
+          find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print || true
+          echo
+          echo "Running msbuild preprocessed output for Spark references..."
+          dotnet msbuild Game.Chess.Tests.Unit.csproj -pp | grep Microsoft.Spark || true
+
+      - name: Verify file permissions
+        run: |
+          echo "=== Permission Check ==="
+          ls -laR $NUGET_PACKAGES/microsoft.spark || true
+          echo
+          echo "Fixing ownership (just in case):"
+          chown -R $(id -u):$(id -g) $NUGET_PACKAGES || true
 
       - name: Build & Run Spark tests (focused logging)
         run: |
@@ -92,7 +123,10 @@ jobs:
 
           echo
           echo "=== Building Project (minimal logging) ==="
-          dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --verbosity minimal --runtime linux-x64
+          dotnet build Game.Chess.Tests.Unit.csproj \
+            --configuration Release \
+            --verbosity minimal \
+            --runtime linux-x64
 
           echo
           echo "=== Running Specified Spark Test Class ==="
