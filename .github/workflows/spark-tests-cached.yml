@@ -54,6 +54,9 @@ jobs:
           echo "dotnet list package (after restore)"
           dotnet list package --include-transitive
 
+          echo "package cache contents:"
+          ls -R /github/home/.nuget/packages/
+
           echo "ls ~/.nuget/packages/microsoft.spark -R || true"
           ls -la ~/.nuget/packages/microsoft.spark || true
           find ~/.nuget/packages -type f -name "Microsoft.Spark.dll" -print || true
@@ -86,7 +89,7 @@ jobs:
         run: |
           set -e
           cd tests/Game.Chess.Tests.Unit
-          
+
           echo
           echo "=== Building Project (minimal logging) ==="
           dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --verbosity minimal --runtime linux-x64
