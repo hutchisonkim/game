@@ -75,28 +75,26 @@ jobs:
           find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print
 
       - name: Fix Windows-style paths in NuGet cache
+        shell: bash
         run: |
           echo "=== Checking for Windows-style paths in NuGet packages ==="
 
-          # Find all files and directories with backslashes, depth-first, handling spaces and special chars
+          # Depth-first, handle files/dirs with backslashes
           find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
             NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
 
             if [ -d "$f" ]; then
-              # Directory: create target and move contents
               mkdir -p "$NEW_PATH"
               mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
               rmdir "$f" 2>/dev/null || true
               echo "Fixed directory: $f -> $NEW_PATH"
             else
-              # File: ensure parent exists, then move
               mkdir -p "$(dirname "$NEW_PATH")"
               mv "$f" "$NEW_PATH"
               echo "Fixed file: $f -> $NEW_PATH"
             fi
           done
 
-          # Verify Microsoft.Spark.dll exists now
           SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
           if [ -f "$SPARK_DLL" ]; then
             echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
@@ -104,6 +102,7 @@ jobs:
             echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
             exit 1
           fi
+
 
 
       - name: Check Spark worker DLL
