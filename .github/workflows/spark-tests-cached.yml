@@ -148,6 +148,7 @@ jobs:
           echo
           echo "=== Running Specified Spark Test Class ==="
           dotnet test Game.Chess.Tests.Unit.csproj \
+            --configuration Release \
             --no-build \
             --runtime linux-x64 \
             --filter "FullyQualifiedName~${TEST_CLASS}" \
