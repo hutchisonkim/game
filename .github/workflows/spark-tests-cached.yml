@@ -163,8 +163,8 @@ jobs:
           echo "Using Spark jar: $SPARK_JAR"
           echo "Using .NET assembly: $DOTNET_DLL"
 
-          # Ensure read permission
-          chmod -R +r ./bin/Release/net8.0
+          # Ensure read + execute permissions
+          chmod -R +rx ./bin/Release/net8.0/linux-x64
 
           # Start Spark backend
           $SPARK_HOME/bin/spark-submit \
@@ -186,6 +186,7 @@ jobs:
 
           # Kill backend after tests
           kill $SPARK_PID
+
 
 
 
