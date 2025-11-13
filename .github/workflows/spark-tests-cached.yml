@@ -134,6 +134,15 @@ jobs:
           ls -laR $NUGET_PACKAGES/microsoft.spark || true
           echo "Fixing ownership (just in case)"
           chown -R $(id -u):$(id -g) $NUGET_PACKAGES || true
+          
+      - name: Start Spark backend
+        run: |
+          echo "Starting Spark JVM backend..."
+          $SPARK_HOME/bin/spark-submit \
+            --class org.apache.spark.deploy.dotnet.DotnetRunner \
+            --master local[*] \
+            $SPARK_HOME/jars/microsoft-spark-3-5-3.jar &
+          sleep 10
 
       - name: Build & Run Spark tests
         run: |
