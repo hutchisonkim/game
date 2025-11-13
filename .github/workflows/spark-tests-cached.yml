@@ -28,6 +28,9 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_CLI_HOME: /github/home
       NUGET_PACKAGES: /github/home/.nuget
+      DOTNETBACKEND_PORT: "5567"
+
+
 
     steps:
       - uses: actions/checkout@v4
@@ -139,13 +142,28 @@ jobs:
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
 
-      # --- NEW STEP: Check DOTNETBACKEND_PORT before running tests ---
-      - name: Check DOTNETBACKEND_PORT
+      - name: Start Spark Worker
         run: |
-          if [ -z "$DOTNETBACKEND_PORT" ]; then
-            echo "⚠️ DOTNETBACKEND_PORT is not set. The JVM backend may not be reachable."
+          echo "Starting Microsoft.Spark.Worker on port 5567..."
+          export DOTNETBACKEND_PORT=5567
+          nohup "$DOTNET_WORKER_DIR/Microsoft.Spark.Worker" \
+            --port 5567 \
+            > /tmp/spark-worker.log 2>&1 &
+          
+          # Wait for it to bind
+          timeout=30
+          while ! nc -z localhost 5567 && [ $timeout -gt 0 ]; do
+            echo "Waiting for worker on 5567... ($timeout)"
+            sleep 1
+            ((timeout--))
+          done
+          
+          if nc -z localhost 5567; then
+            echo "Spark worker is running on 5567"
           else
-            echo "✅ DOTNETBACKEND_PORT is set to $DOTNETBACKEND_PORT"
+            echo "Failed to start Spark worker"
+            cat /tmp/spark-worker.log
+            exit 1
           fi
           
       - name: Run Spark unit tests
