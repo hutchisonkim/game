@@ -182,7 +182,7 @@ jobs:
           fi
 
           echo "=== Starting .NET Spark Worker (nested DLL) ==="
-          nohup dotnet "$WORKER_DLL" --port 5567 > /tmp/spark-worker.log 2>&1 &
+          nohup dotnet "$WORKER_DLL" 2.3.0 --port 5567 > /tmp/spark-worker.log 2>&1 &
 
           # Install netcat for port check
           apt-get update && apt-get install -y netcat-openbsd
