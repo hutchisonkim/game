@@ -151,6 +151,7 @@ jobs:
           SPARK_HOME: /opt/spark
           SPARK_VERSION: "3.5.3"
           DOTNET_WORKER_SPARK_VERSION: "2.3.0"
+          PYTHON_WORKER_FACTORY_PORT: 5567
         run: |
           WORKER_DIR="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker"
           WORKER_DLL="$WORKER_DIR/Microsoft.Spark.Worker.dll"
@@ -160,6 +161,7 @@ jobs:
           echo "SPARK_VERSION=$SPARK_VERSION"
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
           echo "DOTNET_WORKER_SPARK_VERSION=$DOTNET_WORKER_SPARK_VERSION"
+          echo "PYTHON_WORKER_FACTORY_PORT=$PYTHON_WORKER_FACTORY_PORT"
 
           # Verify SPARK_HOME is valid
           if [ ! -d "$SPARK_HOME" ]; then
