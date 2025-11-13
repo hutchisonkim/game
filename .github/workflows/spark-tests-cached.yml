@@ -81,7 +81,10 @@ jobs:
 
           # Depth-first, handle files/dirs with backslashes
           find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
+            # Convert backslashes to forward slashes
             NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
+            # Strip trailing slashes so Linux handles files correctly
+            NEW_PATH="${NEW_PATH%/}"
 
             if [ -d "$f" ]; then
               mkdir -p "$NEW_PATH"
@@ -95,6 +98,7 @@ jobs:
             fi
           done
 
+          # Verify Microsoft.Spark.dll exists after fixing paths
           SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
           if [ -f "$SPARK_DLL" ]; then
             echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
@@ -102,7 +106,6 @@ jobs:
             echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
             exit 1
           fi
-
 
 
       - name: Check Spark worker DLL
