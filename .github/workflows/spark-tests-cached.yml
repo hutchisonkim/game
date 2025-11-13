@@ -30,34 +30,12 @@ jobs:
 
     steps:
 
-      - name: Check Spark DLLs before build
-        run: |
-          echo "🔧 Checking for Spark worker..."
-          WORKER_DLL=$(find "$DOTNET_WORKER_DIR" -type f -name "Microsoft.Spark.dll" | head -n 1 || true)
-          if [ -z "$WORKER_DLL" ]; then
-            echo "❌ Could not locate Spark worker DLL in worker dir ($DOTNET_WORKER_DIR"
-            exit 1
-          fi
-
-          echo "✅ Found Spark worker at: $WORKER_DLL"
-
-          NUGET_DIR="/github/home/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1"
-          echo "Listing contents of NuGet directory ($NUGET_DIR):"
-          ls -la "$NUGET_DIR"
-
-          echo "Verifying accessibility..."
-          dotnet --info | grep 'Base Path' || true
-
-      - name: Verify compile-time reference visibility
-        run: |
-          echo "Listing Microsoft.Spark DLLs known to dotnet:"
-          find ~/.nuget/packages -type f -name "Microsoft.Spark.dll"
-          echo "Running msbuild project references..."
-          dotnet msbuild Game.Chess.Tests.Unit/Game.Chess.Tests.Unit.csproj -pp | grep Microsoft.Spark || true
-
       - uses: actions/checkout@v4
 
-      - name: Build & Run Spark tests (focused logging)
+      - name: Clear NuGet caches
+        run: dotnet nuget locals all --clear
+
+      - name: Restore Spark tests
         run: |
           set -e
           cd tests/Game.Chess.Tests.Unit
@@ -80,6 +58,29 @@ jobs:
           ls -la ~/.nuget/packages/microsoft.spark || true
           find ~/.nuget/packages -type f -name "Microsoft.Spark.dll" -print || true
 
+      - name: Check Spark DLLs before build
+        run: |
+          echo "🔧 Checking for Spark worker..."
+          WORKER_DLL=$(find "$DOTNET_WORKER_DIR" -type f -name "Microsoft.Spark.dll" | head -n 1 || true)
+          if [ -z "$WORKER_DLL" ]; then
+            echo "❌ Could not locate Spark worker DLL in worker dir ($DOTNET_WORKER_DIR"
+            exit 1
+          fi
+
+          echo "✅ Found Spark worker at: $WORKER_DLL"
+
+          echo "Verifying accessibility..."
+          dotnet --info | grep 'Base Path' || true
+
+      - name: Verify compile-time reference visibility
+        run: |
+          echo "Listing Microsoft.Spark DLLs known to dotnet:"
+          find ~/.nuget/packages -type f -name "Microsoft.Spark.dll"
+          echo "Running msbuild project references..."
+          dotnet msbuild Game.Chess.Tests.Unit/Game.Chess.Tests.Unit.csproj -pp | grep Microsoft.Spark || true
+
+      - name: Build & Run Spark tests (focused logging)
+        run: |
           echo
           echo "=== Building Project (minimal logging) ==="
           dotnet build Game.Chess.Tests.Unit.csproj --configuration Release --verbosity minimal --runtime linux-x64
