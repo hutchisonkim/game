@@ -133,61 +133,17 @@ jobs:
           ls -laR $NUGET_PACKAGES/microsoft.spark || true
           echo "Fixing ownership (just in case)"
           chown -R $(id -u):$(id -g) $NUGET_PACKAGES || true
-          
+
       - name: Build Spark test project
         run: |
           cd tests/Game.Chess.Tests.Unit
+          dotnet build --configuration Release --runtime linux-x64
 
-          echo "=== Building Project ==="
-          dotnet build Game.Chess.Tests.Unit.csproj \
-            --configuration Release \
-            --runtime linux-x64 \
-            --verbosity minimal
-
-      - name: Start Spark backend & run tests
+      - name: Run Spark unit tests
         run: |
           cd tests/Game.Chess.Tests.Unit
-
-          SPARK_JAR=$(find ./bin/Release/net8.0 -type f -name "microsoft-spark-3-5_2.12-2.3.0.jar" | head -n 1)
-          DOTNET_DLL=$(find ./bin/Release/net8.0/linux-x64 -type f -name "Game.Chess.Tests.Unit.dll" | head -n 1)
-
-          if [ -z "$SPARK_JAR" ]; then
-            echo "❌ Could not find Spark jar"
-            exit 1
-          fi
-          if [ -z "$DOTNET_DLL" ]; then
-            echo "❌ Could not find .NET DLL"
-            exit 1
-          fi
-
-          echo "Using Spark jar: $SPARK_JAR"
-          echo "Using .NET assembly: $DOTNET_DLL"
-
-          # Ensure read + execute permissions
-          chmod -R +rx ./bin/Release/net8.0/linux-x64
-
-          # Start Spark backend
-          $SPARK_HOME/bin/spark-submit \
-            --class org.apache.spark.deploy.dotnet.DotnetRunner \
-            --master local[*] \
-            "$SPARK_JAR" "$DOTNET_DLL" &
-
-          SPARK_PID=$!
-          echo "Spark backend PID: $SPARK_PID"
-          sleep 10
-
-          # Run tests
-          dotnet test Game.Chess.Tests.Unit.csproj \
+          dotnet test \
             --configuration Release \
-            --no-build \
             --runtime linux-x64 \
             --filter "FullyQualifiedName~${TEST_CLASS}" \
             --verbosity normal
-
-          # Kill backend after tests
-          kill $SPARK_PID
-
-
-
-
-
