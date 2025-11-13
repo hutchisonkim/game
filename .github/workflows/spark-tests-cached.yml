@@ -141,33 +141,37 @@ jobs:
         run: |
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
-
-      - name: Start Spark Worker
+          
+      - name: Start Spark .NET Worker
         shell: bash
         env:
-          TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
-          SPARK_HOME: /opt/spark
-          DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
-          DOTNET_CLI_TELEMETRY_OPTOUT: 1
-          DOTNET_CLI_HOME: /github/home
-          NUGET_PACKAGES: /github/home/.nuget
           DOTNETBACKEND_PORT: 5567
+          DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
         run: |
+          WORKER_BIN="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker"
+
+          # Debug: Show current permissions
+          echo "=== Worker binary permissions ==="
+          ls -la "$WORKER_BIN"
+          file "$WORKER_BIN"
+
+          # CRITICAL: Force executable bit
+          chmod +x "$WORKER_BIN"
+          echo "After chmod:"
+          ls -la "$WORKER_BIN"
+
+          # Start worker
+          echo "Starting Microsoft.Spark.Worker on port 5567..."
+          nohup "$WORKER_BIN" --port 5567 > /tmp/spark-worker.log 2>&1 &
+
           # Install netcat
           apt-get update && apt-get install -y netcat-openbsd
 
-          echo "Starting Microsoft.Spark.Worker on port 5567..."
-          export DOTNETBACKEND_PORT=5567
-
-          nohup "$DOTNET_WORKER_DIR/Microsoft.Spark.Worker" \
-            --port 5567 \
-            > /tmp/spark-worker.log 2>&1 &
-
-          # Wait up to 30 seconds for port to open
+          # Wait for port
           timeout=30
           while [ $timeout -gt 0 ]; do
             if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "Spark worker is running on 5567"
+              echo "Spark worker is ready on 5567"
               break
             fi
             echo "Waiting for worker on 5567... ($timeout)"
@@ -176,8 +180,8 @@ jobs:
           done
 
           if [ $timeout -eq 0 ]; then
-            echo "Failed to start Spark worker after 30s"
-            echo "=== Worker Log ==="
+            echo "Failed to start worker"
+            echo "=== LOG ==="
             cat /tmp/spark-worker.log
             exit 1
           fi
