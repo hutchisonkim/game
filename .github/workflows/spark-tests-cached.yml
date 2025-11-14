@@ -67,7 +67,7 @@ jobs:
 
           echo
           echo "=== Restoring Project Packages (detailed logging) ==="
-          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity detailed --runtime linux-x64
+          dotnet restore Game.Chess.Tests.Unit.csproj --runtime linux-x64
 
           echo
           echo "=== Post-restore package listing ==="
