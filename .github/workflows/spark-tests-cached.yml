@@ -152,7 +152,7 @@ jobs:
           DOTNET_WORKER_SPARK_VERSION: "2.3.0"
         run: |
           # Find JARs
-          SPARK_JAR="/opt/spark/jars/microsoft-spark-3-5_2.12-2.3.0.jar"
+          SPARK_JAR="./tests/Game.Chess.Tests.Unit/bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
           if [ ! -f "$SPARK_JAR" ]; then
             echo "OFFICIAL JAR NOT FOUND: $SPARK_JAR"
             echo "Listing available JARs:"
@@ -180,6 +180,7 @@ jobs:
           nohup "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
+            --jars "$SPARK_JAR" \
             --conf spark.dotnet.backend.port=5567 \
             --conf spark.pyspark.python=/usr/bin/python3 \  # For PySpark mode (if needed; adjust if Python not in image)
             --conf spark.worker.cleanup.enabled=false \  # Avoid cleanup conflicts
