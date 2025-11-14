@@ -177,10 +177,15 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
             --jars "$SPARK_JAR" \
+            --conf spark.dotnet.backend.port=5567 \
+            --conf spark.pyspark.python=/usr/bin/python3 \
+            --conf spark.worker.cleanup.enabled=true \
             "$SPARK_JAR" \
-            dotnet \
             "$APP_ZIP" \
             "Game.Chess.Tests.Unit.dll" \
+            dotnet \
+            "$WORKER_DLL" \
+            backend \
             > /tmp/spark-bridge.log 2>&1 &
 
           echo "Waiting for backend on port 5567..."
