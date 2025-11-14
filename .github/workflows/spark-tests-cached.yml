@@ -142,11 +142,10 @@ jobs:
         run: |
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
-
+          
       - name: Start Spark Backend + Run Tests
         shell: bash
         env:
-          SPARK_HOME: /opt/spark
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
           DOTNETBACKEND_PORT: "5567"
         run: |
@@ -154,58 +153,37 @@ jobs:
 
           cd tests/Game.Chess.Tests.Unit
 
-          apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
-
           echo "Publishing test project..."
           dotnet publish -c Release -r linux-x64 --self-contained false
-
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
-          [ -d "$PUBLISH_DIR" ] || { echo "Publish dir not found"; exit 1; }
-
-          SPARK_JAR="./bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
-          [ -f "$SPARK_JAR" ] || { echo "JAR not found: $SPARK_JAR"; exit 1; }
+          [ -d "$PUBLISH_DIR" ] || exit 1
 
           WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
-          [ -f "$WORKER_DLL" ] || { echo "Worker DLL not found: $WORKER_DLL"; exit 1; }
+          [ -f "$WORKER_DLL" ] || exit 1
           chmod +x "$WORKER_DLL" && chmod +x "$(dirname "$WORKER_DLL")"
 
-          APP_ZIP="/tmp/test-app.zip"
-          (cd "$PUBLISH_DIR" && zip -r "$APP_ZIP" .) > /dev/null
+          # Start worker directly in backend mode
+          echo "Starting .NET Spark worker on port 5567..."
+          nohup dotnet "$WORKER_DLL" backend 5567 \
+            > /tmp/spark-worker.log 2>&1 &
 
-          echo "Starting Spark .NET backend (backend-only mode)..."
-          nohup "$SPARK_HOME/bin/spark-submit" \
-            --class org.apache.spark.deploy.dotnet.DotnetRunner \
-            --master local[*] \
-            --jars "$SPARK_JAR" \
-            --conf spark.dotnet.backend.port=5567 \
-            --conf spark.pyspark.python=/usr/bin/python3 \
-            --conf spark.worker.cleanup.enabled=true \
-            --conf "spark.dotnet.command=dotnet $WORKER_DLL backend" \
-            "$SPARK_JAR" \
-            "$APP_ZIP" \
-            "Game.Chess.Tests.Unit.dll" \
-            > /tmp/spark-bridge.log 2>&1 &
-
-          echo "Waiting for backend on port 5567..."
-          timeout=10
+          # Wait for port
+          timeout=30
           while [ "$timeout" -gt 0 ]; do
             if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "BRIDGE READY on 5567"
+              echo "WORKER READY on 5567"
               break
             fi
             sleep 1
             timeout=$((timeout - 1))
           done
+          [ "$timeout" -gt 0 ] || { echo "Worker failed"; cat /tmp/spark-worker.log; exit 1; }
 
-          [ "$timeout" -gt 0 ] || { echo "Backend failed to start:"; cat /tmp/spark-bridge.log; exit 1; }
-
-          echo "Running tests against backend..."
-          dotnet test \
-            --no-build \
-            -c Release \
-            -r linux-x64 \
+          # Run tests
+          echo "Running tests..."
+          dotnet test --no-build -c Release -r linux-x64 \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
-            --verbosity normal || { echo "Tests failed. Logs:"; cat /tmp/spark-bridge.log; exit 1; }
+            --verbosity normal || { cat /tmp/spark-worker.log; exit 1; }
 
           echo "Tests passed!"
-          cat /tmp/spark-bridge.log
+          cat /tmp/spark-worker.log
