@@ -36,22 +36,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup NuGet cache
+      - name: Clear and prepare NuGet caches
         run: |
           dotnet nuget locals all --clear
           mkdir -p "$NUGET_PACKAGES"
           chmod -R 777 "$NUGET_PACKAGES"
 
-      - name: Restore and fix NuGet packages
+      - name: Restore Spark tests
+        run: |
+          set -e
+          cd tests/Game.Chess.Tests.Unit
+          dotnet restore Game.Chess.Tests.Unit.csproj --runtime linux-x64
+
+      - name: Fix Windows-style paths in NuGet cache
         shell: bash
         run: |
-          echo "Restoring all packages..."
-          dotnet restore --runtime linux-x64
+          echo "=== Fixing Windows-style paths in NuGet packages ==="
 
-          echo "Fixing Windows-style paths in NuGet cache..."
+          # Depth-first, handle files/dirs with backslashes
           find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
+            # Convert backslashes to forward slashes
             NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
+            # Strip trailing slashes so Linux handles files correctly
             NEW_PATH="${NEW_PATH%/}"
+
             if [ -d "$f" ]; then
               mkdir -p "$NEW_PATH"
               mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
@@ -62,7 +70,19 @@ jobs:
             fi
           done
 
-          echo "NuGet packages ready"
+          # Verify Microsoft.Spark.dll exists after fixing paths
+          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
+          if [ -f "$SPARK_DLL" ]; then
+            echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
+          else
+            echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
+            exit 1
+          fi
+
+      - name: Build Spark test project
+        run: |
+          cd tests/Game.Chess.Tests.Unit
+          dotnet build --configuration Release --runtime linux-x64
 
       - name: Start Spark Backend + Run Tests
         shell: bash
