@@ -189,6 +189,7 @@ jobs:
             --conf "spark.dotnet.command=dotnet $WORKER_DLL" \
             "$SPARK_JAR" \
             "$DUMMY_ZIP" \
+            "Placeholder.dll" \
             > /tmp/spark-bridge.log 2>&1 &
 
           # Wait for backend to be ready
