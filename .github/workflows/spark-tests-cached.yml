@@ -187,7 +187,7 @@ jobs:
             --conf spark.dotnet.backend.port=5567 \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=false \
-            dotnet "$WORKER_DLL" -m pyspark.worker \
+            dotnet exec "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
 
           # -------------------------------------------------
