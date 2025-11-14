@@ -144,7 +144,7 @@ jobs:
           dotnet build --configuration Release --runtime linux-x64
 
       - name: Start Spark .NET Bridge and Run Tests
-        shell: sh
+        shell: bash
         env:
           SPARK_HOME: /opt/spark
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
