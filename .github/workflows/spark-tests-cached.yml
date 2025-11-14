@@ -160,10 +160,16 @@ jobs:
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
           [ -d "$PUBLISH_DIR" ] || exit 1
 
+          SPARK_JAR="$PUBLISH_DIR/microsoft-spark-3-5_2.12-2.3.0.jar"
+          [ -f "$SPARK_JAR" ] || exit 1
+
           WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
           [ -f "$WORKER_DLL" ] || exit 1
           chmod +x "$WORKER_DLL" && chmod +x "$(dirname "$WORKER_DLL")"
 
+          echo "Using JAR: $SPARK_JAR"
+          echo "Using Worker: $WORKER_DLL"
+          
           # LAUNCH VIA SPARK-SUBMIT
           echo "Launching bridge via spark-submit..."
           nohup "$SPARK_HOME/bin/spark-submit" \
