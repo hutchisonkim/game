@@ -155,7 +155,7 @@ jobs:
           cd tests/Game.Chess.Tests.Unit
 
           apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
-          
+
           echo "Publishing test project..."
           dotnet publish -c Release -r linux-x64 --self-contained false
 
@@ -183,6 +183,7 @@ jobs:
             --conf "spark.dotnet.command=dotnet $WORKER_DLL backend" \
             "$SPARK_JAR" \
             "$APP_ZIP" \
+            "Game.Chess.Tests.Unit.dll" \
             > /tmp/spark-bridge.log 2>&1 &
 
           echo "Waiting for backend on port 5567..."
