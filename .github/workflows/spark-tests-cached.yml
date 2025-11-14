@@ -164,10 +164,18 @@ jobs:
           [ -f "$WORKER_DLL" ] || exit 1
           chmod +x "$WORKER_DLL" && chmod +x "$(dirname "$WORKER_DLL")"
 
-          # Start worker directly in backend mode
-          echo "Starting .NET Spark worker on port 5567..."
-          nohup dotnet "$WORKER_DLL" -m pyspark.worker \
-            > /tmp/spark-worker.log 2>&1 &
+          # LAUNCH VIA SPARK-SUBMIT
+          echo "Launching bridge via spark-submit..."
+          nohup "$SPARK_HOME/bin/spark-submit" \
+            --class org.apache.spark.deploy.dotnet.DotnetRunner \
+            --master local[*] \
+            --jars "$SPARK_JAR" \
+            --conf spark.dotnet.backend.port=5567 \
+            --conf spark.pyspark.python=/usr/bin/python3 \
+            --conf spark.worker.cleanup.enabled=false \
+            "$SPARK_JAR" \
+            dotnet "$WORKER_DLL" -m pyspark.worker \
+            > /tmp/spark-bridge.log 2>&1 &
 
           # Wait for port
           timeout=30
