@@ -164,7 +164,7 @@ jobs:
 
           # Start worker directly in backend mode
           echo "Starting .NET Spark worker on port 5567..."
-          nohup dotnet "$WORKER_DLL" backend 5567 \
+          nohup dotnet "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-worker.log 2>&1 &
 
           # Wait for port
