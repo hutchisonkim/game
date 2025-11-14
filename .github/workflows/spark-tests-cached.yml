@@ -84,55 +84,22 @@ jobs:
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
 
-      - name: Start Spark Backend + Run Tests
+      - name: Run Spark Tests
         shell: bash
         env:
           SPARK_HOME: /opt/spark
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
-          DOTNETBACKEND_PORT: "5567"
         run: |
           set -euo pipefail
 
           cd tests/Game.Chess.Tests.Unit
 
-          apt-get update -qq && apt-get install -y -qq netcat-openbsd
-
-          echo "Building test project..."
-          dotnet build -c Release -r linux-x64 --no-restore
-
-          SPARK_JAR="./bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
-          [ -f "$SPARK_JAR" ] || { echo "JAR not found: $SPARK_JAR"; exit 1; }
-
-          WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
-          [ -f "$WORKER_DLL" ] || { echo "Worker DLL not found: $WORKER_DLL"; exit 1; }
-
-          echo "Starting Spark backend in backend-only mode..."
-          nohup dotnet "$WORKER_DLL" \
-            --host 127.0.0.1 \
-            --port 5567 \
-            --sparkVersion "$SPARK_VERSION" \
-            > /tmp/spark-backend.log 2>&1 &
-
-          echo "Waiting for backend on port 5567..."
-          timeout=10
-          while [ "$timeout" -gt 0 ]; do
-            if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "Backend ready on port 5567"
-              break
-            fi
-            sleep 1
-            timeout=$((timeout - 1))
-          done
-
-          [ "$timeout" -gt 0 ] || { echo "Backend failed to start:"; cat /tmp/spark-backend.log; exit 1; }
-
-          echo "Running tests against backend..."
+          echo "Running Spark tests..."
           dotnet test \
             --no-build \
             -c Release \
             -r linux-x64 \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
-            --verbosity normal || { echo "Tests failed. Logs:"; cat /tmp/spark-backend.log; exit 1; }
+            --verbosity normal
 
           echo "Tests passed!"
-          cat /tmp/spark-backend.log
