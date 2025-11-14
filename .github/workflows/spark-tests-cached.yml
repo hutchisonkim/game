@@ -166,8 +166,8 @@ jobs:
           echo "Using JAR: $SPARK_JAR"
           echo "Using Worker: $WORKER_DLL"
 
-          # Install netcat
-          apt-get update -qq && apt-get install -y -qq netcat-openbsd
+          # Install netcat and zip
+          apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
 
           # Create empty dummy ZIP to satisfy DotnetRunner
           DUMMY_ZIP="/tmp/dummy-app.zip"
