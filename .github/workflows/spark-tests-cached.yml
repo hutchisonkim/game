@@ -152,7 +152,12 @@ jobs:
           DOTNET_WORKER_SPARK_VERSION: "2.3.0"
         run: |
           # Find JARs
-          SPARK_JAR="/github/home/.nuget/microsoft.spark/2.3.0/jars/microsoft-spark-3-5_2.12-2.3.0.jar"
+          SPARK_JAR=$(find . -path "*/bin/*/microsoft-spark-*-2.3.0.jar" | head -n 1)
+          if [ -z "$SPARK_JAR" ] || [ ! -f "$SPARK_JAR" ]; then
+            echo "Built microsoft-spark JAR not found in bin/"
+            find . -name "microsoft-spark-*.jar" | head -n 5 || true
+            exit 1
+          fi
           WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.dll"
           
           if [ -z "$SPARK_JAR" ] || [ ! -f "$SPARK_JAR" ]; then
