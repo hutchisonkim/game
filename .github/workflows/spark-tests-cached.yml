@@ -143,19 +143,22 @@ jobs:
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
 
-      - name: Start Spark .NET Bridge
+      - name: Start Spark .NET Bridge and Run Tests
         shell: sh
         env:
           SPARK_HOME: /opt/spark
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+          DOTNETBACKEND_PORT: "5567"
         run: |
-          set -euo
+          set -euo pipefail
 
-          SPARK_JAR="./tests/Game.Chess.Tests.Unit/bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
-          [ -f "$SPARK_JAR" ] || exit 1
+          cd tests/Game.Chess.Tests.Unit
+
+          SPARK_JAR="./bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
+          [ -f "$SPARK_JAR" ] || { echo "JAR not found: $SPARK_JAR"; exit 1; }
 
           WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
-          [ -f "$WORKER_DLL" ] || exit 1
+          [ -f "$WORKER_DLL" ] || { echo "Worker DLL not found: $WORKER_DLL"; exit 1; }
 
           chmod +x "$WORKER_DLL"
           chmod +x "$(dirname "$WORKER_DLL")"
@@ -163,22 +166,34 @@ jobs:
           echo "Using JAR: $SPARK_JAR"
           echo "Using Worker: $WORKER_DLL"
 
+          # Install netcat
           apt-get update -qq && apt-get install -y -qq netcat-openbsd
 
-          echo "Launching bridge..."
+          # Create empty dummy ZIP to satisfy DotnetRunner
+          DUMMY_ZIP="/tmp/dummy-app.zip"
+          mkdir -p /tmp/dummy-app
+          touch /tmp/dummy-app/Placeholder.dll
+          zip -j "$DUMMY_ZIP" /tmp/dummy-app/Placeholder.dll > /dev/null
+          echo "Created dummy ZIP: $DUMMY_ZIP"
+
+          echo "Launching Spark .NET backend..."
+
+          # Start backend in background
           nohup "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
             --jars "$SPARK_JAR" \
             --conf spark.dotnet.backend.port=5567 \
             --conf spark.pyspark.python=/usr/bin/python3 \
-            --conf spark.worker.cleanup.enabled=false \
-            --conf "spark.dotnet.command=dotnet $WORKER_DLL -m pyspark.worker" \
+            --conf spark.worker.cleanup.enabled=true \
+            --conf "spark.dotnet.command=dotnet $WORKER_DLL" \
             "$SPARK_JAR" \
-            debug \
+            "$DUMMY_ZIP" \
             > /tmp/spark-bridge.log 2>&1 &
 
-          timeout=30
+          # Wait for backend to be ready
+          echo "Waiting for backend on port 5567..."
+          timeout=60
           while [ "$timeout" -gt 0 ]; do
             if nc -z 127.0.0.1 5567 2>/dev/null; then
               echo "BRIDGE READY on 5567"
@@ -188,13 +203,16 @@ jobs:
             timeout=$((timeout - 1))
           done
 
-          [ "$timeout" -gt 0 ] || { echo "FAILED"; cat /tmp/spark-bridge.log; exit 1; }
+          [ "$timeout" -gt 0 ] || { echo "Backend failed to start:"; cat /tmp/spark-bridge.log; exit 1; }
 
-      - name: Run Spark unit tests
-        run: |
-          cd tests/Game.Chess.Tests.Unit
+          # Now run the tests — they will connect to the backend
+          echo "Running tests..."
           dotnet test \
             --configuration Release \
             --runtime linux-x64 \
-            --filter "FullyQualifiedName~${TEST_CLASS}" \
+            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
             --verbosity normal
+
+          # Optional: show logs on failure
+          echo "Spark bridge logs:"
+          cat /tmp/spark-bridge.log || true
