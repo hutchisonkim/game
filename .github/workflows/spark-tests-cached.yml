@@ -152,7 +152,7 @@ jobs:
           set -euo pipefail
 
           cd tests/Game.Chess.Tests.Unit
-          
+
           apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
 
           echo "Publishing test project..."
@@ -178,6 +178,7 @@ jobs:
             --jars "$SPARK_JAR" \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=true \
+            --conf "spark.dotnet.command=dotnet $WORKER_DLL backend" \
             "$SPARK_JAR" \
             "$APP_ZIP" \
             "Game.Chess.Tests.Unit.dll" \
