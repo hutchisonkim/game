@@ -183,8 +183,6 @@ jobs:
             --jars "$SPARK_JAR" \
             --conf spark.dotnet.backend.port=5567 \
             --conf spark.pyspark.python=/usr/bin/python3 \  # For PySpark mode (if needed; adjust if Python not in image)
-            --conf spark.worker.cleanup.enabled=false \  # Avoid cleanup conflicts
-            "$SPARK_JAR" \
             dotnet "$WORKER_DLL" -m pyspark.worker \  # Launches .NET worker with correct args
             > /tmp/spark-bridge.log 2>&1 &
           
