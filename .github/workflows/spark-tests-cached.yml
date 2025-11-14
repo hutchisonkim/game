@@ -148,26 +148,20 @@ jobs:
         env:
           SPARK_HOME: /opt/spark
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
-          DOTNETBACKEND_PORT: 5567
-          PYTHON_WORKER_FACTORY_PORT: 5567
-          PATH: /usr/bin:/bin:$PATH  # Already correct
         run: |
           set -euo
 
           SPARK_JAR="./tests/Game.Chess.Tests.Unit/bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
-          [ -f "$SPARK_JAR" ] || { echo "JAR missing"; exit 1; }
+          [ -f "$SPARK_JAR" ] || exit 1
 
           WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
-          [ -f "$WORKER_DLL" ] || { echo "DLL missing"; exit 1; }
+          [ -f "$WORKER_DLL" ] || exit 1
 
           chmod +x "$WORKER_DLL"
           chmod +x "$(dirname "$WORKER_DLL")"
 
           echo "Using JAR: $SPARK_JAR"
           echo "Using Worker: $WORKER_DLL"
-
-          # Verify dotnet works in this shell
-          which dotnet && dotnet --version
 
           apt-get update -qq && apt-get install -y -qq netcat-openbsd
 
@@ -179,9 +173,8 @@ jobs:
             --conf spark.dotnet.backend.port=5567 \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=false \
-            --conf spark.executorEnv.PATH="$PATH" \
-            --conf spark.driverEnv.PATH="$PATH" \
-            dotnet "$WORKER_DLL" -m pyspark.worker \
+            --conf spark.dotnet.command="dotnet" \
+            "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
 
           timeout=30
@@ -195,7 +188,7 @@ jobs:
           done
 
           [ "$timeout" -gt 0 ] || { echo "FAILED"; cat /tmp/spark-bridge.log; exit 1; }
-           
+
       - name: Run Spark unit tests
         run: |
           cd tests/Game.Chess.Tests.Unit
