@@ -173,8 +173,9 @@ jobs:
             --conf spark.dotnet.backend.port=5567 \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=false \
-            --conf "spark.dotnet.command=dotnet $WORKER_DLL -m pyspark.worker" \
+            --conf "spark.dotnet.command=dotnet" \
             "$SPARK_JAR" \
+            "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
 
           timeout=30
