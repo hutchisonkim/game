@@ -147,66 +147,64 @@ jobs:
         shell: bash
         env:
           DOTNETBACKEND_PORT: 5567
+          PYTHON_WORKER_FACTORY_PORT: 5567  # For Python mode
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
           SPARK_HOME: /opt/spark
           SPARK_VERSION: "3.5.3"
           DOTNET_WORKER_SPARK_VERSION: "2.3.0"
-          PYTHON_WORKER_FACTORY_PORT: 5567
+          # Add for factory stability
+          SPARK_SQL_EXECUTION_ARROW_PYSPARK_FALLBACK_ENABLED: "false"
         run: |
-          WORKER_DIR="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker"
-          WORKER_DLL="$WORKER_DIR/Microsoft.Spark.Worker.dll"
+          set -euo pipefail
+
+          WORKER_DIR="${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker"
+          WORKER_DLL="${WORKER_DIR}/Microsoft.Spark.Worker.dll"
+
+          # Export all vars for child processes
+          export DOTNETBACKEND_PORT PYTHON_WORKER_FACTORY_PORT SPARK_HOME
 
           echo "=== Environment ==="
-          echo "SPARK_HOME=$SPARK_HOME"
-          echo "SPARK_VERSION=$SPARK_VERSION"
-          echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
-          echo "DOTNET_WORKER_SPARK_VERSION=$DOTNET_WORKER_SPARK_VERSION"
-          echo "PYTHON_WORKER_FACTORY_PORT=$PYTHON_WORKER_FACTORY_PORT"
+          printenv | grep -E 'SPARK|DOTNET|PYTHON'
 
-          # Verify SPARK_HOME is valid
-          if [ ! -d "$SPARK_HOME" ]; then
-            echo "SPARK_HOME directory does not exist: $SPARK_HOME"
-            exit 1
-          fi
-          if [ ! -f "$SPARK_HOME/bin/spark-submit" ]; then
-            echo "spark-submit not found in SPARK_HOME/bin"
-            ls -la "$SPARK_HOME/bin/" || true
-            exit 1
-          fi
+          # Verify paths
+          [[ -d "$SPARK_HOME" ]] || { echo "❌ SPARK_HOME missing"; exit 1; }
+          [[ -x "$SPARK_HOME/bin/spark-submit" ]] || { echo "❌ spark-submit missing"; exit 1; }
+          [[ -f "$WORKER_DLL" ]] || { echo "❌ Worker DLL missing"; exit 1; }
 
-          echo "=== Worker directory structure ==="
-          ls -la "$DOTNET_WORKER_DIR"
-          echo "=== Inside worker folder ==="
-          ls -la "$WORKER_DIR"
+          echo "=== Worker files ==="
+          ls -l "$WORKER_DIR" | head -10
 
-          # Verify DLL exists
-          if [ ! -f "$WORKER_DLL" ]; then
-            echo "❌ Worker DLL not found at $WORKER_DLL"
-            exit 1
-          fi
+          echo "=== Starting .NET Spark Worker (with factory delay) ==="
+          cd "$WORKER_DIR"
 
-          echo "=== Starting .NET Spark Worker (nested DLL) ==="
-          nohup dotnet "$WORKER_DLL" "-m" "pyspark.worker" > /tmp/spark-worker.log 2>&1 &
+          # Start worker
+          nohup dotnet "$WORKER_DLL" -m pyspark.worker > /tmp/spark-worker.log 2>&1 &
 
-          # Install netcat for port check
-          apt-get update && apt-get install -y netcat-openbsd
+          # Give factory time to bind (JVM warmup + race fix)
+          sleep 5
 
-          # Wait for port 5567
-          timeout=30
+          # Install netcat
+          apt-get update -qq && apt-get install -y -qq netcat-openbsd
+
+          # Wait for port with longer timeout
+          echo "Waiting for factory on 127.0.0.1:5567..."
+          timeout=60  # Increased to 60s for CI slowness
           while [ $timeout -gt 0 ]; do
             if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "✅ Spark .NET worker is running on 5567"
+              echo "✅ Factory bound — worker ready on 5567"
               break
             fi
-            echo "Waiting for worker... ($timeout)"
+            echo "Waiting... ($timeout)"
             sleep 1
             timeout=$((timeout - 1))
           done
 
           if [ $timeout -eq 0 ]; then
-            echo "❌ Worker failed to start after 30s"
+            echo "❌ Factory failed to bind after 60s"
             echo "=== Worker Log ==="
             cat /tmp/spark-worker.log
+            # Check if factory process is running
+            ps aux | grep dotnet | grep -v grep || true
             exit 1
           fi
 
