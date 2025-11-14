@@ -176,18 +176,19 @@ jobs:
           
           echo "Using JAR: $SPARK_JAR | Worker: $WORKER_DLL"
           
+          # Install netcat
+          apt-get update -qq && apt-get install -y -qq netcat-openbsd
+          
           # Launch full bridge (JVM starts, launches .NET worker via DotnetRunner)
           nohup "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
             --jars "$SPARK_JAR" \
             --conf spark.dotnet.backend.port=5567 \
-            --conf spark.pyspark.python=/usr/bin/python3 \  # For PySpark mode (if needed; adjust if Python not in image)
-            dotnet "$WORKER_DLL" -m pyspark.worker \  # Launches .NET worker with correct args
+            --conf spark.pyspark.python=/usr/bin/python3 \
+            --conf spark.worker.cleanup.enabled=false \
+            dotnet "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
-          
-          # Install netcat
-          apt-get update -qq && apt-get install -y -qq netcat-openbsd
           
           # Wait for port
           timeout=30
