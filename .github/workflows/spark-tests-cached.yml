@@ -196,13 +196,13 @@ jobs:
             sleep 1
             timeout=$((timeout - 1))
           done
-          [ "$timeout" -gt 0 ] || { echo "Worker failed"; cat /tmp/spark-worker.log; exit 1; }
+          [ "$timeout" -gt 0 ] || { echo "Worker failed"; cat /tmp/spark-bridge.log; exit 1; }
 
           # Run tests
           echo "Running tests..."
           dotnet test --no-build -c Release -r linux-x64 \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
-            --verbosity normal || { cat /tmp/spark-worker.log; exit 1; }
+            --verbosity normal || { cat /tmp/spark-bridge.log; exit 1; }
 
           echo "Tests passed!"
-          cat /tmp/spark-worker.log
+          cat /tmp/spark-bridge.log
