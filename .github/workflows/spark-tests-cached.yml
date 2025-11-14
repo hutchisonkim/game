@@ -180,12 +180,14 @@ jobs:
             --conf spark.dotnet.backend.port=5567 \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=true \
-            dotnet \
-            "$WORKER_DLL" \
+            --conf "spark.dotnet.command=dotnet $WORKER_DLL backend" \
+            "$SPARK_JAR" \
+            "$APP_ZIP" \
+            "Game.Chess.Tests.Unit.dll" \
             > /tmp/spark-bridge.log 2>&1 &
 
           echo "Waiting for backend on port 5567..."
-          timeout=60
+          timeout=10
           while [ "$timeout" -gt 0 ]; do
             if nc -z 127.0.0.1 5567 2>/dev/null; then
               echo "BRIDGE READY on 5567"
