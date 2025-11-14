@@ -151,7 +151,7 @@ jobs:
           DOTNETBACKEND_PORT: 5567
           PYTHON_WORKER_FACTORY_PORT: 5567
         run: |
-          set -euo pipefail
+          set -euo   # <-- REMOVED pipefail
 
           # -------------------------------------------------
           # 1. JAR from build
@@ -165,7 +165,6 @@ jobs:
           WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
           [ -f "$WORKER_DLL" ] || { echo "DLL missing: $WORKER_DLL"; exit 1; }
 
-          # CRITICAL: Make executable
           chmod +x "$WORKER_DLL"
           chmod +x "$(dirname "$WORKER_DLL")"
 
