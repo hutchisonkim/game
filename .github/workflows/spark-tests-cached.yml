@@ -143,82 +143,41 @@ jobs:
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
 
-      - name: Start Spark Backend and Run Tests
+      - name: Run Spark Tests via spark-submit
         shell: bash
         env:
           SPARK_HOME: /opt/spark
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
-          DOTNETBACKEND_PORT: "5567"
         run: |
           set -euo pipefail
 
           cd tests/Game.Chess.Tests.Unit
 
-          # Install netcat and zip
-          apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
-
-          # === 1. Build & Publish Test Project ===
           echo "Publishing test project..."
           dotnet publish -c Release -r linux-x64 --self-contained false
 
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
-          TEST_DLL="$PUBLISH_DIR/Game.Chess.Tests.Unit.dll"
-          [ -f "$TEST_DLL" ] || { echo "Test DLL not found: $TEST_DLL"; exit 1; }
+          [ -d "$PUBLISH_DIR" ] || { echo "Publish dir not found"; exit 1; }
 
           SPARK_JAR="./bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
           [ -f "$SPARK_JAR" ] || { echo "JAR not found: $SPARK_JAR"; exit 1; }
 
           WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
           [ -f "$WORKER_DLL" ] || { echo "Worker DLL not found: $WORKER_DLL"; exit 1; }
+          chmod +x "$WORKER_DLL" && chmod +x "$(dirname "$WORKER_DLL")"
 
-          chmod +x "$WORKER_DLL"
-          chmod +x "$(dirname "$WORKER_DLL")"
-
-          # === 2. Create ZIP of published test app ===
           APP_ZIP="/tmp/test-app.zip"
-          echo "Creating app ZIP from $PUBLISH_DIR..."
           (cd "$PUBLISH_DIR" && zip -r "$APP_ZIP" .) > /dev/null
-          echo "Created: $APP_ZIP"
 
-          # === 3. Start Backend (with real app, but don't run it) ===
-          echo "Launching Spark .NET backend (backend-only mode)..."
-
-          nohup "$SPARK_HOME/bin/spark-submit" \
+          echo "Launching Spark .NET test app..."
+          "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
             --jars "$SPARK_JAR" \
-            --conf spark.dotnet.backend.port=5567 \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=true \
-            --conf "spark.dotnet.command=dotnet $WORKER_DLL backend" \
             "$SPARK_JAR" \
             "$APP_ZIP" \
             "Game.Chess.Tests.Unit.dll" \
-            > /tmp/spark-bridge.log 2>&1 &
-
-          # === 4. Wait for backend to be ready ===
-          echo "Waiting for backend on port 5567..."
-          timeout=60
-          while [ "$timeout" -gt 0 ]; do
-            if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "BRIDGE READY on 5567"
-              break
-            fi
-            sleep 1
-            timeout=$((timeout - 1))
-          done
-
-          [ "$timeout" -gt 0 ] || { echo "Backend failed to start:"; cat /tmp/spark-bridge.log; exit 1; }
-
-          # === 5. Run Tests (connects to backend) ===
-          echo "Running Spark tests..."
-          dotnet test \
-            --no-build \
-            --configuration Release \
-            --runtime linux-x64 \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
-            --verbosity normal || { echo "Tests failed. Bridge logs:"; cat /tmp/spark-bridge.log; exit 1; }
-
-          echo "Tests passed!"
-          echo "Bridge logs:"
-          cat /tmp/spark-bridge.log
+            --verbosity normal
