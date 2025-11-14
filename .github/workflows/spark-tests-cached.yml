@@ -148,64 +148,37 @@ jobs:
         env:
           SPARK_HOME: /opt/spark
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
-          DOTNETBACKEND_PORT: "5567"
         run: |
           set -euo pipefail
 
           cd tests/Game.Chess.Tests.Unit
 
-          apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
-
-          echo "Publishing test project..."
-          dotnet publish -c Release -r linux-x64 --self-contained false
-
-          PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
-          [ -d "$PUBLISH_DIR" ] || { echo "Publish dir not found"; exit 1; }
-
-          SPARK_JAR="./bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
-          [ -f "$SPARK_JAR" ] || { echo "JAR not found: $SPARK_JAR"; exit 1; }
-
+          # Verify worker exists
           WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
-          [ -f "$WORKER_DLL" ] || { echo "Worker DLL not found: $WORKER_DLL"; exit 1; }
-          chmod +x "$WORKER_DLL" && chmod +x "$(dirname "$WORKER_DLL")"
+          if [ ! -f "$WORKER_DLL" ]; then
+            echo "❌ Worker DLL not found at $WORKER_DLL"
+            exit 1
+          fi
+          echo "✅ Worker DLL found at $WORKER_DLL"
 
-          APP_ZIP="/tmp/test-app.zip"
-          (cd "$PUBLISH_DIR" && zip -r "$APP_ZIP" .) > /dev/null
+          # Find the JAR file from the build output
+          SPARK_JAR=$(find bin/Release/net8.0/linux-x64 -name "microsoft-spark-*.jar" | head -n 1)
+          if [ -z "$SPARK_JAR" ]; then
+            echo "❌ Microsoft.Spark JAR not found in build output"
+            exit 1
+          fi
+          echo "✅ Using JAR: $SPARK_JAR"
 
-          echo "Starting Spark .NET backend (backend-only mode)..."
-          nohup "$SPARK_HOME/bin/spark-submit" \
-            --class org.apache.spark.deploy.dotnet.DotnetRunner \
-            --master local[*] \
-            --jars "$SPARK_JAR" \
-            --conf spark.dotnet.backend.port=5567 \
-            --conf spark.pyspark.python=/usr/bin/python3 \
-            --conf spark.worker.cleanup.enabled=true \
-            --conf "spark.dotnet.command=dotnet $WORKER_DLL backend" \
-            "$SPARK_JAR" \
-            "$APP_ZIP" \
-            "Game.Chess.Tests.Unit.dll" \
-            > /tmp/spark-bridge.log 2>&1 &
-
-          echo "Waiting for backend on port 5567..."
-          timeout=10
-          while [ "$timeout" -gt 0 ]; do
-            if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "BRIDGE READY on 5567"
-              break
-            fi
-            sleep 1
-            timeout=$((timeout - 1))
-          done
-
-          [ "$timeout" -gt 0 ] || { echo "Backend failed to start:"; cat /tmp/spark-bridge.log; exit 1; }
-
-          echo "Running tests against backend..."
-          dotnet test \
+          # Export the JAR location so Spark can find it
+          export SPARK_DOTNET_ASSEMBLY_SEARCH_PATHS="$(realpath $(dirname $SPARK_JAR))"
+          
+          echo "Running Spark tests with 10s timeout..."
+          timeout 10s dotnet test \
             --no-build \
             -c Release \
             -r linux-x64 \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
-            --verbosity normal || { echo "Tests failed. Logs:"; cat /tmp/spark-bridge.log; exit 1; }
+            --verbosity normal \
+            || { echo "❌ Tests failed or timed out after 10s"; exit 1; }
 
-          echo "Tests passed!"
-          cat /tmp/spark-bridge.log
+          echo "✅ Tests passed!"
