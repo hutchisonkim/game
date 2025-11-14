@@ -148,29 +148,28 @@ jobs:
         env:
           SPARK_HOME: /opt/spark
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+          DOTNETBACKEND_PORT: "5567"
         run: |
           set -euo pipefail
 
           cd tests/Game.Chess.Tests.Unit
 
-          # Verify worker exists
-          WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
-          if [ ! -f "$WORKER_DLL" ]; then
-            echo "❌ Worker DLL not found at $WORKER_DLL"
-            exit 1
+          # Verify prerequisites
+          echo "Verifying Spark prerequisites..."
+          [ -d "$SPARK_HOME" ] || { echo "❌ SPARK_HOME not found"; exit 1; }
+          [ -d "$DOTNET_WORKER_DIR/Microsoft.Spark.Worker" ] || { echo "❌ Worker directory not found"; exit 1; }
+          
+          # Check for JAR in build output
+          SPARK_JAR=$(find bin/Release/net8.0/linux-x64 -name "microsoft-spark-*.jar" 2>/dev/null | head -n 1)
+          if [ -n "$SPARK_JAR" ]; then
+            echo "✅ Found JAR: $SPARK_JAR"
+          else
+            echo "⚠️ JAR not found in build output"
           fi
-          echo "✅ Worker DLL found at $WORKER_DLL"
-
-          # Find the JAR file from the build output
-          SPARK_JAR=$(find bin/Release/net8.0/linux-x64 -name "microsoft-spark-*.jar" | head -n 1)
-          if [ -z "$SPARK_JAR" ]; then
-            echo "❌ Microsoft.Spark JAR not found in build output"
-            exit 1
-          fi
-          echo "✅ Using JAR: $SPARK_JAR"
-
-          # Export the JAR location so Spark can find it
-          export SPARK_DOTNET_ASSEMBLY_SEARCH_PATHS="$(realpath $(dirname $SPARK_JAR))"
+          
+          # Set Spark configurations for faster startup
+          export SPARK_LOCAL_IP=127.0.0.1
+          export SPARK_DRIVER_HOST=127.0.0.1
           
           echo "Running Spark tests with 10s timeout..."
           timeout 10s dotnet test \
@@ -179,6 +178,9 @@ jobs:
             -r linux-x64 \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
             --verbosity normal \
-            || { echo "❌ Tests failed or timed out after 10s"; exit 1; }
+            || { 
+              echo "❌ Tests failed or timed out after 10s"
+              exit 1
+            }
 
           echo "✅ Tests passed!"
