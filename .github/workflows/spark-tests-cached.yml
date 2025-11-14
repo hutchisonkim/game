@@ -153,7 +153,7 @@ jobs:
         run: |
           # Find JARs
           SPARK_JAR=$(find "$SPARK_HOME/jars" -name "microsoft-spark-*-2.3.0.jar" | head -n 1)
-          WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
+          WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.dll"
           
           if [[ -z "$SPARK_JAR" || ! -f "$WORKER_DLL" ]]; then
             echo "❌ Missing JAR/DLL: $SPARK_JAR or $WORKER_DLL"
