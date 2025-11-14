@@ -36,112 +36,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show environment diagnostics
+      - name: Setup NuGet cache
         run: |
-          echo "=== Environment ==="
-          whoami
-          echo "HOME=$HOME"
-          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
-          echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
-          echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
-
-      - name: Clear and prepare NuGet caches
-        run: |
-          echo "=== Clearing NuGet caches ==="
           dotnet nuget locals all --clear
           mkdir -p "$NUGET_PACKAGES"
           chmod -R 777 "$NUGET_PACKAGES"
-          dotnet nuget locals all --list
 
-      - name: Restore Spark tests
-        run: |
-          set -e
-          cd tests/Game.Chess.Tests.Unit
-
-          echo "=== Dotnet Info ==="
-          dotnet --info
-
-          echo
-          echo "=== NuGet Sources ==="
-          dotnet nuget list source
-
-          echo
-          echo "=== Restoring Project Packages (detailed logging) ==="
-          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity detailed --runtime linux-x64
-
-          echo
-          echo "=== Post-restore package listing ==="
-          dotnet list package --include-transitive
-
-          echo
-          echo "Listing all Microsoft.Spark.dll files in NuGet cache:"
-          find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print
-
-      - name: Fix Windows-style paths in NuGet cache
+      - name: Restore and fix NuGet packages
         shell: bash
         run: |
-          echo "=== Checking for Windows-style paths in NuGet packages ==="
+          cd tests/Game.Chess.Tests.Unit
+          
+          echo "Restoring packages..."
+          dotnet restore --runtime linux-x64
 
-          # Depth-first, handle files/dirs with backslashes
+          echo "Fixing Windows-style paths in NuGet cache..."
           find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
-            # Convert backslashes to forward slashes
             NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
-            # Strip trailing slashes so Linux handles files correctly
             NEW_PATH="${NEW_PATH%/}"
-
             if [ -d "$f" ]; then
               mkdir -p "$NEW_PATH"
               mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
               rmdir "$f" 2>/dev/null || true
-              echo "Fixed directory: $f -> $NEW_PATH"
             else
               mkdir -p "$(dirname "$NEW_PATH")"
               mv "$f" "$NEW_PATH"
-              echo "Fixed file: $f -> $NEW_PATH"
             fi
           done
 
-          # Verify Microsoft.Spark.dll exists after fixing paths
-          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
-          if [ -f "$SPARK_DLL" ]; then
-            echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
-          else
-            echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
-            exit 1
-          fi
-
-
-      - name: Check Spark worker DLL
-        run: |
-          cd tests/Game.Chess.Tests.Unit
-          echo "🔧 Checking for Spark worker..."
-          WORKER_DLL=$(find "$DOTNET_WORKER_DIR" -type f -name "Microsoft.Spark.dll" | head -n 1 || true)
-          if [ -z "$WORKER_DLL" ]; then
-            echo "❌ Could not locate Spark worker DLL in worker dir ($DOTNET_WORKER_DIR)"
-            exit 1
-          fi
-          echo "✅ Found Spark worker at: $WORKER_DLL"
-
-      - name: Verify compile-time reference visibility
-        run: |
-          cd tests/Game.Chess.Tests.Unit
-          echo "=== Verifying reference visibility ==="
-          echo "Listing Spark DLLs visible to compiler:"
-          find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print
-          echo "Running msbuild preprocessed output for Spark references..."
-          dotnet msbuild Game.Chess.Tests.Unit.csproj -pp | grep Microsoft.Spark || true
-
-      - name: Verify file permissions
-        run: |
-          echo "=== Permission Check ==="
-          ls -laR $NUGET_PACKAGES/microsoft.spark || true
-          echo "Fixing ownership (just in case)"
-          chown -R $(id -u):$(id -g) $NUGET_PACKAGES || true
-
-      - name: Build Spark test project
-        run: |
-          cd tests/Game.Chess.Tests.Unit
-          dotnet build --configuration Release --runtime linux-x64
+          echo "NuGet packages ready"
 
       - name: Start Spark Backend + Run Tests
         shell: bash
@@ -154,50 +77,37 @@ jobs:
 
           cd tests/Game.Chess.Tests.Unit
 
-          apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
+          apt-get update -qq && apt-get install -y -qq netcat-openbsd
 
-          echo "Publishing test project..."
-          dotnet publish -c Release -r linux-x64 --self-contained false
-
-          PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
-          [ -d "$PUBLISH_DIR" ] || { echo "Publish dir not found"; exit 1; }
+          echo "Building test project..."
+          dotnet build -c Release -r linux-x64 --no-restore
 
           SPARK_JAR="./bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
           [ -f "$SPARK_JAR" ] || { echo "JAR not found: $SPARK_JAR"; exit 1; }
 
           WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
           [ -f "$WORKER_DLL" ] || { echo "Worker DLL not found: $WORKER_DLL"; exit 1; }
-          chmod +x "$WORKER_DLL" && chmod +x "$(dirname "$WORKER_DLL")"
 
-          APP_ZIP="/tmp/test-app.zip"
-          (cd "$PUBLISH_DIR" && zip -r "$APP_ZIP" .) > /dev/null
-
-          echo "Starting Spark .NET backend (backend-only mode)..."
-          nohup "$SPARK_HOME/bin/spark-submit" \
-            --class org.apache.spark.deploy.dotnet.DotnetRunner \
-            --master local[*] \
+          echo "Starting Spark backend in backend-only mode..."
+          nohup dotnet "$WORKER_DLL" \
+            --host 127.0.0.1 \
+            --port 5567 \
+            --sparkHome "$SPARK_HOME" \
             --jars "$SPARK_JAR" \
-            --conf spark.dotnet.backend.port=5567 \
-            --conf spark.pyspark.python=/usr/bin/python3 \
-            --conf spark.worker.cleanup.enabled=true \
-            --conf "spark.dotnet.command=dotnet $WORKER_DLL backend" \
-            "$SPARK_JAR" \
-            "$APP_ZIP" \
-            "Game.Chess.Tests.Unit.dll" \
-            > /tmp/spark-bridge.log 2>&1 &
+            > /tmp/spark-backend.log 2>&1 &
 
           echo "Waiting for backend on port 5567..."
           timeout=10
           while [ "$timeout" -gt 0 ]; do
             if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "BRIDGE READY on 5567"
+              echo "Backend ready on port 5567"
               break
             fi
             sleep 1
             timeout=$((timeout - 1))
           done
 
-          [ "$timeout" -gt 0 ] || { echo "Backend failed to start:"; cat /tmp/spark-bridge.log; exit 1; }
+          [ "$timeout" -gt 0 ] || { echo "Backend failed to start:"; cat /tmp/spark-backend.log; exit 1; }
 
           echo "Running tests against backend..."
           dotnet test \
@@ -205,7 +115,7 @@ jobs:
             -c Release \
             -r linux-x64 \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
-            --verbosity normal || { echo "Tests failed. Logs:"; cat /tmp/spark-bridge.log; exit 1; }
+            --verbosity normal || { echo "Tests failed. Logs:"; cat /tmp/spark-backend.log; exit 1; }
 
           echo "Tests passed!"
-          cat /tmp/spark-bridge.log
+          cat /tmp/spark-backend.log
