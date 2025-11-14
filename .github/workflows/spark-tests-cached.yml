@@ -149,6 +149,7 @@ jobs:
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
           DOTNETBACKEND_PORT: "5567"
           DOTNET_WORKER_SPARK_VERSION: "2.3.0"
+          PYTHON_WORKER_FACTORY_PORT: "5567"
         run: |
           set -euo pipefail
 
