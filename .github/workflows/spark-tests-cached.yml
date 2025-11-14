@@ -143,43 +143,44 @@ jobs:
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
           
-      - name: Start Spark .NET Bridge (JVM + Worker)
+      - name: Start Spark .NET Bridge
+        shell: sh
         env:
           SPARK_HOME: /opt/spark
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+          DOTNETBACKEND_PORT: 5567
           PYTHON_WORKER_FACTORY_PORT: 5567
-          SPARK_VERSION: "3.5.3"
-          DOTNET_WORKER_SPARK_VERSION: "2.3.0"
         run: |
-          # Find JARs
+          set -euo pipefail
+
+          # -------------------------------------------------
+          # 1. JAR from build
+          # -------------------------------------------------
           SPARK_JAR="./tests/Game.Chess.Tests.Unit/bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
-          if [ ! -f "$SPARK_JAR" ]; then
-            echo "OFFICIAL JAR NOT FOUND: $SPARK_JAR"
-            echo "Listing available JARs:"
-            find "$SPARK_HOME/jars" -name "microsoft-spark-*.jar" || true
-            exit 1
-          fi
+          [ -f "$SPARK_JAR" ] || { echo "JAR missing: $SPARK_JAR"; exit 1; }
 
-          WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.dll"
-          
-          if [ -z "$SPARK_JAR" ] || [ ! -f "$SPARK_JAR" ]; then
-            echo "Missing Microsoft-Spark JAR in $SPARK_HOME/jars"
-            find "$SPARK_HOME/jars" -name "microsoft-spark*" || true
-            exit 1
-          fi
+          # -------------------------------------------------
+          # 2. CORRECT WORKER DLL + chmod +x
+          # -------------------------------------------------
+          WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
+          [ -f "$WORKER_DLL" ] || { echo "DLL missing: $WORKER_DLL"; exit 1; }
 
-          if [ ! -f "$WORKER_DLL" ]; then
-            echo "Missing .NET worker DLL at $WORKER_DLL"
-            find "$DOTNET_WORKER_DIR" -name "*.dll" | head -n 5 || true
-            exit 1
-          fi
-          
-          echo "Using JAR: $SPARK_JAR | Worker: $WORKER_DLL"
-          
-          # Install netcat
+          # CRITICAL: Make executable
+          chmod +x "$WORKER_DLL"
+          chmod +x "$(dirname "$WORKER_DLL")"
+
+          echo "Using JAR: $SPARK_JAR"
+          echo "Using Worker: $WORKER_DLL (executable)"
+
+          # -------------------------------------------------
+          # 3. Install netcat
+          # -------------------------------------------------
           apt-get update -qq && apt-get install -y -qq netcat-openbsd
-          
-          # Launch full bridge (JVM starts, launches .NET worker via DotnetRunner)
+
+          # -------------------------------------------------
+          # 4. Launch bridge
+          # -------------------------------------------------
+          echo "Launching bridge..."
           nohup "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
@@ -189,24 +190,21 @@ jobs:
             --conf spark.worker.cleanup.enabled=false \
             dotnet "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
-          
-          # Wait for port
+
+          # -------------------------------------------------
+          # 5. Wait for port
+          # -------------------------------------------------
           timeout=30
-          while [ $timeout -gt 0 ]; do
+          while [ "$timeout" -gt 0 ]; do
             if nc -z 127.0.0.1 5567 2>/dev/null; then
-              echo "✅ Bridge ready on 5567"
+              echo "BRIDGE READY on 5567"
               break
             fi
-            echo "Waiting... ($timeout)"
             sleep 1
             timeout=$((timeout - 1))
           done
-          
-          if [ $timeout -eq 0 ]; then
-            echo "❌ Bridge failed"
-            cat /tmp/spark-bridge.log
-            exit 1
-          fi
+
+          [ "$timeout" -gt 0 ] || { echo "FAILED"; cat /tmp/spark-bridge.log; exit 1; }
 
       - name: Run Spark unit tests
         run: |
