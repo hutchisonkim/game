@@ -148,6 +148,7 @@ jobs:
         env:
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
           DOTNETBACKEND_PORT: "5567"
+          DOTNET_WORKER_SPARK_VERSION: "2.3.0"
         run: |
           set -euo pipefail
 
