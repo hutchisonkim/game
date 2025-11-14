@@ -110,8 +110,7 @@ jobs:
           nohup dotnet "$WORKER_DLL" \
             --host 127.0.0.1 \
             --port 5567 \
-            --sparkHome "$SPARK_HOME" \
-            --jars "$SPARK_JAR" \
+            --sparkVersion "$SPARK_VERSION" \
             > /tmp/spark-backend.log 2>&1 &
 
           echo "Waiting for backend on port 5567..."
