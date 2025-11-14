@@ -161,7 +161,7 @@ jobs:
           echo "Publishing test project..."
           dotnet publish -c Release -r linux-x64 --self-contained false
 
-          PUBLISH_DIR="bin/Release/net80/linux-x64/publish"
+          PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
           TEST_DLL="$PUBLISH_DIR/Game.Chess.Tests.Unit.dll"
           [ -f "$TEST_DLL" ] || { echo "Test DLL not found: $TEST_DLL"; exit 1; }
 
