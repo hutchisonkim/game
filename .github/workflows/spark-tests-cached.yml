@@ -24,31 +24,107 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare NuGet cache (create + repair backslashes)
-        shell: bash
+      - name: Show environment diagnostics
         run: |
+          echo "=== Environment ==="
+          whoami
+          echo "HOME=$HOME"
+          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
+          echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
+          echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
+
+      - name: Clear and prepare NuGet caches
+        run: |
+          echo "=== Clearing NuGet caches ==="
+          dotnet nuget locals all --clear
           mkdir -p "$NUGET_PACKAGES"
           chmod -R 777 "$NUGET_PACKAGES"
+          dotnet nuget locals all --list
 
-          echo "=== Running dotnet restore once to populate cache ==="
+      - name: Restore Spark tests
+        run: |
+          set -e
           cd tests/Game.Chess.Tests.Unit
-          dotnet restore
 
-          echo "=== Repair NuGet cache paths (fix Windows backslashes) ==="
+          echo "=== Dotnet Info ==="
+          dotnet --info
+
+          echo
+          echo "=== NuGet Sources ==="
+          dotnet nuget list source
+
+          echo
+          echo "=== Restoring Project Packages (detailed logging) ==="
+          dotnet restore Game.Chess.Tests.Unit.csproj --verbosity detailed --runtime linux-x64
+
+          echo
+          echo "=== Post-restore package listing ==="
+          dotnet list package --include-transitive
+
+          echo
+          echo "Listing all Microsoft.Spark.dll files in NuGet cache:"
+          find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print
+
+      - name: Fix Windows-style paths in NuGet cache
+        shell: bash
+        run: |
+          echo "=== Checking for Windows-style paths in NuGet packages ==="
+
+          # Depth-first, handle files/dirs with backslashes
           find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
-            new=$(echo "$f" | sed 's/\\/\//g')
-            new="${new%/}"
+            # Convert backslashes to forward slashes
+            NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
+            # Strip trailing slashes so Linux handles files correctly
+            NEW_PATH="${NEW_PATH%/}"
 
             if [ -d "$f" ]; then
-              mkdir -p "$(dirname "$new")"
-              mv "$f" "$new"
-              echo "Fixed dir: $f -> $new"
+              mkdir -p "$NEW_PATH"
+              mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
+              rmdir "$f" 2>/dev/null || true
+              echo "Fixed directory: $f -> $NEW_PATH"
             else
-              mkdir -p "$(dirname "$new")"
-              mv "$f" "$new"
-              echo "Fixed file: $f -> $new"
+              mkdir -p "$(dirname "$NEW_PATH")"
+              mv "$f" "$NEW_PATH"
+              echo "Fixed file: $f -> $NEW_PATH"
             fi
           done
+
+          # Verify Microsoft.Spark.dll exists after fixing paths
+          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
+          if [ -f "$SPARK_DLL" ]; then
+            echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
+          else
+            echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
+            exit 1
+          fi
+
+
+      - name: Check Spark worker DLL
+        run: |
+          cd tests/Game.Chess.Tests.Unit
+          echo "🔧 Checking for Spark worker..."
+          WORKER_DLL=$(find "$DOTNET_WORKER_DIR" -type f -name "Microsoft.Spark.dll" | head -n 1 || true)
+          if [ -z "$WORKER_DLL" ]; then
+            echo "❌ Could not locate Spark worker DLL in worker dir ($DOTNET_WORKER_DIR)"
+            exit 1
+          fi
+          echo "✅ Found Spark worker at: $WORKER_DLL"
+
+      - name: Verify compile-time reference visibility
+        run: |
+          cd tests/Game.Chess.Tests.Unit
+          echo "=== Verifying reference visibility ==="
+          echo "Listing Spark DLLs visible to compiler:"
+          find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print
+          echo "Running msbuild preprocessed output for Spark references..."
+          dotnet msbuild Game.Chess.Tests.Unit.csproj -pp | grep Microsoft.Spark || true
+
+      - name: Verify file permissions
+        run: |
+          echo "=== Permission Check ==="
+          ls -laR $NUGET_PACKAGES/microsoft.spark || true
+          echo "Fixing ownership (just in case)"
+          chown -R $(id -u):$(id -g) $NUGET_PACKAGES || true
 
       - name: Build
         run: |
