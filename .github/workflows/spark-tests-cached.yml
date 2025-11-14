@@ -45,9 +45,7 @@ jobs:
       - name: Restore and fix NuGet packages
         shell: bash
         run: |
-          cd tests/Game.Chess.Tests.Unit
-          
-          echo "Restoring packages..."
+          echo "Restoring all packages..."
           dotnet restore --runtime linux-x64
 
           echo "Fixing Windows-style paths in NuGet cache..."
