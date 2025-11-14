@@ -11,6 +11,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+
     container:
       image: ghcr.io/${{ github.repository_owner }}/spark-dotnet:3.5.3-2.3.0
       options: --init
@@ -19,7 +22,16 @@ jobs:
         password: ${{ secrets.GHCR_PAT }}
 
     env:
+      TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
+      SPARK_HOME: /opt/spark
+      SPARK_VERSION: "3.5.3"
+      DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_CLI_HOME: /github/home
       NUGET_PACKAGES: /github/home/.nuget
+      DOTNETBACKEND_PORT: "5567"
+
+
 
     steps:
       - uses: actions/checkout@v4
@@ -126,12 +138,71 @@ jobs:
           echo "Fixing ownership (just in case)"
           chown -R $(id -u):$(id -g) $NUGET_PACKAGES || true
 
-      - name: Build
+      - name: Build Spark test project
         run: |
           cd tests/Game.Chess.Tests.Unit
-          dotnet build -c Release
+          dotnet build --configuration Release --runtime linux-x64
 
-      - name: Test (Spark auto-starts)
+      - name: Start Spark Backend + Run Tests
+        shell: bash
+        env:
+          SPARK_HOME: /opt/spark
+          DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+          DOTNETBACKEND_PORT: "5567"
         run: |
+          set -euo pipefail
+
           cd tests/Game.Chess.Tests.Unit
-          dotnet test -c Release --logger "console;verbosity=detailed"
+
+          apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
+
+          echo "Publishing test project..."
+          dotnet publish -c Release -r linux-x64 --self-contained false
+
+          PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
+          [ -d "$PUBLISH_DIR" ] || { echo "Publish dir not found"; exit 1; }
+
+          SPARK_JAR="./bin/Release/net8.0/linux-x64/microsoft-spark-3-5_2.12-2.3.0.jar"
+          [ -f "$SPARK_JAR" ] || { echo "JAR not found: $SPARK_JAR"; exit 1; }
+
+          WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
+          [ -f "$WORKER_DLL" ] || { echo "Worker DLL not found: $WORKER_DLL"; exit 1; }
+          chmod +x "$WORKER_DLL" && chmod +x "$(dirname "$WORKER_DLL")"
+
+          APP_ZIP="/tmp/test-app.zip"
+          (cd "$PUBLISH_DIR" && zip -r "$APP_ZIP" .) > /dev/null
+
+          echo "Starting Spark .NET backend (backend-only mode)..."
+          nohup "$SPARK_HOME/bin/spark-submit" \
+            --class org.apache.spark.deploy.dotnet.DotnetRunner \
+            --master local[*] \
+            --jars "$SPARK_JAR" \
+            "$SPARK_JAR" \
+            dotnet \
+            "$APP_ZIP" \
+            "Game.Chess.Tests.Unit.dll" \
+            > /tmp/spark-bridge.log 2>&1 &
+
+          echo "Waiting for backend on port 5567..."
+          timeout=60
+          while [ "$timeout" -gt 0 ]; do
+            if nc -z 127.0.0.1 5567 2>/dev/null; then
+              echo "BRIDGE READY on 5567"
+              break
+            fi
+            sleep 1
+            timeout=$((timeout - 1))
+          done
+
+          [ "$timeout" -gt 0 ] || { echo "Backend failed to start:"; cat /tmp/spark-bridge.log; exit 1; }
+
+          echo "Running tests against backend..."
+          dotnet test \
+            --no-build \
+            -c Release \
+            -r linux-x64 \
+            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
+            --verbosity normal || { echo "Tests failed. Logs:"; cat /tmp/spark-bridge.log; exit 1; }
+
+          echo "Tests passed!"
+          cat /tmp/spark-bridge.log
