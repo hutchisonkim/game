@@ -186,8 +186,6 @@ jobs:
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=true \
             "$APP_ZIP" \
-            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
-            --verbosity normal \
             > /tmp/spark-bridge.log 2>&1 &
 
           #
