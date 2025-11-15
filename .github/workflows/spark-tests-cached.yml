@@ -185,7 +185,7 @@ jobs:
           "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
-            --jars "$SPARK_JAR" \
+            --jars "microsoft-spark-3-5_2.12-2.3.0.jar" \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=true \
             "Microsoft.Spark.Worker.dll" \
