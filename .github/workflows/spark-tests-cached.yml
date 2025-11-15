@@ -173,7 +173,6 @@ jobs:
           # Install netcat
           apt-get update -qq && apt-get install -y -qq netcat-openbsd
 
-
           # LAUNCH VIA SPARK-SUBMIT
           echo "Launching bridge via spark-submit..."
           nohup "$SPARK_HOME/bin/spark-submit" \
@@ -186,23 +185,15 @@ jobs:
             "$SPARK_JAR" \
             dotnet "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
-            
-          # Wait for port
-          PORT=""
-          timeout=30  # increased from 10
-          while [ "$timeout" -gt 0 ]; do
-              PORT=$(grep -oP "DotnetRunner: Port number used by DotnetBackend is\s*\K\d+" /tmp/spark-bridge.log || true)
-              if [ -n "$PORT" ]; then
-                  echo "Detected backend port: $PORT"
-                  if nc -z 127.0.0.1 $PORT 2>/dev/null; then
-                      echo "WORKER READY on $PORT"
-                      break
-                  fi
-              fi
+
+          # Wait for worker to start (instead of pinging the port)
+          timeout=30
+          while ! grep -q "RunSimpleWorker() is starting" /tmp/spark-bridge.log; do
               sleep 1
               timeout=$((timeout - 1))
+              [ "$timeout" -le 0 ] && { echo "Worker never started"; cat /tmp/spark-bridge.log; exit 1; }
           done
-          [ "$timeout" -gt 0 ] || { echo "Worker failed"; cat /tmp/spark-bridge.log; exit 1; }
+          echo "WORKER READY"
 
           # Run tests
           echo "Running tests..."
