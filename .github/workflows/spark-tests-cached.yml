@@ -185,6 +185,8 @@ jobs:
           cd "$PUBLISH_DIR"
           echo "Contents of publish dir:"
           find . -type f -name "*.dll"
+          
+          chmod +x ../Game.Chess.Tests.Unit.dll
 
           echo "Launching Spark .NET test app..."
           "$SPARK_HOME/bin/spark-submit" \
