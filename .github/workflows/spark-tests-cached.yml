@@ -179,6 +179,8 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq netcat-openbsd net-tools
 
+          cd "$PUBLISH_DIR"
+
           echo "Launching Spark .NET test app..."
           "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
@@ -186,7 +188,10 @@ jobs:
             --jars "$SPARK_JAR" \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=true \
-            "$APP_ZIP" \
+            "Microsoft.Spark.Worker.dll" \
+            "Game.Chess.Tests.Unit.dll" \
+            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
+            --verbosity normal \
             > /tmp/spark-bridge.log 2>&1 &
 
           #
