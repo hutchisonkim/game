@@ -179,95 +179,17 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq netcat-openbsd net-tools
 
+          APP_DLL="../Game.Chess.Tests.Unit.dll"
+          export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
+
           cd "$PUBLISH_DIR"
           echo "Contents of publish dir:"
           find . -type f -name "*.dll"
 
-          APP_DLL="../Game.Chess.Tests.Unit.dll"
-
           echo "Launching Spark .NET test app..."
           "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
-            --master local[*] \
-            --jars "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            --conf spark.pyspark.python=/usr/bin/python3 \
-            --conf spark.worker.cleanup.enabled=true \
-            "$WORKER_DLL" \
-            "$APP_DLL" \
-            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
-            --verbosity normal \
-            > /tmp/spark-bridge.log 2>&1 &
-
-          #
-          # ---------------------------------------------------------
-          # Detect Backend Port
-          # ---------------------------------------------------------
-          #
-          timeout=10
-          PORT=""
-          while [ "$timeout" -gt 0 ]; do
-              PORT=$(grep -oP "DotnetRunner: Port number used by DotnetBackend is\s*\K\d+" /tmp/spark-bridge.log || true)
-              if [ -n "$PORT" ]; then
-                  echo "Detected backend port: $PORT"
-                  break
-              fi
-              sleep 1
-              timeout=$((timeout - 1))
-          done
-
-          [ -n "$PORT" ] || { echo "Could not detect backend port"; cat /tmp/spark-bridge.log; exit 1; }
-
-          export DOTNETBACKEND_PORT="$PORT"
-          echo "Using DOTNETBACKEND_PORT=$DOTNETBACKEND_PORT for tests"
-
-          #
-          # ---------------------------------------------------------
-          # Pre-test Diagnostics
-          # ---------------------------------------------------------
-          #
-          echo "=== Pre-test Spark diagnostics START ==="
-
-          echo "1) Checking for Microsoft.Spark.Worker process..."
-          ps -ef | grep Microsoft.Spark.Worker || true
-
-          echo
-          echo "2) Checking if port $DOTNETBACKEND_PORT is listening..."
-          netstat -ltnp | grep "$DOTNETBACKEND_PORT" || echo "Port not listening"
-
-          echo
-          echo "3) Testing TCP connection to backend..."
-          nc -vz 127.0.0.1 "$DOTNETBACKEND_PORT" || echo "Connection refused"
-
-          echo
-          echo "4) All listening TCP ports:"
-          netstat -ltnp
-
-          echo
-          echo "5) Spark bridge log:"
-          echo "*** Log Start ***"
-          cat /tmp/spark-bridge.log
-          echo "*** Log End ***"
-
-          echo
-          echo "6) Environment:"
-          echo "DOTNETBACKEND_PORT=$DOTNETBACKEND_PORT"
-          echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
-          echo "SPARK_HOME=$SPARK_HOME"
-
-          echo "=== Pre-test Spark diagnostics END ==="
-          echo "WORKER READY"
-
-          #
-          # ---------------------------------------------------------
-          # Run Tests
-          # ---------------------------------------------------------
-          #
-          echo "Running tests..."
-          dotnet test --no-build -c Release -r linux-x64 \
-            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
-            --verbosity normal \
-            || { cat /tmp/spark-bridge.log; exit 1; }
-
-          echo "Tests passed!"
-          cat /tmp/spark-bridge.log
+            --master local \
+            "microsoft-spark-3-5_2.12-2.3.0.jar" \
+            "$APP_DLL" --filter "FullyQualifiedName~${{ env.TEST_CLASS }}"
 
