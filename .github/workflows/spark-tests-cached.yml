@@ -191,7 +191,7 @@ jobs:
           PORT=""
           timeout=30  # increased from 10
           while [ "$timeout" -gt 0 ]; do
-              PORT=$(grep -oP "Port number used by DotnetBackend:\s*\K\d+" /tmp/spark-bridge.log || true)
+              PORT=$(grep -oP "DotnetRunner: Port number used by DotnetBackend is\s*\K\d+" /tmp/spark-bridge.log || true)
               if [ -n "$PORT" ]; then
                   echo "Detected backend port: $PORT"
                   if nc -z 127.0.0.1 $PORT 2>/dev/null; then
