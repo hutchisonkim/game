@@ -28,7 +28,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Renders.Tests.Un
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Serialization", "src\Game.Chess.Serialization\Game.Chess.Serialization.csproj", "{D5BE8255-F12D-494A-B914-FEF9E444252A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Tests.Unit.Runner", "tests\Game.Chess.Tests.Unit.Runner\Game.Chess.Tests.Unit.Runner.csproj", "{3FD3EEA4-3569-4643-98EC-214105DE0454}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Tests.Unit.Runner", "tests\Game.Chess.Tests.Unit.Runner\Game.Chess.Tests.Unit.Runner.csproj", "{60E7DF4D-E601-450C-A0A0-DC25B584D8D6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -84,10 +84,10 @@ Global
 		{D5BE8255-F12D-494A-B914-FEF9E444252A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D5BE8255-F12D-494A-B914-FEF9E444252A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D5BE8255-F12D-494A-B914-FEF9E444252A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3FD3EEA4-3569-4643-98EC-214105DE0454}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3FD3EEA4-3569-4643-98EC-214105DE0454}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3FD3EEA4-3569-4643-98EC-214105DE0454}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3FD3EEA4-3569-4643-98EC-214105DE0454}.Release|Any CPU.Build.0 = Release|Any CPU
+		{60E7DF4D-E601-450C-A0A0-DC25B584D8D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{60E7DF4D-E601-450C-A0A0-DC25B584D8D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{60E7DF4D-E601-450C-A0A0-DC25B584D8D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{60E7DF4D-E601-450C-A0A0-DC25B584D8D6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -99,6 +99,6 @@ Global
 		{B77C2326-B990-499B-9322-703519C16019} = {2B1DFAE3-E2E2-4ED7-AD6C-30398F277C21}
 		{95658934-ADEA-4452-BB9F-3992177FE68A} = {5B534071-75AC-4B58-8548-64D0D3D20672}
 		{D5BE8255-F12D-494A-B914-FEF9E444252A} = {2B1DFAE3-E2E2-4ED7-AD6C-30398F277C21}
-		{3FD3EEA4-3569-4643-98EC-214105DE0454} = {5B534071-75AC-4B58-8548-64D0D3D20672}
+		{60E7DF4D-E601-450C-A0A0-DC25B584D8D6} = {5B534071-75AC-4B58-8548-64D0D3D20672}
 	EndGlobalSection
 EndGlobal
