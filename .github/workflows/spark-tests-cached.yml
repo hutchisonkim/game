@@ -183,7 +183,6 @@ jobs:
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=false \
             "$SPARK_JAR" \
-            debug 5567 \
             dotnet "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
 
