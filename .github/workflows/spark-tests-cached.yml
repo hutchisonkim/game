@@ -141,7 +141,7 @@ jobs:
       - name: Build Spark test project
         run: |
           cd tests/Game.Chess.Tests.Unit
-          dotnet build --configuration Release --runtime linux-x64
+          dotnet build -f net8.0 -r linux-x64
           
       - name: Start Spark Backend + Run Tests
         shell: bash
@@ -159,7 +159,7 @@ jobs:
 
           echo "Publishing test project..."
           cd tests/Game.Chess.Tests.Unit
-          dotnet publish -c Release -r linux-x64 --self-contained false
+          dotnet publish -f net8.0 -r linux-x64
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
           [ -d "$PUBLISH_DIR" ] || exit 1
 
