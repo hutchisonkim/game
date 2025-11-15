@@ -173,5 +173,5 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            . --filter "FullyQualifiedName~${{ env.TEST_CLASS }}"
+            ./Game.Chess.Tests.Unit --filter "FullyQualifiedName~${{ env.TEST_CLASS }}"
 
