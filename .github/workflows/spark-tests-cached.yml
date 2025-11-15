@@ -153,40 +153,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          cd tests/Game.Chess.Tests.Unit
-
+          echo "Installing dependencies..."
           apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
+          apt-get install -y -qq netcat-openbsd net-tools
 
           echo "Publishing test project..."
+          cd tests/Game.Chess.Tests.Unit
           dotnet publish -c Release -r linux-x64 --self-contained false
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
           [ -d "$PUBLISH_DIR" ] || exit 1
 
-          SPARK_JAR="$PUBLISH_DIR/microsoft-spark-3-5_2.12-2.3.0.jar"
-          [ -f "$SPARK_JAR" ] || exit 1
-
-          WORKER_DLL="$DOTNET_WORKER_DIR/Microsoft.Spark.Worker/Microsoft.Spark.Worker.dll"
-          [ -f "$WORKER_DLL" ] || exit 1
-          chmod +x "$WORKER_DLL" "$(dirname "$WORKER_DLL")"
-
-          echo "Using JAR: $SPARK_JAR"
-          echo "Using Worker: $WORKER_DLL"
-
-          apt-get update -qq
-          apt-get install -y -qq netcat-openbsd net-tools
-
-          # Relative DLL path inside publish dir
-          APP_DLL="./Game.Chess.Tests.Unit.dll"
-          export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
-
+          echo "Running Spark tests via spark-submit..."
           cd "$PUBLISH_DIR"
-          echo "Contents of publish dir:"
-          find . -type f -name "*.dll"
-          
-          echo "Launching Spark .NET test app..."
+          export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
           "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            "$APP_DLL" --filter "FullyQualifiedName~${{ env.TEST_CLASS }}"
+            ./Game.Chess.Tests.Unit --filter "FullyQualifiedName~${{ env.TEST_CLASS }}"
 
