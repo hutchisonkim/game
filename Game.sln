@@ -28,7 +28,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Renders.Tests.Un
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Serialization", "src\Game.Chess.Serialization\Game.Chess.Serialization.csproj", "{D5BE8255-F12D-494A-B914-FEF9E444252A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Renders.Tests.Unit.Runner", "tests\Game.Chess.Renders.Tests.Unit.Runner\Game.Chess.Renders.Tests.Unit.Runner.csproj", "{3FD3EEA4-3569-4643-98EC-214105DE0454}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.Chess.Tests.Unit.Runner", "tests\Game.Chess.Tests.Unit.Runner\Game.Chess.Tests.Unit.Runner.csproj", "{3FD3EEA4-3569-4643-98EC-214105DE0454}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
