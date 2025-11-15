@@ -155,6 +155,8 @@ jobs:
 
           cd tests/Game.Chess.Tests.Unit
 
+          apt-get update -qq && apt-get install -y -qq netcat-openbsd zip
+
           echo "Publishing test project..."
           dotnet publish -c Release -r linux-x64 --self-contained false
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
@@ -167,21 +169,25 @@ jobs:
           [ -f "$WORKER_DLL" ] || exit 1
           chmod +x "$WORKER_DLL" "$(dirname "$WORKER_DLL")"
 
+          APP_ZIP="/tmp/test-app.zip"
+          (cd "$PUBLISH_DIR" && zip -r "$APP_ZIP" .) > /dev/null
+
           echo "Using JAR: $SPARK_JAR"
           echo "Using Worker: $WORKER_DLL"
 
           apt-get update -qq
           apt-get install -y -qq netcat-openbsd net-tools
 
-          echo "Launching bridge via spark-submit..."
-          nohup "$SPARK_HOME/bin/spark-submit" \
+          echo "Launching Spark .NET test app..."
+          "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
             --jars "$SPARK_JAR" \
             --conf spark.pyspark.python=/usr/bin/python3 \
-            --conf spark.worker.cleanup.enabled=false \
-            "$SPARK_JAR" \
-            dotnet "$WORKER_DLL" -m pyspark.worker \
+            --conf spark.worker.cleanup.enabled=true \
+            "$APP_ZIP" \
+            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
+            --verbosity normal \
             > /tmp/spark-bridge.log 2>&1 &
 
           #
