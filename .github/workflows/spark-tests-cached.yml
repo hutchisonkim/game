@@ -179,7 +179,7 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local[*] \
             --jars "$SPARK_JAR" \
-            --conf spark.dotnet.backend.port=5567 \
+            --conf spark.dotnet.worker.factory.port=$PYTHON_WORKER_FACTORY_PORT \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=false \
             "$SPARK_JAR" \
