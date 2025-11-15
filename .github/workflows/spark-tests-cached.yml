@@ -223,8 +223,10 @@ jobs:
           netstat -ltnp
 
           # 5️⃣ Tail the last lines of the bridge log to see startup errors
-          echo "Last 20 lines of Spark bridge log:"
-          tail -n 20 /tmp/spark-bridge.log
+          echo "All lines of Spark bridge log:"
+          echo "*** Spark Bridge Log Start ***"
+          cat /tmp/spark-bridge.log
+          echo "*** Spark Bridge Log End ***"
 
           # 6️⃣ Verify environment variables
           echo "DOTNETBACKEND_PORT=$DOTNETBACKEND_PORT"
