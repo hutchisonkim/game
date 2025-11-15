@@ -183,8 +183,8 @@ jobs:
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=false \
             "$SPARK_JAR" \
-            dotnet "$WORKER_DLL" -m pyspark.worker \
             debug 5567 \
+            dotnet "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
 
           # Extract port dynamically from logs
