@@ -188,24 +188,19 @@ jobs:
             > /tmp/spark-bridge.log 2>&1 &
             
           # Wait for port
-          timeout=10
+          PORT=""
+          timeout=30  # increased from 10
           while [ "$timeout" -gt 0 ]; do
-            # Extract the port Spark picked
-            PORT=$(grep -oP "Port number used by DotnetBackend:\s*\K\d+" /tmp/spark-bridge.log || true)
-
-            if [ -z "$PORT" ]; then
-              echo "ERROR: Could not detect backend port from spark-bridge.log"
-              cat /tmp/spark-bridge.log
-              exit 1
-            fi
-            echo "Detected backend port: $PORT"
-
-            if nc -z 127.0.0.1 $PORT 2>/dev/null; then
-              echo "WORKER READY on $PORT"
-              break
-            fi
-            sleep 1
-            timeout=$((timeout - 1))
+              PORT=$(grep -oP "Port number used by DotnetBackend:\s*\K\d+" /tmp/spark-bridge.log || true)
+              if [ -n "$PORT" ]; then
+                  echo "Detected backend port: $PORT"
+                  if nc -z 127.0.0.1 $PORT 2>/dev/null; then
+                      echo "WORKER READY on $PORT"
+                      break
+                  fi
+              fi
+              sleep 1
+              timeout=$((timeout - 1))
           done
           [ "$timeout" -gt 0 ] || { echo "Worker failed"; cat /tmp/spark-bridge.log; exit 1; }
 
