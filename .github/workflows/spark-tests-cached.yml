@@ -187,19 +187,19 @@ jobs:
             dotnet "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
             
-          # Extract the port Spark picked
-          PORT=$(grep -oP "Port number used by DotnetBackend:\s*\K\d+" /tmp/spark-bridge.log || true)
-
-          if [ -z "$PORT" ]; then
-            echo "ERROR: Could not detect backend port from spark-bridge.log"
-            cat /tmp/spark-bridge.log
-            exit 1
-          fi
-          echo "Detected backend port: $PORT"
-
           # Wait for port
           timeout=10
           while [ "$timeout" -gt 0 ]; do
+            # Extract the port Spark picked
+            PORT=$(grep -oP "Port number used by DotnetBackend:\s*\K\d+" /tmp/spark-bridge.log || true)
+
+            if [ -z "$PORT" ]; then
+              echo "ERROR: Could not detect backend port from spark-bridge.log"
+              cat /tmp/spark-bridge.log
+              exit 1
+            fi
+            echo "Detected backend port: $PORT"
+
             if nc -z 127.0.0.1 $PORT 2>/dev/null; then
               echo "WORKER READY on $PORT"
               break
