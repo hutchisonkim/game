@@ -159,7 +159,7 @@ jobs:
 
           echo "Publishing test project..."
           cd tests/Game.Chess.Tests.Unit
-          dotnet publish -f net8.0 -r linux-x64
+          dotnet publish -f net8.0 -r linux-x64 -c Release --self-contained true
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
           [ -d "$PUBLISH_DIR" ] || exit 1
 
