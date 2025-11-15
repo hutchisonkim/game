@@ -188,7 +188,7 @@ jobs:
             --jars "microsoft-spark-3-5_2.12-2.3.0.jar" \
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=true \
-            "Microsoft.Spark.Worker.dll" \
+            "$WORKER_DLL" \
             "Game.Chess.Tests.Unit.dll" \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
             --verbosity normal \
