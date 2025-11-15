@@ -21,10 +21,13 @@ public class ChessSparkPolicyTests
 
             try
             {
+                var backendPort = Environment.GetEnvironmentVariable("DOTNETBACKEND_PORT");
+
                 _spark = SparkSession
                     .Builder()
                     .AppName("ChessPolicyTests")
                     .Config("spark.sql.shuffle.partitions", "1") // small local jobs
+                    .Config("spark.dotnet.backend.port", backendPort)
                     .GetOrCreate();
             }
             catch (Exception ex)
