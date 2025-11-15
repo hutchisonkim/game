@@ -179,14 +179,14 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq netcat-openbsd net-tools
 
-          APP_DLL="../Game.Chess.Tests.Unit.dll"
+          APP_DLL="./Game.Chess.Tests.Unit.dll"
           export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
 
           cd "$PUBLISH_DIR"
           echo "Contents of publish dir:"
           find . -type f -name "*.dll"
           
-          chmod +x ../Game.Chess.Tests.Unit.dll
+          chmod +x ./Game.Chess.Tests.Unit.dll
 
           echo "Launching Spark .NET test app..."
           "$SPARK_HOME/bin/spark-submit" \
