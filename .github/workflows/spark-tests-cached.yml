@@ -165,10 +165,13 @@ jobs:
 
           echo "Running Spark tests via spark-submit..."
           cd "$PUBLISH_DIR"
+          ls -l
+          file *
+
           export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
           "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            ./Game.Chess.Tests.Unit --filter "FullyQualifiedName~${{ env.TEST_CLASS }}"
+            . --filter "FullyQualifiedName~${{ env.TEST_CLASS }}"
 
