@@ -142,7 +142,7 @@ jobs:
         run: |
           cd tests/Game.Chess.Tests.Unit
           dotnet build --configuration Release --runtime linux-x64
-          
+
       - name: Start Spark Backend + Run Tests
         shell: bash
         env:
@@ -184,6 +184,7 @@ jobs:
             --conf spark.worker.cleanup.enabled=false \
             "$SPARK_JAR" \
             dotnet "$WORKER_DLL" -m pyspark.worker \
+            debug 5567 \
             > /tmp/spark-bridge.log 2>&1 &
 
           # Extract port dynamically from logs
