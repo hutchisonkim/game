@@ -176,7 +176,7 @@ jobs:
           apt-get install -y -qq netcat-openbsd net-tools
 
           # Relative DLL path inside publish dir
-          APP_DLL="$PUBLISH_DIR/Game.Chess.Tests.Unit.dll"
+          APP_DLL="./Game.Chess.Tests.Unit.dll"
           export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
 
           cd "$PUBLISH_DIR"
