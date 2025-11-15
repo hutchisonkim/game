@@ -169,25 +169,20 @@ jobs:
           [ -f "$WORKER_DLL" ] || exit 1
           chmod +x "$WORKER_DLL" "$(dirname "$WORKER_DLL")"
 
-          APP_ZIP="/tmp/test-app.zip"
-          (cd "$PUBLISH_DIR" && zip -r "$APP_ZIP" .) > /dev/null
-
           echo "Using JAR: $SPARK_JAR"
           echo "Using Worker: $WORKER_DLL"
-          echo "Using app ZIP: $APP_ZIP"
 
           apt-get update -qq
           apt-get install -y -qq netcat-openbsd net-tools
 
-          APP_DLL="./Game.Chess.Tests.Unit.dll"
+          # Relative DLL path inside publish dir
+          APP_DLL="Game.Chess.Tests.Unit.dll"
           export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
 
           cd "$PUBLISH_DIR"
           echo "Contents of publish dir:"
           find . -type f -name "*.dll"
           
-          chmod +x ./Game.Chess.Tests.Unit.dll
-
           echo "Launching Spark .NET test app..."
           "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
