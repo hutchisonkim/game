@@ -169,12 +169,11 @@ jobs:
 
           echo "Using JAR: $SPARK_JAR"
           echo "Using Worker: $WORKER_DLL"
-
-          # Install netcat and netstat
+          
+          # Install netcat and netstat (net-tools)
           apt-get update -qq && apt-get install -y -qq netcat-openbsd net-tools
 
-
-          # LAUNCH VIA SPARK-SUBMIT
+          # Launch Spark backend via spark-submit
           echo "Launching bridge via spark-submit..."
           nohup "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
@@ -201,26 +200,26 @@ jobs:
           done
           [ -n "$PORT" ] || { echo "Could not detect backend port"; cat /tmp/spark-bridge.log; exit 1; }
 
-          # Set environment variable so tests can pick up the port
           export DOTNETBACKEND_PORT=$PORT
           echo "Using DOTNETBACKEND_PORT=$DOTNETBACKEND_PORT for tests"
 
           echo "=== Pre-test Spark diagnostics START ==="
 
           # 1️⃣ Check if backend process is running
+          echo "Checking Spark worker process..."
           ps -ef | grep Microsoft.Spark.Worker || true
 
           # 2️⃣ Confirm the port the worker claims to listen on
-          echo "Expected DOTNETBACKEND_PORT=$DOTNETBACKEND_PORT"
+          echo "Checking if DOTNETBACKEND_PORT $DOTNETBACKEND_PORT is listening..."
           netstat -ltnp | grep "$DOTNETBACKEND_PORT" || echo "Port $DOTNETBACKEND_PORT not listening yet"
 
           # 3️⃣ Test TCP connection to the port
           echo "Testing TCP connection to 127.0.0.1:$DOTNETBACKEND_PORT"
           nc -vz 127.0.0.1 "$DOTNETBACKEND_PORT" || echo "Connection test failed"
 
-          # 4️⃣ Check open ports on localhost
+          # 4️⃣ List all listening TCP ports
           echo "All listening TCP ports:"
-          ss -ltnp
+          netstat -ltnp
 
           # 5️⃣ Tail the last lines of the bridge log to see startup errors
           echo "Last 20 lines of Spark bridge log:"
