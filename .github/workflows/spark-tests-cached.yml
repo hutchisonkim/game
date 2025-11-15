@@ -183,6 +183,7 @@ jobs:
           echo "Contents of publish dir:"
           find . -type f -name "*.dll"
 
+          APP_DLL="../Game.Chess.Tests.Unit.dll"
 
           echo "Launching Spark .NET test app..."
           "$SPARK_HOME/bin/spark-submit" \
@@ -192,7 +193,7 @@ jobs:
             --conf spark.pyspark.python=/usr/bin/python3 \
             --conf spark.worker.cleanup.enabled=true \
             "$WORKER_DLL" \
-            "Game.Chess.Tests.Unit.dll" \
+            "$APP_DLL" \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
             --verbosity normal \
             > /tmp/spark-bridge.log 2>&1 &
