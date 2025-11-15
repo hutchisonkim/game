@@ -186,13 +186,24 @@ jobs:
             dotnet "$WORKER_DLL" -m pyspark.worker \
             > /tmp/spark-bridge.log 2>&1 &
 
-          # Wait for worker to start (instead of pinging the port)
-          timeout=30
-          while ! grep -q "RunSimpleWorker() is starting" /tmp/spark-bridge.log; do
+          # Extract port dynamically from logs
+          timeout=10
+          PORT=""
+          while [ "$timeout" -gt 0 ]; do
+              PORT=$(grep -oP "DotnetRunner: Port number used by DotnetBackend is\s*\K\d+" /tmp/spark-bridge.log || true)
+              if [ -n "$PORT" ]; then
+                  echo "Detected backend port: $PORT"
+                  break
+              fi
               sleep 1
               timeout=$((timeout - 1))
-              [ "$timeout" -le 0 ] && { echo "Worker never started"; cat /tmp/spark-bridge.log; exit 1; }
           done
+          [ -n "$PORT" ] || { echo "Could not detect backend port"; cat /tmp/spark-bridge.log; exit 1; }
+
+          # Set environment variable so tests can pick up the port
+          export DOTNETBACKEND_PORT=$PORT
+          echo "Using DOTNETBACKEND_PORT=$DOTNETBACKEND_PORT for tests"
+          
           echo "WORKER READY"
 
           # Run tests
