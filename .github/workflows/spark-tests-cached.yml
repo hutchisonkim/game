@@ -167,13 +167,13 @@ jobs:
           cd "$PUBLISH_DIR"
 
           apt-get install -y file
-          file *.dll
+          file *
 
           export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
           "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            ./Game.Chess.Tests.Unit.dll --filter "FullyQualifiedName~${{ env.TEST_CLASS }}"
+            ./Game.Chess.Tests.Unit --filter "FullyQualifiedName~${{ env.TEST_CLASS }}"
 
 
