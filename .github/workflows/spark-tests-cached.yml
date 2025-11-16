@@ -114,10 +114,9 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            ./xunit.console \
-            Game.Chess.Tests.Unit.dll \
-            -xml /tmp/test-results.xml \
-            -class "${TEST_CLASS}" \
+            ./Game.Chess.Tests.Unit \
+            --logger "trx;LogFileName=/tmp/test-results.trx" \
+            --filter "FullyQualifiedName~${TEST_CLASS}" \
             > /tmp/spark-output.log 2>&1 &
 
           SPARK_PID=$!
