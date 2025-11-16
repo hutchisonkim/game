@@ -42,11 +42,16 @@ jobs:
           chmod -R 777 "$NUGET_PACKAGES"
           dotnet nuget locals all --list
 
+      - name: Restore Spark tests
+        run: |
           echo "=== Restoring Project Packages ==="
           set -e
           cd tests/Game.Chess.Tests.Unit
           dotnet restore Game.Chess.Tests.Unit.csproj --runtime linux-x64
 
+      - name: Fix Windows-style paths in NuGet cache
+        shell: bash
+        run: |
           echo "=== Checking for Windows-style paths in NuGet packages ==="
 
           # Depth-first, handle files/dirs with backslashes
