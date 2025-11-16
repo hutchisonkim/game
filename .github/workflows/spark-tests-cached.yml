@@ -163,6 +163,8 @@ jobs:
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
           [ -d "$PUBLISH_DIR" ] || exit 1
 
+          cp ~/.nuget/packages/xunit.runner.console/2.9.3/tools/net8.0/* "$PUBLISH_DIR"/
+
           echo "Running Spark tests via spark-submit..."
           cd "$PUBLISH_DIR"
 
@@ -171,9 +173,10 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            ./Game.Chess.Tests.Unit \
-            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
+            ./xunit.console \
+            Game.Chess.Tests.Unit.dll \
             -xml /tmp/test-results.xml \
+            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
             > /tmp/spark-output.log 2>&1 &
 
           SPARK_PID=$!
