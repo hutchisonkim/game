@@ -42,16 +42,11 @@ jobs:
           chmod -R 777 "$NUGET_PACKAGES"
           dotnet nuget locals all --list
 
-      - name: Restore Spark tests
-        run: |
           echo "=== Restoring Project Packages ==="
           set -e
           cd tests/Game.Chess.Tests.Unit
           dotnet restore Game.Chess.Tests.Unit.csproj --runtime linux-x64
 
-      - name: Fix Windows-style paths in NuGet cache
-        shell: bash
-        run: |
           echo "=== Checking for Windows-style paths in NuGet packages ==="
 
           # Depth-first, handle files/dirs with backslashes
@@ -82,11 +77,6 @@ jobs:
             exit 1
           fi
 
-      - name: Build Spark test project
-        run: |
-          cd tests/Game.Chess.Tests.Unit 
-          dotnet build -f net8.0 -r linux-x64
-          
       - name: Start Spark Backend + Run Tests
         shell: bash
         env:
@@ -100,8 +90,9 @@ jobs:
           echo "Installing dependencies..."
           apt-get update -qq && apt-get install -y -qq netcat-openbsd zip net-tools
 
-          echo "Publishing test project..."
+          echo "Build and publishing test project..."
           cd tests/Game.Chess.Tests.Unit
+          dotnet build -f net8.0 -r linux-x64
           dotnet publish -f net8.0 -r linux-x64 -c Release --self-contained true
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
           [ -d "$PUBLISH_DIR" ] || exit 1
