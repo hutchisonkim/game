@@ -174,7 +174,7 @@ jobs:
             ./Game.Chess.Tests.Unit \
             --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
             -xml /tmp/test-results.xml \
-            > /tmp/spark-output.log 2>&1
+            > /tmp/spark-output.log 2>&1 &
 
           SPARK_PID=$!
           echo "Spark job started with PID: $SPARK_PID"
