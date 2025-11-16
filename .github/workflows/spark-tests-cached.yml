@@ -34,6 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Show environment diagnostics
+        run: |
+          echo "=== Environment ==="
+          whoami
+          echo "HOME=$HOME"
+          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
+          echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
+          echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
+
       - name: Clear and prepare NuGet caches
         run: |
           echo "=== Clearing NuGet caches ==="
@@ -50,6 +59,7 @@ jobs:
           echo
           echo "=== Restoring Project Packages ==="
           dotnet restore Game.Chess.Tests.Unit.csproj --runtime linux-x64
+
 
       - name: Fix Windows-style paths in NuGet cache
         shell: bash
@@ -84,6 +94,39 @@ jobs:
             exit 1
           fi
 
+
+      - name: Check Spark worker DLL
+        run: |
+          cd tests/Game.Chess.Tests.Unit
+          echo "🔧 Checking for Spark worker..."
+          WORKER_DLL=$(find "$DOTNET_WORKER_DIR" -type f -name "Microsoft.Spark.dll" | head -n 1 || true)
+          if [ -z "$WORKER_DLL" ]; then
+            echo "❌ Could not locate Spark worker DLL in worker dir ($DOTNET_WORKER_DIR)"
+            exit 1
+          fi
+          echo "✅ Found Spark worker at: $WORKER_DLL"
+
+      - name: Verify compile-time reference visibility
+        run: |
+          cd tests/Game.Chess.Tests.Unit
+          echo "=== Verifying reference visibility ==="
+          echo "Listing Spark DLLs visible to compiler:"
+          find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print
+          echo "Running msbuild preprocessed output for Spark references..."
+          dotnet msbuild Game.Chess.Tests.Unit.csproj -pp | grep Microsoft.Spark || true
+
+      - name: Verify file permissions
+        run: |
+          echo "=== Permission Check ==="
+          ls -laR $NUGET_PACKAGES/microsoft.spark || true
+          echo "Fixing ownership (just in case)"
+          chown -R $(id -u):$(id -g) $NUGET_PACKAGES || true
+
+      - name: Build Spark test project
+        run: |
+          cd tests/Game.Chess.Tests.Unit 
+          dotnet build -f net8.0 -r linux-x64
+          
       - name: Start Spark Backend + Run Tests
         shell: bash
         env:
