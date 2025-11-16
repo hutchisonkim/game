@@ -102,15 +102,8 @@ jobs:
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
           [ -d "$PUBLISH_DIR" ] || exit 1
            
-          # Locate xunit.runner.console package
-          echo "Searching for xunit.runner.console..."
-          find "$NUGET_PACKAGES" -maxdepth 4 -type d -iname "*xunit.runner.console*" -print
-
-          # Locate the actual console binary (DLL/executable)
-          find "$NUGET_PACKAGES" -type f -iname "xunit.console*" -print
-
           # Copy everything from the net8.0 folder to your publish dir
-          cp "$NUGET_PACKAGES/xunit.runner.console/<version>/tools/net8.0/"* "$PUBLISH_DIR"/
+          cp ~/.nuget/xunit.runner.console/2.9.3/tools/net6.0/* "$PUBLISH_DIR"/
 
           echo "Running Spark tests via spark-submit (dotnet test)..."
           cd "$PUBLISH_DIR"
