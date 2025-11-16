@@ -34,15 +34,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show environment diagnostics
-        run: |
-          echo "=== Environment ==="
-          whoami
-          echo "HOME=$HOME"
-          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
-          echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
-          echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
-
       - name: Clear and prepare NuGet caches
         run: |
           echo "=== Clearing NuGet caches ==="
@@ -59,7 +50,6 @@ jobs:
           echo
           echo "=== Restoring Project Packages ==="
           dotnet restore Game.Chess.Tests.Unit.csproj --runtime linux-x64
-
 
       - name: Fix Windows-style paths in NuGet cache
         shell: bash
@@ -93,18 +83,6 @@ jobs:
             echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
             exit 1
           fi
-
-
-      - name: Check Spark worker DLL
-        run: |
-          cd tests/Game.Chess.Tests.Unit
-          echo "🔧 Checking for Spark worker..."
-          WORKER_DLL=$(find "$DOTNET_WORKER_DIR" -type f -name "Microsoft.Spark.dll" | head -n 1 || true)
-          if [ -z "$WORKER_DLL" ]; then
-            echo "❌ Could not locate Spark worker DLL in worker dir ($DOTNET_WORKER_DIR)"
-            exit 1
-          fi
-          echo "✅ Found Spark worker at: $WORKER_DLL"
 
       - name: Verify compile-time reference visibility
         run: |
