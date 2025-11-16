@@ -105,7 +105,7 @@ jobs:
           # Copy everything from the net8.0 folder to your publish dir
           cp ~/.nuget/xunit.runner.console/2.9.3/tools/net6.0/* "$PUBLISH_DIR"/
 
-          echo "Running Spark tests via spark-submit (dotnet test)..."
+          echo "Running Spark tests via spark-submit (xUnit console runner)..."
           cd "$PUBLISH_DIR"
 
           export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
@@ -114,10 +114,10 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            dotnet test \
-            --no-build \
-            --logger "trx;LogFileName=/tmp/test-results.trx" \
-            --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
+            ./xunit.console \
+            Game.Chess.Tests.Unit.dll \
+            -xml /tmp/test-results.xml \
+            -class "${TEST_CLASS}" \
             > /tmp/spark-output.log 2>&1 &
 
           SPARK_PID=$!
@@ -132,15 +132,15 @@ jobs:
           cat /tmp/spark-output.log
           echo "=== End Spark Output ==="
 
-          echo "=== xUnit Test Results (TRX) ==="
-          if [ -f /tmp/test-results.trx ]; then
-            cat /tmp/test-results.trx
+          echo "=== xUnit Test Results (XML) ==="
+          if [ -f /tmp/test-results.xml ]; then
+            cat /tmp/test-results.xml
           else
-            echo "No test-results.trx found! Tests may not have run."
+            echo "No test-results.xml found! Tests may not have run."
           fi
           echo "=== End Test Results ==="
 
-          if [ ! -f /tmp/test-results.trx ] || ! grep -q 'total="[^0]' /tmp/test-results.trx; then
+          if [ ! -f /tmp/test-results.xml ] || ! grep -q 'total="[^0]' /tmp/test-results.xml; then
             echo "Tests did not produce valid results."
             exit 1
           fi
