@@ -1,13 +1,39 @@
+using System;
 using Xunit.Runners;
 
 class Program
 {
-    static void Main(string[] args)
+    static void Main()
     {
-        using var runner = AssemblyRunner.WithoutAppDomain(typeof(Program).Assembly.Location);
-        runner.OnDiscoveryComplete = info => Console.WriteLine($"{info.TestCasesToRun} tests discovered");
-        runner.OnExecutionComplete = info => Console.WriteLine($"{info.TotalTests} tests executed");
+        string assemblyPath = "Game.Chess.Tests.Unit.dll";
+        string testClass = Environment.GetEnvironmentVariable("TEST_CLASS")
+                           ?? "Game.Chess.Tests.Unit.ChessSparkPolicyTests";
+
+        int failCount = 0;
+
+        using var runner = AssemblyRunner.WithoutAppDomain(assemblyPath);
+
+        runner.OnTestPassed = info => Console.WriteLine($"PASS: {info.TestDisplayName}");
+        runner.OnTestFailed = info =>
+        {
+            Console.WriteLine($"FAIL: {info.TestDisplayName} - {info.ExceptionMessage}");
+            failCount++;
+        };
+        runner.OnTestSkipped = info => Console.WriteLine($"SKIP: {info.TestDisplayName}");
+
+        int exitCode = 0;
+        using var finished = new System.Threading.ManualResetEventSlim(false);
+
+        runner.OnExecutionComplete = info =>
+        {
+            Console.WriteLine($"Finished: {info.TotalTests} tests, {failCount} failed");
+            exitCode = failCount > 0 ? 1 : 0;
+            finished.Set();
+        };
+
         runner.Start();
-        runner.WaitForCompletion();
+        finished.Wait();
+
+        Environment.Exit(exitCode);
     }
 }

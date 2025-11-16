@@ -9,5 +9,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Game.Chess.Tests.Unit\Game.Chess.Tests.Unit.csproj" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="xunit.runner.utility" Version="2.9.3" />
+  </ItemGroup>
 
 </Project>
