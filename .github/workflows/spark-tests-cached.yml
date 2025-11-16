@@ -40,15 +40,12 @@ jobs:
           dotnet nuget locals all --clear
           mkdir -p "$NUGET_PACKAGES"
           chmod -R 777 "$NUGET_PACKAGES"
-          dotnet nuget locals all --list
 
       - name: Restore Spark tests
         run: |
+          echo "=== Restoring Project Packages ==="
           set -e
           cd tests/Game.Chess.Tests.Unit
-
-          echo
-          echo "=== Restoring Project Packages ==="
           dotnet restore Game.Chess.Tests.Unit.csproj --runtime linux-x64
 
       - name: Fix Windows-style paths in NuGet cache
@@ -84,11 +81,6 @@ jobs:
             exit 1
           fi
 
-      - name: Build Spark test project
-        run: |
-          cd tests/Game.Chess.Tests.Unit 
-          dotnet build -f net8.0 -r linux-x64
-          
       - name: Start Spark Backend + Run Tests
         shell: bash
         env:
