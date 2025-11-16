@@ -84,22 +84,6 @@ jobs:
             exit 1
           fi
 
-      - name: Verify compile-time reference visibility
-        run: |
-          cd tests/Game.Chess.Tests.Unit
-          echo "=== Verifying reference visibility ==="
-          echo "Listing Spark DLLs visible to compiler:"
-          find $NUGET_PACKAGES -type f -name "Microsoft.Spark.dll" -print
-          echo "Running msbuild preprocessed output for Spark references..."
-          dotnet msbuild Game.Chess.Tests.Unit.csproj -pp | grep Microsoft.Spark || true
-
-      - name: Verify file permissions
-        run: |
-          echo "=== Permission Check ==="
-          ls -laR $NUGET_PACKAGES/microsoft.spark || true
-          echo "Fixing ownership (just in case)"
-          chown -R $(id -u):$(id -g) $NUGET_PACKAGES || true
-
       - name: Build Spark test project
         run: |
           cd tests/Game.Chess.Tests.Unit 
