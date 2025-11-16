@@ -40,6 +40,7 @@ jobs:
           dotnet nuget locals all --clear
           mkdir -p "$NUGET_PACKAGES"
           chmod -R 777 "$NUGET_PACKAGES"
+          dotnet nuget locals all --list
 
       - name: Restore Spark tests
         run: |
