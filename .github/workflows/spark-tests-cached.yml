@@ -174,7 +174,20 @@ jobs:
             ./Game.Chess.Tests.Unit --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" \
             > /tmp/test-output.log 2>&1 &
 
-          echo "Tests ran!"
+          SPARK_PID=$!
+          echo "Spark job started with PID: $SPARK_PID"
+
+          # Wait for completion
+          wait $SPARK_PID
+          SPARK_EXIT_CODE=$?
+
+          echo "Spark job finished with exit code: $SPARK_EXIT_CODE"
+          echo "=== Test Output ==="
           cat /tmp/test-output.log
+          echo "=== End Output ==="
 
-
+          # Optional: fail CI if tests failed
+          if [ $SPARK_EXIT_CODE -ne 0 ]; then
+            echo "Spark job failed with exit code $SPARK_EXIT_CODE"
+            exit $SPARK_EXIT_CODE
+          fi
