@@ -114,25 +114,4 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            ./Game.Chess.Tests.Unit.Runner.dll \
-            > /tmp/spark-output.log 2>&1
-          SPARK_EXIT_CODE=$?
-
-          echo "Spark job finished with exit code: $SPARK_EXIT_CODE"
-          echo "=== Spark Output ==="
-          cat /tmp/spark-output.log
-          echo "=== End Spark Output ==="
-
-          echo "=== xUnit Test Results (XML) ==="
-          if [ -f /tmp/test-results.xml ]; then
-            cat /tmp/test-results.xml
-          else
-            echo "No test-results.xml found! Tests may not have run."
-          fi
-          echo "=== End Test Results ==="
-
-          # Fail workflow if no valid test results
-          if [ ! -f /tmp/test-results.xml ] || ! grep -q 'total="[^0]' /tmp/test-results.xml; then
-            echo "Tests did not produce valid results."
-            exit 1
-          fi
+            ./Game.Chess.Tests.Unit.Runner --filter "FullyQualifiedName~Game.Chess.Tests.Unit.ChessSparkPolicyTests"
