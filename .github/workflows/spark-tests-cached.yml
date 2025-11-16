@@ -174,24 +174,28 @@ jobs:
             ./Game.Chess.Tests.Unit --filter "FullyQualifiedName~${{ env.TEST_CLASS }}" -xml /tmp/test-results.xml \
             > /tmp/test-output.log 2>&1 &
 
-            wait $SPARK_PID
-            SPARK_EXIT_CODE=$?
+          SPARK_PID=$!
+          echo "Spark job started with PID: $SPARK_PID"
 
-            echo "Spark job finished with exit code: $SPARK_EXIT_CODE"
-            echo "=== Spark Output ==="
-            cat /tmp/spark-output.log
-            echo "=== End Spark Output ==="
+          # Wait for completion
+          wait $SPARK_PID
+          SPARK_EXIT_CODE=$?
 
-            echo "=== xUnit Test Results (XML) ==="
-            if [ -f /tmp/test-results.xml ]; then
-              cat /tmp/test-results.xml
-            else
-              echo "No test-results.xml found! Tests may not have run."
-            fi
-            echo "=== End Test Results ==="
+          echo "Spark job finished with exit code: $SPARK_EXIT_CODE"
+          echo "=== Spark Output ==="
+          cat /tmp/spark-output.log
+          echo "=== End Spark Output ==="
 
-            # Optional: fail if no passing tests or file missing
-            if [ ! -f /tmp/test-results.xml ] || ! grep -q 'total="[^0]' /tmp/test-results.xml; then
-              echo "Tests did not produce valid results."
-              exit 1
-            fi
+          echo "=== xUnit Test Results (XML) ==="
+          if [ -f /tmp/test-results.xml ]; then
+            cat /tmp/test-results.xml
+          else
+            echo "No test-results.xml found! Tests may not have run."
+          fi
+          echo "=== End Test Results ==="
+
+          # Optional: fail if no passing tests or file missing
+          if [ ! -f /tmp/test-results.xml ] || ! grep -q 'total="[^0]' /tmp/test-results.xml; then
+            echo "Tests did not produce valid results."
+            exit 1
+          fi
