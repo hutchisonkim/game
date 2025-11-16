@@ -163,7 +163,8 @@ jobs:
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
           [ -d "$PUBLISH_DIR" ] || exit 1
 
-          cp ~/.nuget/packages/xunit.runner.console/2.9.3/tools/net8.0/* "$PUBLISH_DIR"/
+          echo "Copying xUnit console runner to publish directory..."
+          cp ~/github/home/.nuget/packages/xunit.runner.console/2.9.3/tools/net8.0/* "$PUBLISH_DIR"/
 
           echo "Running Spark tests via spark-submit..."
           cd "$PUBLISH_DIR"
