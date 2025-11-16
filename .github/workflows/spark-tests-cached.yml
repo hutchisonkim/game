@@ -109,21 +109,13 @@ jobs:
           cd "$PUBLISH_DIR"
 
           export DOTNET_WORKER_DIR="$DOTNET_WORKER_DIR"
-
+          # Run Spark in foreground, capture exit code
           "$SPARK_HOME/bin/spark-submit" \
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            ./Game.Chess.Tests.Unit.Runner \
-            --logger "trx;LogFileName=/tmp/test-results.trx" \
-            --filter "FullyQualifiedName~${TEST_CLASS}" \
-            > /tmp/spark-output.log 2>&1 &
-
-          SPARK_PID=$!
-          echo "Spark job started with PID: $SPARK_PID"
-
-          # Wait for completion
-          wait $SPARK_PID
+            ./Game.Chess.Tests.Unit.Runner.dll \
+            > /tmp/spark-output.log 2>&1
           SPARK_EXIT_CODE=$?
 
           echo "Spark job finished with exit code: $SPARK_EXIT_CODE"
@@ -139,6 +131,7 @@ jobs:
           fi
           echo "=== End Test Results ==="
 
+          # Fail workflow if no valid test results
           if [ ! -f /tmp/test-results.xml ] || ! grep -q 'total="[^0]' /tmp/test-results.xml; then
             echo "Tests did not produce valid results."
             exit 1
