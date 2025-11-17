@@ -5,9 +5,9 @@ class Program
 {
     static void Main()
     {
-        string assemblyPath = "Game.Chess.Tests.Unit.dll";
+        string assemblyPath = "Game.Chess.Tests.Integration.dll";
         string testClass = Environment.GetEnvironmentVariable("TEST_CLASS")
-                           ?? "Game.Chess.Tests.Unit.ChessSparkPolicyTests";
+                           ?? "Game.Chess.Tests.Integration.ChessSparkPolicyTests";
 
         int failCount = 0;
 

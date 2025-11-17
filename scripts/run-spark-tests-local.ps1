@@ -12,7 +12,7 @@ Usage (PowerShell):
 
 Optional parameters:
   -TestFilter  : xUnit filter string (default targets ChessSparkPolicyTests)
-  -ProjectPath : path to the runner project (default: tests/Game.Chess.Tests.Unit.Runner)
+  -ProjectPath : path to the runner project (default: tests/Game.Chess.Tests.Integration.Runner)
   -Framework   : .NET target framework (default: net8.0)
 
 This script only *checks* environment variables; it does not change them.
@@ -20,7 +20,7 @@ This script only *checks* environment variables; it does not change them.
 
 param(
     [string]$TestFilter = 'FullyQualifiedName~Game.Chess.Tests.Unit.ChessSparkPolicyTests',
-    [string]$ProjectPath = 'tests/Game.Chess.Tests.Unit.Runner',
+    [string]$ProjectPath = 'tests/Game.Chess.Tests.Integration.Runner',
     [string]$Framework = 'net8.0'
 )
 
@@ -152,7 +152,7 @@ try {
             '--class', 'org.apache.spark.deploy.dotnet.DotnetRunner',
             '--master', 'local',
             $jarPath,
-            './Game.Chess.Tests.Unit.Runner',
+            './Game.Chess.Tests.Integration.Runner',
             '--filter', $TestFilter
         )
 
