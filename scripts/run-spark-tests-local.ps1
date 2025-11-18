@@ -19,7 +19,7 @@ This script only *checks* environment variables; it does not change them.
 #>
 
 param(
-    [string]$TestFilter = 'FullyQualifiedName~Game.Chess.Tests.Unit.ChessSparkPolicyTests',
+    [string]$TestFilter = 'FullyQualifiedName~Game.Chess.Tests.Integration.ChessSparkPolicyTests',
     [string]$ProjectPath = 'tests/Game.Chess.Tests.Integration.Runner',
     [string]$Framework = 'net8.0'
 )
@@ -72,7 +72,7 @@ try {
     }
 
     Write-Host "Publishing project (self-contained)"
-    $pubArgs = @('-f', $Framework, '-r', $runtime, '-c', 'Release', '--self-contained', 'true')
+    $pubArgs = @('-f', $Framework, '-r', $runtime, '-c', 'Release', '--self-contained', 'false')
     & dotnet publish @pubArgs | Write-Host
     if ($LASTEXITCODE -ne 0) { Fail("dotnet publish failed") }
 
@@ -147,6 +147,10 @@ try {
 
     Write-Host "Invoking spark-submit: $sparkSubmit"
 
+    #set DOTNET_ROOT and DOTNET_WORKER_DIR to "C:\\Program Files\\dotnet\\dotnet.exe"
+    $env:DOTNET_ROOT = "C:\Program Files\dotnet"
+    $env:DOTNET_WORKER_DIR = "C:\Program Files\dotnet"
+
     Push-Location $publishDir
     try {
         $argsList = @(
@@ -157,27 +161,35 @@ try {
             '--filter', $TestFilter
         )
 
-        # # Launch spark-submit
-        # & $sparkSubmit @argsList
         # Launch spark-submit but dumping log into spark-test-output.log
-        $logPath = Join-Path $publishDir "spark-test-output.log"
-        
-        & $sparkSubmit @argsList *> $logPath 2>&1 &
+        $sparkLogPath = Join-Path $publishDir "spark-test-output.log"
+        if (Test-Path $sparkLogPath) {
+            Clear-Content -Path $sparkLogPath
+        }
+
+        $testLogPath = Join-Path $publishDir "test-output.log"
+        if (Test-Path $testLogPath) {
+            Clear-Content -Path $testLogPath
+        }
+
+        & $sparkSubmit @argsList *> $sparkLogPath 2>&1 &
         $ec = $LASTEXITCODE
 
-        # Tail the test output log AFTER spark-submit finishes
-        $logFile = Join-Path $publishDir "test-output.log"
-        # Clear previous contents
-        if (Test-Path $logFile) {
-            Clear-Content -Path $logFile
-        }
-        if (Test-Path $logFile) {
-            Write-Host "[run-spark-tests-local] Tailing test output from $logFile"
-            Get-Content -Path $logFile -Wait
+        if (Test-Path $sparkLogPath) {
+            Write-Host "[run-spark-tests-local] Tailing spark test output from $sparkLogPath"
+            Get-Content -Path $sparkLogPath -Wait
         }
         else {
-            Write-Warning "Test output log not found: $logFile"
+            Write-Warning "Spark test output log not found: $sparkLogPath"
         }
+
+        # if (Test-Path $testLogPath) {
+        #     Write-Host "[run-spark-tests-local] Tailing test output from $testLogPath"
+        #     Get-Content -Path $testLogPath -Wait
+        # }
+        # else {
+        #     Write-Warning "Test output log not found: $testLogPath"
+        # }
 
         if ($ec -ne 0) { Fail("spark-submit returned exit code $ec", $ec) }
     }

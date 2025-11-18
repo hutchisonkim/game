@@ -1,6 +1,7 @@
 using Xunit;
 using Microsoft.Spark.Sql;
 using Game.Chess.HistoryB;
+using Microsoft.Spark.Sql.Types;
 
 namespace Game.Chess.Tests.Integration;
 
@@ -8,6 +9,16 @@ namespace Game.Chess.Tests.Integration;
 [Collection("Spark collection")]
 public class ChessSparkPolicyTests
 {
+    static ChessSparkPolicyTests()
+    {
+        Console.WriteLine(">>> STATIC CTOR ENTERED");
+    }
+
+    [Fact]
+    public void Dummy()
+    {
+        Console.WriteLine(">>> TEST METHOD ENTERED");
+    }
 
     private SparkSession? _spark;
     private ChessPolicy? _policy;
@@ -80,7 +91,46 @@ public class ChessSparkPolicyTests
         Assert.Equal(ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King, board.Cell[4, 7]);
     }
 
+
     [Fact]
+    public void Spark_BasicDataFrameOperations_Work()
+    {
+        Console.WriteLine("[DEBUG] Spark_BasicDataFrameOperations_Work started");
+
+        // Arrange
+        var spark = SparkSession
+            .Builder()
+            .AppName("BasicSparkTest")
+            .GetOrCreate();
+
+        // A trivial in-memory dataset
+        var data = new List<GenericRow>
+        {
+            new GenericRow(new object[] { 1, "a" }),
+            new GenericRow(new object[] { 2, "b" }),
+            new GenericRow(new object[] { 3, "c" })
+        };
+
+        // Schema with simple Spark primitives
+        var schema = new StructType(new[]
+        {
+            new StructField("id", new IntegerType()),
+            new StructField("value", new StringType())
+        });
+
+        // Act
+        DataFrame df = spark.CreateDataFrame(data, schema);
+
+        long count = df.Count();
+        var dfSchema = df.Schema();
+
+        // Assert
+        Assert.Equal(3, count);
+        Assert.Contains(dfSchema.Fields, f => f.Name == "id");
+        Assert.Contains(dfSchema.Fields, f => f.Name == "value");
+    }
+
+    // [Fact]
     public void PieceFactory_ReturnsCorrectNumberOfRows()
     {
         var board = ChessPolicy.Board.Default;
