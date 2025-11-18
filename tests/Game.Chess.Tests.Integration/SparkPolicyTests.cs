@@ -2,7 +2,7 @@ using Xunit;
 using Microsoft.Spark.Sql;
 using Game.Chess.HistoryB;
 
-namespace Game.Chess.Tests.Unit;
+namespace Game.Chess.Tests.Integration;
 
 [Trait("Feature", "ChessSparkPolicy")]
 [Collection("Spark collection")]

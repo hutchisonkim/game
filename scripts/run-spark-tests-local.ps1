@@ -32,8 +32,8 @@ function Fail([string]$msg, [int]$code = 1) {
 Write-Host "[run-spark-tests-local] Starting local runner script"
 
 # Required / recommended env vars (we only check, do not set)
-$required = @('SPARK_HOME','DOTNET_WORKER_DIR')
-$recommended = @('DOTNETBACKEND_PORT','DOTNET_WORKER_SPARK_VERSION','PYTHON_WORKER_FACTORY_PORT')
+$required = @('SPARK_HOME', 'DOTNET_WORKER_DIR')
+$recommended = @('DOTNETBACKEND_PORT', 'DOTNET_WORKER_SPARK_VERSION', 'PYTHON_WORKER_FACTORY_PORT')
 
 $missingRequired = @()
 foreach ($r in $required) {
@@ -112,7 +112,8 @@ try {
     foreach ($d in $searchDirs) {
         try {
             $foundJars += Get-ChildItem -Path $d -Filter $jarPattern -Recurse -ErrorAction SilentlyContinue
-        } catch { }
+        }
+        catch { }
     }
 
     if ($foundJars.Count -eq 0) {
@@ -137,7 +138,7 @@ try {
     if (-not (Test-Path $sparkBin)) { Fail("SPARK_HOME/bin not found: $sparkBin") }
 
     $sparkSubmit = $null
-    $candidates = @('spark-submit.cmd','spark-submit.ps1','spark-submit')
+    $candidates = @('spark-submit.cmd', 'spark-submit.ps1', 'spark-submit')
     foreach ($c in $candidates) {
         $p = Join-Path $sparkBin $c
         if (Test-Path $p) { $sparkSubmit = $p; break }
@@ -156,14 +157,28 @@ try {
             '--filter', $TestFilter
         )
 
-        # On Windows, run spark-submit via & (it may be a .cmd)
-        if ($sparkSubmit -like '*.cmd' -or $sparkSubmit -like '*.ps1' -or $sparkSubmit -like '*spark-submit') {
-            & $sparkSubmit @argsList
-        } else {
-            & $sparkSubmit @argsList
+        # # Launch spark-submit
+        # & $sparkSubmit @argsList
+        # Launch spark-submit but dumping log into spark-test-output.log
+        $logPath = Join-Path $publishDir "spark-test-output.log"
+        
+        & $sparkSubmit @argsList *> $logPath 2>&1 &
+        $ec = $LASTEXITCODE
+
+        # Tail the test output log AFTER spark-submit finishes
+        $logFile = Join-Path $publishDir "test-output.log"
+        # Clear previous contents
+        if (Test-Path $logFile) {
+            Clear-Content -Path $logFile
+        }
+        if (Test-Path $logFile) {
+            Write-Host "[run-spark-tests-local] Tailing test output from $logFile"
+            Get-Content -Path $logFile -Wait
+        }
+        else {
+            Write-Warning "Test output log not found: $logFile"
         }
 
-        $ec = $LASTEXITCODE
         if ($ec -ne 0) { Fail("spark-submit returned exit code $ec", $ec) }
     }
     finally { Pop-Location }

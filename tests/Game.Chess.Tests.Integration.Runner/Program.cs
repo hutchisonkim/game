@@ -1,62 +1,49 @@
 using System;
+using System.Diagnostics;
 using System.IO;
-using Xunit.Runners;
 
 class Program
 {
-    static void Main()
+    static int Main()
     {
-        string assemblyPath = "Game.Chess.Tests.Integration.dll";
+        string testAssembly = "Game.Chess.Tests.Integration.dll";
         string testClass = Environment.GetEnvironmentVariable("TEST_CLASS")
                            ?? "Game.Chess.Tests.Integration.ChessSparkPolicyTests";
+        string logFile = Path.Combine(AppContext.BaseDirectory, "test-output.log");
 
-        Console.WriteLine($"[Diagnostics] Running tests from assembly: {assemblyPath}");
-        Console.WriteLine($"[Diagnostics] Looking for test class: {testClass}");
-
-        if (!File.Exists(assemblyPath))
+        if (!File.Exists(testAssembly))
         {
-            Console.WriteLine($"[ERROR] Assembly not found at path: {assemblyPath}");
-            Environment.Exit(1);
+            Console.WriteLine($"[ERROR] Test assembly not found at path: {testAssembly}");
+            return 1;
         }
 
-        int failCount = 0;
-
-        using var runner = AssemblyRunner.WithoutAppDomain(assemblyPath);
-
-        // Diagnostics for each test discovered
-        runner.OnDiscoveryComplete = info =>
+        string xunitRunner = Path.Combine(AppContext.BaseDirectory, "xunit.console.dll");
+        if (!File.Exists(xunitRunner))
         {
-            Console.WriteLine($"[Diagnostics] Test discovery complete: {info.TestCasesToRun} test(s) found");
+            Console.WriteLine($"[ERROR] xUnit console runner not found: {xunitRunner}");
+            return 1;
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"\"{xunitRunner}\" \"{testAssembly}\" -class {testClass} -parallel none -nologo",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = false
         };
 
-        runner.OnTestStarting = info =>
-        {
-            Console.WriteLine($"[Diagnostics] Starting test: {info.TestDisplayName}");
-        };
+        using var proc = Process.Start(psi);
+        using var logWriter = new StreamWriter(logFile, false) { AutoFlush = true };
 
-        runner.OnTestPassed = info => Console.WriteLine($"PASS: {info.TestDisplayName}");
-        runner.OnTestFailed = info =>
-        {
-            Console.WriteLine($"FAIL: {info.TestDisplayName} - {info.ExceptionMessage}");
-            failCount++;
-        };
-        runner.OnTestSkipped = info => Console.WriteLine($"SKIP: {info.TestDisplayName}");
+        proc.OutputDataReceived += (s, e) => { if (e.Data != null) logWriter.WriteLine(e.Data); };
+        proc.ErrorDataReceived += (s, e) => { if (e.Data != null) logWriter.WriteLine(e.Data); };
 
-        using var finished = new System.Threading.ManualResetEventSlim(false);
+        proc.BeginOutputReadLine();
+        proc.BeginErrorReadLine();
 
-        runner.OnExecutionComplete = info =>
-        {
-            Console.WriteLine($"[Diagnostics] Execution complete: {info.TotalTests} test(s) run, {failCount} failed");
-            finished.Set();
-        };
-
-        // Start all tests (you could add a filter here if desired)
-        Console.WriteLine("[Diagnostics] Starting test run...");
-        runner.Start();
-
-        finished.Wait();
-        Console.WriteLine("[Diagnostics] Test run finished.");
-
-        Environment.Exit(failCount > 0 ? 1 : 0);
+        proc.WaitForExit();
+        return proc.ExitCode;
     }
 }
