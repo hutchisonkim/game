@@ -144,7 +144,7 @@ public class ChessSparkPolicyTests
         Assert.Contains(schema.Fields, f => f.Name == "piece");
     }
 
-    // [Fact]
+    [Fact]
     public void GetPerspectives_AssignsGenericFlagsCorrectly()
     {
         var board = ChessPolicy.Board.Default;
@@ -156,12 +156,12 @@ public class ChessSparkPolicyTests
         Assert.Contains("generic_piece", perspectivesDf.Columns());
         Assert.Contains("perspective_id", perspectivesDf.Columns());
 
-        // check at least one Self, Ally, Foe flag present
-        var firstRow = perspectivesDf.Collect().First();
-        int genericValue = (int)firstRow.Get(4); // generic_piece
-        Assert.True((genericValue & (int)ChessPolicy.Piece.Self) != 0
-                    || (genericValue & (int)ChessPolicy.Piece.Ally) != 0
-                    || (genericValue & (int)ChessPolicy.Piece.Foe) != 0);
+        // check at least one Self, Ally, Foe flag present in any row
+        var genericValues = perspectivesDf.Collect().Select(r => r.GetAs<int>("generic_piece")).ToList();
+        bool anyHasFlags = genericValues.Any(g => (g & (int)ChessPolicy.Piece.Self) != 0
+                              || (g & (int)ChessPolicy.Piece.Ally) != 0
+                              || (g & (int)ChessPolicy.Piece.Foe) != 0);
+        Assert.True(anyHasFlags, "No perspective rows contain Self/Ally/Foe flags in generic_piece");
     }
 
     // [Fact]
