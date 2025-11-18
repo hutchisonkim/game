@@ -119,9 +119,26 @@ public class ChessPolicy
         private static DataFrame ComputeNextPerspectives(DataFrame candidatesDf)
         {
             return candidatesDf
+                .WithColumnRenamed("src_piece", "piece")
                 .WithColumnRenamed("src_generic_piece", "generic_piece")
                 .WithColumnRenamed("src_x", "x")
-                .WithColumnRenamed("src_y", "y");
+                .WithColumnRenamed("src_y", "y")
+                .WithColumn("perspective_id",
+                    Sha2(ConcatWs("_",
+                        Col("x").Cast("string"),
+                        Col("y").Cast("string"),
+                        Col("generic_piece").Cast("string")),
+                    256))
+                .Select(
+                    Col("perspective_x"),
+                    Col("perspective_y"),
+                    Col("perspective_piece"),
+                    Col("x"),
+                    Col("y"),
+                    Col("piece"),
+                    Col("generic_piece"),
+                    Col("perspective_id")
+                );
         }
     }
 

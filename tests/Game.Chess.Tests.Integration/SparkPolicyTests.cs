@@ -164,7 +164,7 @@ public class ChessSparkPolicyTests
         Assert.True(anyHasFlags, "No perspective rows contain Self/Ally/Foe flags in generic_piece");
     }
 
-    // [Fact]
+    [Fact]
     public void TimelineService_GeneratesCorrectTimesteps()
     {
         var board = ChessPolicy.Board.Default;
