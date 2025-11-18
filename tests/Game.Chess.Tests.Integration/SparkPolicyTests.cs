@@ -130,7 +130,7 @@ public class ChessSparkPolicyTests
     }
 
 
-    // [Fact]
+    [Fact]
     public void PieceFactory_ReturnsCorrectNumberOfRows()
     {
         var board = ChessPolicy.Board.Default;
@@ -184,7 +184,7 @@ public class ChessSparkPolicyTests
         Assert.Contains(2, timesteps);
     }
 
-    // [Fact]
+    [Fact]
     public void PatternFactory_ReturnsPatterns()
     {
         var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
