@@ -2,6 +2,7 @@ using Xunit;
 using Microsoft.Spark.Sql;
 using Game.Chess.HistoryB;
 using Microsoft.Spark.Sql.Types;
+using System.Linq;
 
 namespace Game.Chess.Tests.Integration;
 
@@ -293,5 +294,80 @@ public class ChessSparkPolicyTests
         bool anyHasFactionBits = genericValues.Any(g => (g & factionMask) != 0);
 
         Assert.False(anyHasFactionBits, "Expected no White/Black faction bits to remain in generic_piece");
+    }
+
+    [Fact]
+    public void Board_Default_Has64Squares()
+    {
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+
+        // Board.Cell is a 2D array; Length should equal Width * Height
+        Assert.Equal(board.Width * board.Height, board.Cell.Length);
+
+        // Ensure there are exactly 64 positions for the standard default
+        Assert.Equal(8 * 8, board.Cell.Length);
+    }
+
+    [Fact]
+    public void PatternFactory_Contains_KnightMoves()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        // knight moves have abs(delta_x) == 2 and abs(delta_y) == 1 (or swapped)
+        long count = patternsDf.Filter("ABS(delta_x) = 2 AND ABS(delta_y) = 1").Count();
+
+        Assert.True(count > 0, "Expected at least one knight move pattern with (2,1) deltas");
+    }
+
+    [Fact]
+    public void PatternFactory_Contains_PawnCapturePatterns()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int pawn = (int)ChessPolicy.Piece.Pawn;
+        int foe = (int)ChessPolicy.Piece.Foe;
+
+        // pawn capture patterns typically have abs(delta_x) = 1 and delta_y = 1 and dst_conditions includes Foe
+        string filter = $"(src_conditions & {pawn}) != 0 AND (dst_conditions & {foe}) != 0 AND ABS(delta_x) = 1 AND delta_y = 1";
+        long count = patternsDf.Filter(filter).Count();
+
+        Assert.True(count > 0, "Expected at least one pawn capture pattern (diagonal capture)");
+    }
+
+    [Fact]
+    public void PatternFactory_Contains_PawnPromotionPatterns()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int pawn = (int)ChessPolicy.Piece.Pawn;
+        int instantMandatory = (int)ChessPolicy.Sequence.InstantMandatory;
+
+        // promotions should include pawn src and InstantMandatory sequence bits
+        string filter = $"(src_conditions & {pawn}) != 0 AND (sequence & {instantMandatory}) != 0";
+        long count = patternsDf.Filter(filter).Count();
+
+        Assert.True(count > 0, "Expected at least one pawn promotion-related pattern with InstantMandatory sequence");
+    }
+
+    [Fact]
+    public void TimelineService_Timesteps_IncludeRequestedDepth()
+    {
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White };
+
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        Assert.Contains("timestep", timelineDf.Columns());
+
+        var timesteps = timelineDf.Select("timestep").Distinct().Collect().Select(r => (int)r.Get(0)).ToList();
+
+        // Expect 0..1 timesteps present (use a small depth to keep the job lightweight)
+        Assert.Contains(0, timesteps);
+        Assert.Contains(1, timesteps);
     }
 }
