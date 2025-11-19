@@ -230,4 +230,22 @@ public class ChessSparkPolicyTests
         Assert.Contains("delta_x", patternsDf.Columns());
         Assert.Contains("delta_y", patternsDf.Columns());
     }
+
+    [Fact]
+    public void BuildTimeline_FromPolicy_ReturnsTimestepsAndPerspectiveId()
+    {
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White };
+
+        var timelineDf = Policy.BuildTimeline(board, factions, maxDepth: 2);
+
+        Assert.Contains("timestep", timelineDf.Columns());
+        Assert.Contains("perspective_id", timelineDf.Columns());
+
+        var timesteps = timelineDf.Select("timestep").Distinct().Collect().Select(r => r.Get(0)).ToList();
+        Assert.Contains(0, timesteps);
+        Assert.Contains(1, timesteps);
+        Assert.Contains(2, timesteps);
+    }
 }
