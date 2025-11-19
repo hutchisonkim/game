@@ -94,6 +94,7 @@ public class ChessPolicy
             for (int depth = 1; depth <= maxDepth; depth++)
             {
                 var candidatesDf = ComputeNextCandidates(timelineDf.Filter(Col("timestep") == depth - 1), patternsDf);
+
                 var nextPerspectivesDf = ComputeNextPerspectives(candidatesDf)
                     .WithColumn("timestep", Lit(depth));
 
@@ -105,15 +106,39 @@ public class ChessPolicy
 
         private static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf)
         {
-            return perspectivesDf
+            var candidatesDf = perspectivesDf
                 .WithColumnRenamed("piece", "src_piece")
                 .WithColumnRenamed("generic_piece", "src_generic_piece")
                 .WithColumnRenamed("x", "src_x")
                 .WithColumnRenamed("y", "src_y")
                 .CrossJoin(patternsDf)
+                .Filter(Col("src_generic_piece").BitwiseAND(Col("src_conditions")).NotEqual(Lit(0)))
+                .Filter(Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0)))
                 .WithColumn("dst_x", Col("src_x") + Col("delta_x"))
                 .WithColumn("dst_y", Col("src_y") + Col("delta_y"))
-                .Drop("delta_x", "delta_y");
+                .Drop("delta_x", "delta_y")
+                .Join(perspectivesDf.Select(
+                        Col("x").Alias("lookup_x"),
+                        Col("y").Alias("lookup_y"),
+                        Col("perspective_x").Alias("lookup_perspective_x"),
+                        Col("perspective_y").Alias("lookup_perspective_y"),
+                        Col("piece").Alias("lookup_piece"),
+                        Col("generic_piece").Alias("lookup_generic_piece")),
+                    (Col("perspective_x") == Col("lookup_perspective_x"))
+                        .And(Col("perspective_y") == Col("lookup_perspective_y"))
+                        .And(Col("dst_x") == Col("lookup_perspective_x"))
+                        .And(Col("dst_y") == Col("lookup_perspective_y"))
+                        .And(Col("dst_x") == Col("lookup_x"))
+                        .And(Col("dst_y") == Col("lookup_y")),
+                    "left_outer")
+                .Na().Fill((int)Piece.OutOfBounds, ["lookup_generic_piece"])
+                .Filter(Col("lookup_generic_piece").NotEqual(Lit((int)Piece.OutOfBounds)))
+                .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y", "lookup_piece")
+                .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece")
+                .Filter(Col("dst_generic_piece").BitwiseAND(Col("dst_conditions")).NotEqual(Lit(0)))
+                .Drop("src_conditions", "dst_conditions");
+
+            return candidatesDf;
         }
 
         private static DataFrame ComputeNextPerspectives(DataFrame candidatesDf)

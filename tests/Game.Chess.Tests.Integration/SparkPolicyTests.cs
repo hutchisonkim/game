@@ -206,7 +206,8 @@ public class ChessSparkPolicyTests
     {
         var board = ChessPolicy.Board.Default;
         board.Initialize();
-        var factions = new[] { ChessPolicy.Piece.White };
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
 
         var perspectivesDf = Policy.GetPerspectives(board, factions);
         var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
@@ -237,7 +238,7 @@ public class ChessSparkPolicyTests
     {
         var board = ChessPolicy.Board.Default;
         board.Initialize();
-        var factions = new[] { ChessPolicy.Piece.White };
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
 
         var timelineDf = Policy.BuildTimeline(board, factions, maxDepth: 2);
 
@@ -355,7 +356,7 @@ public class ChessSparkPolicyTests
     {
         var board = ChessPolicy.Board.Default;
         board.Initialize();
-        var factions = new[] { ChessPolicy.Piece.White };
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
 
         var perspectivesDf = Policy.GetPerspectives(board, factions);
         var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
@@ -369,5 +370,304 @@ public class ChessSparkPolicyTests
         // Expect 0..1 timesteps present (use a small depth to keep the job lightweight)
         Assert.Contains(0, timesteps);
         Assert.Contains(1, timesteps);
+    }
+
+    // [Fact]
+    public void Pawn_GeneratesForwardMove_FromIsolatedPosition()
+    {
+        // Arrange: Create a board with only a white pawn at e2 (x=4, y=1)
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[4, 1] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves: no recursive, no castling, no en passant
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: There should be a move to e3 (x=4, y=2)
+        var moveRows = timelineDf.Filter("timestep = 1 AND x = 4 AND y = 2").Collect();
+        Assert.True(moveRows.Any(), "Expected a pawn move from e2 to e3.");
+    }
+
+    [Fact]
+    public void Pawn_GeneratesCaptureMove_WhenFoePresent()
+    {
+        // Arrange: White pawn at e2 (x=4, y=1), black pawn at d3 (x=3, y=2)
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[4, 1] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Pawn;
+        board.Cell[3, 2] = ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: There should be a capture move to d3 (x=3, y=2)
+        var captureRows = timelineDf.Filter("timestep = 1 AND x = 3 AND y = 2").Collect();
+        Assert.True(captureRows.Any(), "Expected a pawn capture from e2 to d3.");
+    }
+
+    // [Fact]
+    public void Knight_GeneratesAllMoves_FromCenter()
+    {
+        // Arrange: White knight at d4 (x=3, y=3), empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[3, 3] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Knight;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: 8 possible knight moves
+        var knightMoves = timelineDf.Filter("timestep = 1").Collect();
+        Assert.Equal(8, knightMoves.Count());
+    }
+
+    // [Fact]
+    public void King_GeneratesAllMoves_FromCenter()
+    {
+        // Arrange: White king at d4 (x=3, y=3), empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[3, 3] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: 8 possible king moves
+        var kingMoves = timelineDf.Filter("timestep = 1").Collect();
+        Assert.Equal(8, kingMoves.Count());
+    }
+
+    // [Fact]
+    public void Rook_GeneratesSingleStepMoves_FromCenter()
+    {
+        // Arrange: White rook at d4 (x=3, y=3), empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[3, 3] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: 4 possible rook moves (single steps)
+        var rookMoves = timelineDf.Filter("timestep = 1").Collect();
+        Assert.Equal(4, rookMoves.Count());
+    }
+
+    // [Fact]
+    public void Bishop_GeneratesSingleStepMoves_FromCenter()
+    {
+        // Arrange: White bishop at d4 (x=3, y=3), empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[3, 3] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: 4 possible bishop moves (single steps)
+        var bishopMoves = timelineDf.Filter("timestep = 1").Collect();
+        Assert.Equal(4, bishopMoves.Count());
+    }
+
+    // [Fact]
+    public void Queen_GeneratesSingleStepMoves_FromCenter()
+    {
+        // Arrange: White queen at d4 (x=3, y=3), empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[3, 3] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Queen;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: 8 possible queen moves (single steps)
+        var queenMoves = timelineDf.Filter("timestep = 1").Collect();
+        Assert.Equal(8, queenMoves.Count());
+    }
+
+    [Fact]
+    public void InitialBoard_WhiteHasCorrectNumberOfMoves()
+    {
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: 8 pawn moves + 4 knight moves = 12
+        var moves = timelineDf.Filter("timestep = 1").Collect();
+        Assert.Equal(12, moves.Count());
+    }
+
+    // [Fact]
+    public void PawnPromotion_MoveGenerated()
+    {
+        // Arrange: White pawn at e7 (x=4, y=6), empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[4, 6] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: Pawn can move to e8 (x=4, y=7)
+        var promotionMove = timelineDf.Filter("timestep = 1 AND x = 4 AND y = 7").Collect();
+        Assert.True(promotionMove.Any(), "Expected pawn promotion move to 8th rank.");
+    }
+
+    [Fact]
+    public void PawnCapture_InGamePosition()
+    {
+        // Arrange: White pawn at d4 (x=3, y=3), black pawn at e5 (x=4, y=4)
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[3, 3] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Pawn;
+        board.Cell[4, 4] = ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: Capture move to e5 (x=4, y=4)
+        var captureMove = timelineDf.Filter("timestep = 1 AND x = 4 AND y = 4").Collect();
+        Assert.True(captureMove.Any(), "Expected pawn capture to e5.");
+    }
+
+    [Fact]
+    public void Moves_DoNotGoOffBoard()
+    {
+        // Arrange: King at a1 (x=0, y=0), empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[0, 0] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: No moves have x < 0 or x > 7 or y < 0 or y > 7
+        var offBoardMoves = timelineDf.Filter("timestep = 1 AND (x < 0 OR x > 7 OR y < 0 OR y > 7)").Collect();
+        Assert.Empty(offBoardMoves);
+    }
+
+    // [Fact]
+    public void OpeningSequence_WhiteE2E4_BlackE7E6()
+    {
+        // Arrange: Initial board
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+
+        // Act: White moves e2-e4
+        var whiteFactions = new[] { ChessPolicy.Piece.White };
+        var whitePerspectives = Policy.GetPerspectives(board, whiteFactions);
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+        var whiteTimeline = ChessPolicy.TimelineService.BuildTimeline(whitePerspectives, patternsDf, maxDepth: 1);
+
+        // Assert: e2-e4 is generated
+        var e2e4 = whiteTimeline.Filter("timestep = 1 AND x = 4 AND y = 3").Collect();
+        Assert.True(e2e4.Any(), "Expected white e2-e4 move.");
+
+        // Update board for e2-e4
+        board.Cell[4, 1] = ChessPolicy.Piece.None;
+        board.Cell[4, 3] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Pawn;
+
+        // Act: Black moves e7-e6
+        var blackFactions = new[] { ChessPolicy.Piece.Black };
+        var blackPerspectives = Policy.GetPerspectives(board, blackFactions);
+        var blackTimeline = ChessPolicy.TimelineService.BuildTimeline(blackPerspectives, patternsDf, maxDepth: 1);
+
+        // Assert: e7-e6 is generated (e7 is x=4, y=6, e6 is x=4, y=5)
+        var e7e6 = blackTimeline.Filter("timestep = 1 AND x = 4 AND y = 5").Collect();
+        Assert.True(e7e6.Any(), "Expected black e7-e6 move.");
+    }
+
+    // [Fact]
+    public void Checkmate_NoLegalMovesForLosingSide()
+    {
+        // Arrange: Simple checkmate position - black king at e8, white queen at d8
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        board.Cell[4, 7] = ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King; // e8
+        board.Cell[3, 7] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Queen; // d8
+        board.Cell[4, 0] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King; // e1
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter patterns to exclude special moves
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter("NOT (sequence & 12 != 0 OR sequence & 14 != 0 OR sequence & 4096 != 0 OR sequence & 2048 != 0 OR sequence & 16384 != 0 OR sequence & 8192 != 0)");
+
+        // Act: Build timeline for depth 1
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
+
+        // Assert: No legal moves for black (checkmate)
+        var moves = timelineDf.Filter("timestep = 1").Collect();
+        Assert.Empty(moves);
     }
 }
