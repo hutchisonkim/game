@@ -170,6 +170,34 @@ public class ChessSparkPolicyTests
             .Any(g => (g & (int)ChessPolicy.Piece.Self) != 0);
 
         Assert.True(anySelf, "Expected at least one same-cell perspective to include the Self flag in generic_piece");
+
+        // --- Ally assertion ---
+        // Choose a different white pawn as the 'piece' (x=1,y=1) and perspective at the white pawn (x=0,y=1)
+        var allyRows = perspectivesDf
+            .Filter("x = 1 AND y = 1 AND perspective_x = 0 AND perspective_y = 1")
+            .Collect();
+
+        Assert.True(allyRows.Any(), "Expected at least one perspective row for an allied piece (1,1) looking at (0,1).");
+
+        bool anyAlly = allyRows
+            .Select(r => r.GetAs<int>("generic_piece"))
+            .Any(g => (g & (int)ChessPolicy.Piece.Ally) != 0);
+
+        Assert.True(anyAlly, "Expected at least one perspective row to include the Ally flag in generic_piece");
+
+        // --- Foe assertion ---
+        // Choose a black pawn as the 'piece' (x=0,y=6) and perspective at the white pawn (x=0,y=1)
+        var foeRows = perspectivesDf
+            .Filter("x = 0 AND y = 6 AND perspective_x = 0 AND perspective_y = 1")
+            .Collect();
+
+        Assert.True(foeRows.Any(), "Expected at least one perspective row for a foe piece (0,6) looking at (0,1).");
+
+        bool anyFoe = foeRows
+            .Select(r => r.GetAs<int>("generic_piece"))
+            .Any(g => (g & (int)ChessPolicy.Piece.Foe) != 0);
+
+        Assert.True(anyFoe, "Expected at least one perspective row to include the Foe flag in generic_piece");
     }
 
     [Fact]
