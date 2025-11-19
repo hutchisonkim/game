@@ -150,6 +150,29 @@ public class ChessSparkPolicyTests
     }
 
     [Fact]
+    public void GetPerspectives_SetsSelfFlagForOwnCell()
+    {
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        // Filter for the perspective where the source and perspective are the same cell (e.g., a white pawn at x=0,y=1)
+        var sameCellRows = perspectivesDf
+            .Filter("x = 0 AND y = 1 AND perspective_x = 0 AND perspective_y = 1")
+            .Collect();
+
+        Assert.True(sameCellRows.Any(), "Expected at least one perspective row for the same cell (0,1).");
+
+        bool anySelf = sameCellRows
+            .Select(r => r.GetAs<int>("generic_piece"))
+            .Any(g => (g & (int)ChessPolicy.Piece.Self) != 0);
+
+        Assert.True(anySelf, "Expected at least one same-cell perspective to include the Self flag in generic_piece");
+    }
+
+    [Fact]
     public void TimelineService_GeneratesCorrectTimesteps()
     {
         var board = ChessPolicy.Board.Default;
