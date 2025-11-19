@@ -145,8 +145,6 @@ try {
     }
     if (-not $sparkSubmit) { Fail("spark-submit not found under SPARK_HOME/bin. Ensure Spark is installed and SPARK_HOME is correct.") }
 
-    Write-Host "Invoking spark-submit: $sparkSubmit"
-
     #set DOTNET_ROOT and DOTNET_WORKER_DIR to "C:\\Program Files\\dotnet\\dotnet.exe"
     $env:DOTNET_ROOT = "C:\Program Files\dotnet"
     $env:DOTNET_WORKER_DIR = "C:\Program Files\dotnet"
@@ -166,30 +164,28 @@ try {
         if (Test-Path $sparkLogPath) {
             Clear-Content -Path $sparkLogPath
         }
+        else {
+            New-Item -ItemType File -Path $sparkLogPath | Out-Null
+        }
 
         $testLogPath = Join-Path $publishDir "test-output.log"
         if (Test-Path $testLogPath) {
             Clear-Content -Path $testLogPath
         }
 
-        & $sparkSubmit @argsList *> $sparkLogPath 2>&1 &
+        # Run spark-submit in foreground so the script exits when it completes
+        Write-Host "Invoking spark-submit: $sparkSubmit"
+        & $sparkSubmit @argsList *> $sparkLogPath 2>&1
         $ec = $LASTEXITCODE
 
         if (Test-Path $sparkLogPath) {
-            Write-Host "[run-spark-tests-local] Tailing spark test output from $sparkLogPath"
-            Get-Content -Path $sparkLogPath -Wait
+            Write-Host "[run-spark-tests-local] Spark test output saved to $sparkLogPath"
+            # Show the captured log, then exit — do not block with -Wait
+            Get-Content -Path $sparkLogPath
         }
         else {
             Write-Warning "Spark test output log not found: $sparkLogPath"
         }
-
-        # if (Test-Path $testLogPath) {
-        #     Write-Host "[run-spark-tests-local] Tailing test output from $testLogPath"
-        #     Get-Content -Path $testLogPath -Wait
-        # }
-        # else {
-        #     Write-Warning "Test output log not found: $testLogPath"
-        # }
 
         if ($ec -ne 0) { Fail("spark-submit returned exit code $ec", $ec) }
     }
