@@ -9,20 +9,8 @@ namespace Game.Chess.Tests.Integration;
 [Collection("Spark collection")]
 public class ChessSparkPolicyTests
 {
-    static ChessSparkPolicyTests()
-    {
-        Console.WriteLine(">>> STATIC CTOR ENTERED");
-    }
-
-    [Fact]
-    public void Dummy()
-    {
-        Console.WriteLine(">>> TEST METHOD ENTERED");
-    }
-
     private SparkSession? _spark;
     private ChessPolicy? _policy;
-
 
     private SparkSession Spark
     {
@@ -54,7 +42,6 @@ public class ChessSparkPolicyTests
     }
 
     private ChessPolicy Policy => _policy ??= new ChessPolicy(Spark);
-
 
     [Fact]
     public void Spark_BasicDataFrameOperations_Work()
@@ -94,7 +81,6 @@ public class ChessSparkPolicyTests
         Assert.Contains(dfSchema.Fields, f => f.Name == "value");
     }
 
-
     [Fact]
     public void BoardInitialization_CreatesCorrectStartingPositions()
     {
@@ -128,7 +114,6 @@ public class ChessSparkPolicyTests
         Assert.Equal(ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King, board.Cell[4, 0]);
         Assert.Equal(ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King, board.Cell[4, 7]);
     }
-
 
     [Fact]
     public void PieceFactory_ReturnsCorrectNumberOfRows()
