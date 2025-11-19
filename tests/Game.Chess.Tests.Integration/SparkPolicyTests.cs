@@ -277,4 +277,21 @@ public class ChessSparkPolicyTests
         var diffCount = perspectivesDf1.Except(perspectivesDf2).Count();
         Assert.Equal(0, diffCount);
     }
+
+    [Fact]
+    public void GetPerspectives_GenericPiece_RemovesFactionBits()
+    {
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+
+        var genericValues = perspectivesDf.Collect().Select(r => r.GetAs<int>("generic_piece")).ToList();
+
+        int factionMask = (int)ChessPolicy.Piece.White | (int)ChessPolicy.Piece.Black;
+        bool anyHasFactionBits = genericValues.Any(g => (g & factionMask) != 0);
+
+        Assert.False(anyHasFactionBits, "Expected no White/Black faction bits to remain in generic_piece");
+    }
 }
