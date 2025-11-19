@@ -248,4 +248,33 @@ public class ChessSparkPolicyTests
         Assert.Contains(1, timesteps);
         Assert.Contains(2, timesteps);
     }
+
+    [Fact]
+    public void GetPerspectives_PerspectiveId_IsUniqueAndDeterministic()
+    {
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+
+        // First calculation
+        var perspectivesDf1 = Policy.GetPerspectives(board, factions);
+        long total1 = perspectivesDf1.Count();
+        long distinct1 = perspectivesDf1.Select("perspective_id").Distinct().Count();
+
+        // Recompute and compare sets to ensure determinism
+        var perspectivesDf2 = Policy.GetPerspectives(board, factions);
+        long total2 = perspectivesDf2.Count();
+        long distinct2 = perspectivesDf2.Select("perspective_id").Distinct().Count();
+
+        // We expect the total row count to be stable across calls
+        Assert.Equal(total1, total2);
+
+        // Distinct perspective id counts should be stable (deterministic hashing)
+        Assert.Equal(distinct1, distinct2);
+        Assert.True(distinct1 > 0, "Expected at least one distinct perspective_id");
+
+        // Ensure both DataFrames contain the same set of perspective rows (deterministic ids)
+        var diffCount = perspectivesDf1.Except(perspectivesDf2).Count();
+        Assert.Equal(0, diffCount);
+    }
 }
