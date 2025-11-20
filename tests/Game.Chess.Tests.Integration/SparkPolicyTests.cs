@@ -544,7 +544,7 @@ public class ChessSparkPolicyTests
         var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth: 1);
 
         // Assert: 8 pawn moves + 4 knight moves = 12
-        var moves = timelineDf.Filter("timestep = 1").Collect();
+        var moves = timelineDf.Filter("timestep = 0").Collect();
         Assert.Equal(12, moves.Count());
     }
 

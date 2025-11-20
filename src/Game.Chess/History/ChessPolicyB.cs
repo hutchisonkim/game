@@ -51,38 +51,61 @@ public class ChessPolicy
     // ----------------- PRIVATE HELPERS -----------------
     private static DataFrame GetPerspectivesDfFromPieces(DataFrame piecesDf, Piece[] specificFactions)
     {
-        var perspectivesDf = piecesDf
+        // 1. Filter to only those pieces that actually have a faction.
+        // These are the "actors" who generate perspectives.
+        var actorDf = piecesDf.Filter(
+            specificFactions
+                .Select(f => Col("piece").BitwiseAND((int)f).NotEqual(Lit(0)))
+                .Aggregate((acc, cond) => acc.Or(cond))
+        );
+
+        // Rename for perspective origin (actor)
+        actorDf = actorDf
             .WithColumnRenamed("x", "perspective_x")
             .WithColumnRenamed("y", "perspective_y")
-            .WithColumnRenamed("piece", "perspective_piece")
-            .CrossJoin(piecesDf);
+            .WithColumnRenamed("piece", "perspective_piece");
 
-        int factionMask = specificFactions.Aggregate(0, (acc, f) => acc | (int)f);
+        // Cross join: actor perspective × full board state
+        var perspectivesDf = actorDf.CrossJoin(piecesDf);
 
-        var allyConditions = specificFactions
-            .Select(f => Col("piece").BitwiseAND((int)f).NotEqual(Lit(0))
-                        .And(Col("perspective_piece").BitwiseAND((int)f).NotEqual(Lit(0))))
-            .ToArray();
-        var pieceAndPerspectiveShareFaction = allyConditions.Aggregate((acc, c) => acc.Or(c));
+        // 2. Build Self / Ally / Foe logic without removing faction bits
+        // --------------------------------------------------------------
 
-        var pieceFactionConditions = specificFactions
+        // pieceHasFaction (dest piece has any listed faction)
+        var pieceHasFaction = specificFactions
             .Select(f => Col("piece").BitwiseAND((int)f).NotEqual(Lit(0)))
-            .ToArray();
-        var pieceHasFaction = pieceFactionConditions.Aggregate((acc, c) => acc.Or(c));
+            .Aggregate((acc, cond) => acc.Or(cond));
 
+        // piece and perspective share the same faction
+        var pieceAndPerspectiveShareFaction = specificFactions
+            .Select(f =>
+                Col("piece").BitwiseAND((int)f).NotEqual(Lit(0))
+                .And(Col("perspective_piece").BitwiseAND((int)f).NotEqual(Lit(0)))
+            )
+            .Aggregate((acc, cond) => acc.Or(cond));
+
+        // 3. generic_piece preserves all original bits (faction + type)
+        // and simply ORs in Self/Ally/Foe relationship bits.
         Column genericPieceCol =
-            When((Col("x") == Col("perspective_x")).And(Col("y") == Col("perspective_y")),
-                 Col("piece").BitwiseAND(Lit(~factionMask)).BitwiseOR(Lit((int)Piece.Self)))
-            .When(pieceAndPerspectiveShareFaction,
-                 Col("piece").BitwiseAND(Lit(~factionMask)).BitwiseOR(Lit((int)Piece.Ally)))
-            .When(pieceHasFaction.And(Not(pieceAndPerspectiveShareFaction)),
-                 Col("piece").BitwiseAND(Lit(~factionMask)).BitwiseOR(Lit((int)Piece.Foe)))
-            .Otherwise(Col("piece"));
+            When(
+                (Col("x") == Col("perspective_x")) &
+                (Col("y") == Col("perspective_y")),
+                Col("piece").BitwiseOR(Lit((int)Piece.Self))
+            )
+            .When(
+                pieceAndPerspectiveShareFaction,
+                Col("piece").BitwiseOR(Lit((int)Piece.Ally))
+            )
+            .When(
+                pieceHasFaction &
+                Not(pieceAndPerspectiveShareFaction),
+                Col("piece").BitwiseOR(Lit((int)Piece.Foe))
+            )
+            .Otherwise(Col("piece")); // empty or no-faction stays unchanged
 
-        perspectivesDf = perspectivesDf.WithColumn("generic_piece", genericPieceCol);
-
-        return perspectivesDf;
+        return perspectivesDf.WithColumn("generic_piece", genericPieceCol);
     }
+
 
     // ----------------- SUB-SERVICES -----------------
     public class TimelineService()
@@ -103,42 +126,120 @@ public class ChessPolicy
 
             return timelineDf;
         }
-
+        private static void DebugShow(DataFrame df, string label)
+        {
+            Console.WriteLine($"\n========== {label} ==========");
+            Console.WriteLine($"Row count: {df.Count()}");
+        }
         private static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf)
         {
-            var candidatesDf = perspectivesDf
+            // Deduplicate patterns (defensive)
+            var uniquePatternsDf = patternsDf.DropDuplicates();
+
+            DebugShow(perspectivesDf, "perspectivesDf (initial)");
+            DebugShow(patternsDf, "patternsDf (initial)");
+            DebugShow(uniquePatternsDf, "patternsDf (initial, deduped)");
+
+            // Only consider rows where the perspective refers to the subject itself:
+            // i.e. the 'piece' at (x,y) is being considered from the (perspective_x, perspective_y) that equals (x,y).
+            // This collapses the 64x64 cross-joined grid to just 64 "actor" rows (one per board cell).
+            var actorPerspectives = perspectivesDf
+                .Filter(Col("x").EqualTo(Col("perspective_x")).And(Col("y").EqualTo(Col("perspective_y"))));
+
+            DebugShow(actorPerspectives, "actorPerspectives (only subject-as-perspective)");
+            Console.WriteLine("=== SAMPLE dst rows ===");
+            actorPerspectives.Show(50);
+
+            // Step A: Rename and cross join actor rows with patterns
+            var dfA = actorPerspectives
                 .WithColumnRenamed("piece", "src_piece")
                 .WithColumnRenamed("generic_piece", "src_generic_piece")
                 .WithColumnRenamed("x", "src_x")
                 .WithColumnRenamed("y", "src_y")
-                .CrossJoin(patternsDf)
-                .Filter(Col("src_generic_piece").BitwiseAND(Col("src_conditions")).NotEqual(Lit(0)))
-                .Filter(Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0)))
+                .CrossJoin(uniquePatternsDf);
+
+            DebugShow(dfA, "After CrossJoin (dfA)");
+
+            // Step B: Require ALL bits from src_conditions be present in src_generic_piece
+            var dfB = dfA.Filter(
+                Col("src_generic_piece").BitwiseAND(Col("src_conditions"))
+                .EqualTo(Col("src_conditions"))
+            );
+
+            DebugShow(dfB, "After filtering src_conditions (dfB)");
+
+            // Step C: Sequence filter - require Sequence.Public flag
+            var dfC = dfB.Filter(
+                Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0))
+            );
+
+            DebugShow(dfC, "After sequence public filter (dfC)");
+
+            // Step D: Calculate dst coords
+            var dfD = dfC
                 .WithColumn("dst_x", Col("src_x") + Col("delta_x"))
                 .WithColumn("dst_y", Col("src_y") + Col("delta_y"))
-                .Drop("delta_x", "delta_y")
-                .Join(perspectivesDf.Select(
-                        Col("x").Alias("lookup_x"),
-                        Col("y").Alias("lookup_y"),
-                        Col("perspective_x").Alias("lookup_perspective_x"),
-                        Col("perspective_y").Alias("lookup_perspective_y"),
-                        Col("piece").Alias("lookup_piece"),
-                        Col("generic_piece").Alias("lookup_generic_piece")),
-                    (Col("perspective_x") == Col("lookup_perspective_x"))
-                        .And(Col("perspective_y") == Col("lookup_perspective_y"))
-                        .And(Col("dst_x") == Col("lookup_perspective_x"))
-                        .And(Col("dst_y") == Col("lookup_perspective_y"))
-                        .And(Col("dst_x") == Col("lookup_x"))
-                        .And(Col("dst_y") == Col("lookup_y")),
-                    "left_outer")
-                .Na().Fill((int)Piece.OutOfBounds, ["lookup_generic_piece"])
-                .Filter(Col("lookup_generic_piece").NotEqual(Lit((int)Piece.OutOfBounds)))
-                .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y", "lookup_piece")
-                .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece")
-                .Filter(Col("dst_generic_piece").BitwiseAND(Col("dst_conditions")).NotEqual(Lit(0)))
-                .Drop("src_conditions", "dst_conditions");
+                .Drop("delta_x", "delta_y");
 
-            return candidatesDf;
+            DebugShow(dfD, "After computing dst_x/dst_y (dfD)");
+
+            // Step E: Build a lookup DF to find the piece at dst coordinates from the same perspective
+            var lookupDf = perspectivesDf.Select(
+                Col("x").Alias("lookup_x"),
+                Col("y").Alias("lookup_y"),
+                Col("perspective_x").Alias("lookup_perspective_x"),
+                Col("perspective_y").Alias("lookup_perspective_y"),
+                Col("piece").Alias("lookup_piece"),
+                Col("generic_piece").Alias("lookup_generic_piece")
+            );
+
+            DebugShow(lookupDf, "Lookup DF");
+
+            // Step F: Join to get destination pieces (note: keep perspective equality to ensure same perspective)
+            var dfF = dfD.Join(
+                lookupDf,
+                (Col("perspective_x") == Col("lookup_perspective_x"))
+                    .And(Col("perspective_y") == Col("lookup_perspective_y"))
+                    .And(Col("dst_x") == Col("lookup_x"))
+                    .And(Col("dst_y") == Col("lookup_y")),
+                "left_outer"
+            );
+
+            DebugShow(dfF, "After left join (dfF)");
+
+            // Step G: Fill out-of-bounds and then remove those moves
+            var dfG = dfF
+                .Na().Fill((int)Piece.OutOfBounds, new[] { "lookup_generic_piece" });
+
+            DebugShow(dfG, "After Na.Fill (dfG)");
+
+            var dfH = dfG.Filter(
+                Col("lookup_generic_piece").NotEqual(Lit((int)Piece.OutOfBounds))
+            );
+
+            DebugShow(dfH, "After filtering OutOfBounds (dfH)");
+
+            // Step I: rename and keep dst_generic_piece
+            var dfI = dfH
+                .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y", "lookup_piece")
+                .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");
+
+            DebugShow(dfI, "After renaming dst_generic_piece (dfI)");
+
+            // Step J: require ALL bits from dst_conditions be present in the destination
+            var dfJ = dfI.Filter(
+                Col("dst_generic_piece").BitwiseAND(Col("dst_conditions"))
+                .EqualTo(Col("dst_conditions"))
+            );
+
+            DebugShow(dfJ, "After filtering dst_conditions (dfJ)");
+
+            // Step K: Final drop of condition columns and return
+            var finalDf = dfJ.Drop("src_conditions", "dst_conditions");
+
+            DebugShow(finalDf, "FINAL CANDIDATES");
+
+            return finalDf;
         }
 
         private static DataFrame ComputeNextPerspectives(DataFrame candidatesDf)
