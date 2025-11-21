@@ -45,7 +45,7 @@ public class ChessPolicy
         var perspectivesDf = GetPerspectives(board, specificFactions);
         var patternsDf = _patternFactory.GetPatterns();
 
-        return TimelineService.BuildTimeline(perspectivesDf, patternsDf, maxDepth);
+        return TimelineService.BuildTimeline(perspectivesDf, patternsDf, specificFactions, maxDepth);
     }
 
     // ----------------- PRIVATE HELPERS -----------------
@@ -110,13 +110,13 @@ public class ChessPolicy
     // ----------------- SUB-SERVICES -----------------
     public class TimelineService()
     {
-        public static DataFrame BuildTimeline(DataFrame perspectivesDf, DataFrame patternsDf, int maxDepth = 3)
+        public static DataFrame BuildTimeline(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int maxDepth = 3)
         {
             var timelineDf = perspectivesDf.WithColumn("timestep", Lit(0));
 
             for (int depth = 1; depth <= maxDepth; depth++)
             {
-                var candidatesDf = ComputeNextCandidates(timelineDf.Filter(Col("timestep") == depth - 1), patternsDf);
+                var candidatesDf = ComputeNextCandidates(timelineDf.Filter(Col("timestep") == depth - 1), patternsDf, specificFactions);
 
                 var nextPerspectivesDf = ComputeNextPerspectives(candidatesDf)
                     .WithColumn("timestep", Lit(depth));
@@ -131,26 +131,41 @@ public class ChessPolicy
             Console.WriteLine($"\n========== {label} ==========");
             Console.WriteLine($"Row count: {df.Count()}");
         }
-        private static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf)
+
+        public static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int turn = 0)
         {
-            // Deduplicate patterns (defensive)
+            //
+            // 0. Deduplicate patterns
+            //
             var uniquePatternsDf = patternsDf.DropDuplicates();
+            DebugShow(patternsDf, "patternsDf");
+            DebugShow(uniquePatternsDf, "patternsDf (deduped)");
 
-            DebugShow(perspectivesDf, "perspectivesDf (initial)");
-            DebugShow(patternsDf, "patternsDf (initial)");
-            DebugShow(uniquePatternsDf, "patternsDf (initial, deduped)");
-
-            // Only consider rows where the perspective refers to the subject itself:
-            // i.e. the 'piece' at (x,y) is being considered from the (perspective_x, perspective_y) that equals (x,y).
-            // This collapses the 64x64 cross-joined grid to just 64 "actor" rows (one per board cell).
+            //
+            // 1. Build ACTOR perspectives: (x,y) == (perspective_x, perspective_y)
+            //    AND must have a faction bit (not empty).
+            //
             var actorPerspectives = perspectivesDf
-                .Filter(Col("x").EqualTo(Col("perspective_x")).And(Col("y").EqualTo(Col("perspective_y"))));
+                .Filter(
+                    Col("x").EqualTo(Col("perspective_x")).And(
+                    Col("y").EqualTo(Col("perspective_y"))).And(
+                        Col("piece") != Lit((int)Piece.Empty) // ensure only real pieces generate perspectives
+                    )
+                );
 
-            DebugShow(actorPerspectives, "actorPerspectives (only subject-as-perspective)");
-            Console.WriteLine("=== SAMPLE dst rows ===");
-            actorPerspectives.Show(50);
+            DebugShow(actorPerspectives, "actorPerspectives");
 
-            // Step A: Rename and cross join actor rows with patterns
+            //TODO: using the turn argument, find the current faction whose turn it is (modulo specificFactions.length).
+            // then when getting actor perspectives, filter to only that faction.
+            var turnFaction = specificFactions[turn % specificFactions.Length];
+            actorPerspectives = actorPerspectives
+                .Filter(
+                    Col("piece").BitwiseAND(Lit((int)turnFaction)).NotEqual(Lit(0))
+                );
+
+            //
+            // 2. Cross-join actor pieces with patterns
+            //
             var dfA = actorPerspectives
                 .WithColumnRenamed("piece", "src_piece")
                 .WithColumnRenamed("generic_piece", "src_generic_piece")
@@ -160,7 +175,9 @@ public class ChessPolicy
 
             DebugShow(dfA, "After CrossJoin (dfA)");
 
-            // Step B: Require ALL bits from src_conditions be present in src_generic_piece
+            //
+            // 3. Require ALL bits of src_conditions
+            //
             var dfB = dfA.Filter(
                 Col("src_generic_piece").BitwiseAND(Col("src_conditions"))
                 .EqualTo(Col("src_conditions"))
@@ -168,65 +185,109 @@ public class ChessPolicy
 
             DebugShow(dfB, "After filtering src_conditions (dfB)");
 
-            // Step C: Sequence filter - require Sequence.Public flag
+            //
+            // 4. Sequence.Public filter
+            //
             var dfC = dfB.Filter(
                 Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0))
             );
 
-            DebugShow(dfC, "After sequence public filter (dfC)");
+            DebugShow(dfC, "After sequence filter (dfC)");
 
-            // Step D: Calculate dst coords
+            //
+            // 5. Compute dst_x, dst_y
+            //
+            // Build per-faction alternating signs: +1, -1, +1, -1 ...
+            var signCases = specificFactions
+                .Select((faction, index) =>
+                    When(
+                        Col("perspective_piece").BitwiseAND(Lit((int)faction)).NotEqual(Lit(0)),
+                        Lit(index % 2 == 0 ? 1 : -1)
+                    )
+                );
+
+            // Build a CASE expression by chaining .When().When().When()...
+            Column deltaYSignCol = Lit(1); // start with default
+            for (int i = specificFactions.Length - 1; i >= 0; i--)
+            {
+                var condition = Col("perspective_piece").BitwiseAND(Lit((int)specificFactions[i])).NotEqual(Lit(0));
+                var value = Lit(i % 2 == 0 ? 1 : -1);
+                deltaYSignCol = When(condition, value).Otherwise(deltaYSignCol);
+            }
+
+            // Default if no faction matched (empty squares) → 1
+            // deltaYSignCol = deltaYSignCol.Otherwise(Lit(1));
+
             var dfD = dfC
+                .WithColumn("delta_y_sign", deltaYSignCol)
                 .WithColumn("dst_x", Col("src_x") + Col("delta_x"))
-                .WithColumn("dst_y", Col("src_y") + Col("delta_y"))
-                .Drop("delta_x", "delta_y");
+                .WithColumn("dst_y", Col("src_y") + (Col("delta_y") * Col("delta_y_sign")));
+            dfD.Show();
+            dfD =dfD
+                .Drop("delta_x", "delta_y", "delta_y_sign");
+
 
             DebugShow(dfD, "After computing dst_x/dst_y (dfD)");
 
-            // Step E: Build a lookup DF to find the piece at dst coordinates from the same perspective
-            var lookupDf = perspectivesDf.Select(
-                Col("x").Alias("lookup_x"),
-                Col("y").Alias("lookup_y"),
-                Col("perspective_x").Alias("lookup_perspective_x"),
-                Col("perspective_y").Alias("lookup_perspective_y"),
-                Col("piece").Alias("lookup_piece"),
-                Col("generic_piece").Alias("lookup_generic_piece")
-            );
+            //
+            // 6. Lookup DF: only perspectives *from actors*.
+            //    This ensures dst_generic_piece is computed using the SAME perspective
+            //    as the source piece.
+            //
+            var lookupDf = perspectivesDf
+                .Select(
+                    Col("x").Alias("lookup_x"),
+                    Col("y").Alias("lookup_y"),
+                    Col("perspective_x").Alias("lookup_perspective_x"),
+                    Col("perspective_y").Alias("lookup_perspective_y"),
+                    Col("generic_piece").Alias("lookup_generic_piece")
+                );
 
-            DebugShow(lookupDf, "Lookup DF");
+            DebugShow(lookupDf, "Lookup DF (actor-based)");
 
-            // Step F: Join to get destination pieces (note: keep perspective equality to ensure same perspective)
+            //
+            // 7. Join src perspective to dst square using SAME perspective_x/perspective_y
+            //
             var dfF = dfD.Join(
                 lookupDf,
                 (Col("perspective_x") == Col("lookup_perspective_x"))
-                    .And(Col("perspective_y") == Col("lookup_perspective_y"))
-                    .And(Col("dst_x") == Col("lookup_x"))
-                    .And(Col("dst_y") == Col("lookup_y")),
+                .And(Col("perspective_y") == Col("lookup_perspective_y"))
+                .And(Col("dst_x") == Col("lookup_x"))
+                .And(Col("dst_y") == Col("lookup_y")),
                 "left_outer"
             );
 
             DebugShow(dfF, "After left join (dfF)");
 
-            // Step G: Fill out-of-bounds and then remove those moves
-            var dfG = dfF
-                .Na().Fill((int)Piece.OutOfBounds, new[] { "lookup_generic_piece" });
-
+            //
+            // 8. Fill missing generic piece as OutOfBounds
+            //
+            var dfG = dfF.Na().Fill((int)Piece.OutOfBounds, new[] { "lookup_generic_piece" });
             DebugShow(dfG, "After Na.Fill (dfG)");
+            dfG.Show();
 
+            //
+            // 9. Remove moves landing out-of-bounds
+            //
             var dfH = dfG.Filter(
-                Col("lookup_generic_piece").NotEqual(Lit((int)Piece.OutOfBounds))
+                Col("lookup_generic_piece") != Lit((int)Piece.OutOfBounds)
             );
 
             DebugShow(dfH, "After filtering OutOfBounds (dfH)");
 
-            // Step I: rename and keep dst_generic_piece
+            //
+            // 10. Rename dst_generic_piece
+            //
             var dfI = dfH
-                .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y", "lookup_piece")
+                .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y")
                 .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");
 
             DebugShow(dfI, "After renaming dst_generic_piece (dfI)");
+            dfI.Show();
 
-            // Step J: require ALL bits from dst_conditions be present in the destination
+            //
+            // 11. Require ALL bits from dst_conditions
+            //
             var dfJ = dfI.Filter(
                 Col("dst_generic_piece").BitwiseAND(Col("dst_conditions"))
                 .EqualTo(Col("dst_conditions"))
@@ -234,10 +295,13 @@ public class ChessPolicy
 
             DebugShow(dfJ, "After filtering dst_conditions (dfJ)");
 
-            // Step K: Final drop of condition columns and return
+            //
+            // 12. Final cleanup
+            //
             var finalDf = dfJ.Drop("src_conditions", "dst_conditions");
 
             DebugShow(finalDf, "FINAL CANDIDATES");
+            finalDf.Show();
 
             return finalDf;
         }
@@ -297,101 +361,110 @@ public class ChessPolicy
         [
             //=====pawn=====
             // pawn forward (move-only)
-            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q1(), Sequence.OutA      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q1(), Sequence.OutA      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.Empty),
             // pawn forward (post, do nothing)
-            (Piece.Self | Piece.MintPawn, Piece.Empty,        (0, 0).Q1(), Sequence.InA       | Sequence.VariantAny | Sequence.Instant                  | Sequence.Public, ~Piece.Mint),
-            // pawn forward (post, move-only)
-            (Piece.Self | Piece.MintPawn, Piece.Empty,        (0, 1).Q1(), Sequence.InA       | Sequence.VariantAny | Sequence.Instant                  | Sequence.Public, ~Piece.Mint | Piece.Passing),
-            // pawn forward (capture-only)
+            // (Piece.Self | Piece.MintPawn, Piece.Empty,        (0, 0).Q1(), Sequence.InA       | Sequence.VariantAny | Sequence.Instant                  | Sequence.Public, ~Piece.Mint),
+            // // pawn forward (post, move-only)
+            // (Piece.Self | Piece.MintPawn, Piece.Empty,        (0, 1).Q1(), Sequence.InA       | Sequence.VariantAny | Sequence.Instant                  | Sequence.Public, ~Piece.Mint | Piece.Passing),
+            // // pawn forward (capture-only)
             (Piece.Self | Piece.Pawn,     Piece.Foe,          (1, 1).Q1(), Sequence.OutB      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
             (Piece.Self | Piece.Pawn,     Piece.Foe,          (1, 1).Q2(), Sequence.OutB      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // pawn promotion trigger
-            (Piece.Self | Piece.Pawn,     Piece.OutOfBounds,  (0, 1).Q1(), Sequence.InAB_OutC | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.None,   Piece.None),
-            // pawn promotions
-            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Knight),
-            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Rook),
-            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Bishop),
-            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Queen),
-            //=====bishop=====
-            // bishop (pre, move-only)
-            (Piece.Self | Piece.Bishop,   Piece.Empty,        (1, 1).Q1(), Sequence.OutF      | Sequence.Variant1   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.Bishop,   Piece.Empty,        (1, 1).Q2(), Sequence.OutF      | Sequence.Variant2   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.Bishop,   Piece.Empty,        (1, 1).Q3(), Sequence.OutF      | Sequence.Variant3   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.Bishop,   Piece.Empty,        (1, 1).Q4(), Sequence.OutF      | Sequence.Variant4   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            // bishop (move or capture)
-            (Piece.Self | Piece.Bishop,   Piece.EmptyOrFoe,   (1, 1).Q1(), Sequence.InF       | Sequence.Variant1   | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Bishop,   Piece.EmptyOrFoe,   (1, 1).Q2(), Sequence.InF       | Sequence.Variant2   | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Bishop,   Piece.EmptyOrFoe,   (1, 1).Q3(), Sequence.InF       | Sequence.Variant3   | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Bishop,   Piece.EmptyOrFoe,   (1, 1).Q4(), Sequence.InF       | Sequence.Variant4   | Sequence.None                     | Sequence.Public, Piece.None),
-            //=====queen=====
-            // queen as bishop (pre, move-only)
-            (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 1).Q1(), Sequence.OutG      | Sequence.Variant1   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 1).Q2(), Sequence.OutG      | Sequence.Variant2   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 1).Q3(), Sequence.OutG      | Sequence.Variant3   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 1).Q4(), Sequence.OutG      | Sequence.Variant4   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            // queen as bishop (move or capture)
-            (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 1).Q1(), Sequence.InG       | Sequence.Variant1   | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 1).Q2(), Sequence.InG       | Sequence.Variant2   | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 1).Q3(), Sequence.InG       | Sequence.Variant3   | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 1).Q4(), Sequence.InG       | Sequence.Variant4   | Sequence.None                     | Sequence.Public, Piece.None),
-            // queen as rook (pre, move-only)
-            (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 0).Q1(), Sequence.OutH      | Sequence.Variant1   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 0).Q3(), Sequence.OutH      | Sequence.Variant2   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.Empty,        (0, 1).Q1(), Sequence.OutH      | Sequence.Variant3   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.Empty,        (0, 1).Q3(), Sequence.OutH      | Sequence.Variant4   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
-            // queen as rook (move or capture)
-            (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 0).Q1(), Sequence.InH       | Sequence.Variant1   | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 0).Q3(), Sequence.InH       | Sequence.Variant2   | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (0, 1).Q1(), Sequence.InH       | Sequence.Variant3   | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (0, 1).Q3(), Sequence.InH       | Sequence.Variant4   | Sequence.None                     | Sequence.Public, Piece.None),
-            //=====rook=====
-            // rook (pre, move-only)
-            (Piece.Self | Piece.Rook,     Piece.Empty,        (1, 0).Q1(), Sequence.OutI      | Sequence.Variant1   | Sequence.InstantRecursive         | Sequence.None,   ~Piece.Mint),
-            (Piece.Self | Piece.Rook,     Piece.Empty,        (1, 0).Q3(), Sequence.OutI      | Sequence.Variant2   | Sequence.InstantRecursive         | Sequence.None,   ~Piece.Mint),
-            (Piece.Self | Piece.Rook,     Piece.Empty,        (0, 1).Q1(), Sequence.OutI      | Sequence.Variant3   | Sequence.InstantRecursive         | Sequence.None,   ~Piece.Mint),
-            (Piece.Self | Piece.Rook,     Piece.Empty,        (0, 1).Q3(), Sequence.OutI      | Sequence.Variant4   | Sequence.InstantRecursive         | Sequence.None,   ~Piece.Mint),
-            // rook (move or capture)
-            (Piece.Self | Piece.Rook,     Piece.EmptyOrFoe,   (1, 0).Q1(), Sequence.InI       | Sequence.Variant1   | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.Rook,     Piece.EmptyOrFoe,   (1, 0).Q3(), Sequence.InI       | Sequence.Variant2   | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.Rook,     Piece.EmptyOrFoe,   (0, 1).Q1(), Sequence.InI       | Sequence.Variant3   | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.Rook,     Piece.EmptyOrFoe,   (0, 1).Q3(), Sequence.InI       | Sequence.Variant4   | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            //=====knight=====
-            (Piece.Self | Piece.Knight,   Piece.EmptyOrFoe,   (2, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Knight,   Piece.EmptyOrFoe,   (2, 1).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Knight,   Piece.EmptyOrFoe,   (2, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Knight,   Piece.EmptyOrFoe,   (2, 1).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Knight,   Piece.EmptyOrFoe,   (1, 2).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Knight,   Piece.EmptyOrFoe,   (1, 2).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Knight,   Piece.EmptyOrFoe,   (1, 2).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Knight,   Piece.EmptyOrFoe,   (1, 2).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            //=====king=====
-            // king as rook
-            (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 0).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 0).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (0, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (0, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // king as bishop
-            (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // castling moves (left)
-            (Piece.Self | Piece.MintRook, Piece.Empty,        (0, 1).Q1(), Sequence.OutD      | Sequence.Variant1   | Sequence.ParallelInstantRecursive | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.MintRook, Piece.AllyKing,     (0, 1).Q1(), Sequence.InD       | Sequence.Variant1   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
-            (Piece.Self | Piece.MintKing, Piece.EmptyAndSafe, (0, 1).Q3(), Sequence.OutD      | Sequence.Variant1   | Sequence.ParallelInstantRecursive | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.MintKing, Piece.AllyRook,     (0, 1).Q3(), Sequence.InD       | Sequence.Variant1   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
-            // castling moves (right)
-            (Piece.Self | Piece.MintRook, Piece.Empty,        (0, 1).Q3(), Sequence.OutD      | Sequence.Variant2   | Sequence.ParallelInstantRecursive | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.MintRook, Piece.AllyKing,     (0, 1).Q3(), Sequence.InD       | Sequence.Variant2   | Sequence.ParallelMandatory        | Sequence.None,   ~Piece.Mint),
-            (Piece.Self | Piece.MintKing, Piece.EmptyAndSafe, (0, 1).Q1(), Sequence.OutD      | Sequence.Variant2   | Sequence.ParallelInstantRecursive | Sequence.None,   Piece.None),
-            (Piece.Self | Piece.MintKing, Piece.AllyRook,     (0, 1).Q1(), Sequence.InD       | Sequence.Variant2   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
-            // en passant (1. capture sideways)
-            (Piece.Self | Piece.Pawn,     Piece.PassingFoe,   (1, 0).Q1(), Sequence.OutE      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            (Piece.Self | Piece.Pawn,     Piece.PassingFoe,   (1, 0).Q3(), Sequence.OutE      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            // en passant (2. move forward)
-            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q1(), Sequence.InE       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, Piece.None),
-            // en passant (reset passing flag)
-            (Piece.Self | Piece.Passing,  Piece.None,         (0, 0).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.None,   ~Piece.Passing),
+            // // pawn promotion trigger
+            // (Piece.Self | Piece.Pawn,     Piece.OutOfBounds,  (0, 1).Q1(), Sequence.InAB_OutC | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.None,   Piece.None),
+            // // pawn promotions
+            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Knight),
+            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Rook),
+            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Bishop),
+            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Queen),
+            // //=====bishop=====
+            // // bishop (pre, move-only)
+            // (Piece.Self | Piece.Bishop,   Piece.Empty,        (1, 1).Q1(), Sequence.OutF      | Sequence.Variant1   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.Bishop,   Piece.Empty,        (1, 1).Q2(), Sequence.OutF      | Sequence.Variant2   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.Bishop,   Piece.Empty,        (1, 1).Q3(), Sequence.OutF      | Sequence.Variant3   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.Bishop,   Piece.Empty,        (1, 1).Q4(), Sequence.OutF      | Sequence.Variant4   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // // bishop (move or capture)
+            // (Piece.Self | Piece.Bishop,   Piece.EmptyOrFoe,   (1, 1).Q1(), Sequence.InF       | Sequence.Variant1   | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Bishop,   Piece.EmptyOrFoe,   (1, 1).Q2(), Sequence.InF       | Sequence.Variant2   | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Bishop,   Piece.EmptyOrFoe,   (1, 1).Q3(), Sequence.InF       | Sequence.Variant3   | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Bishop,   Piece.EmptyOrFoe,   (1, 1).Q4(), Sequence.InF       | Sequence.Variant4   | Sequence.None                     | Sequence.Public, Piece.None),
+            // //=====queen=====
+            // // queen as bishop (pre, move-only)
+            // (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 1).Q1(), Sequence.OutG      | Sequence.Variant1   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 1).Q2(), Sequence.OutG      | Sequence.Variant2   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 1).Q3(), Sequence.OutG      | Sequence.Variant3   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 1).Q4(), Sequence.OutG      | Sequence.Variant4   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // // queen as bishop (move or capture)
+            // (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 1).Q1(), Sequence.InG       | Sequence.Variant1   | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 1).Q2(), Sequence.InG       | Sequence.Variant2   | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 1).Q3(), Sequence.InG       | Sequence.Variant3   | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 1).Q4(), Sequence.InG       | Sequence.Variant4   | Sequence.None                     | Sequence.Public, Piece.None),
+            // // queen as rook (pre, move-only)
+            // (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 0).Q1(), Sequence.OutH      | Sequence.Variant1   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.Empty,        (1, 0).Q3(), Sequence.OutH      | Sequence.Variant2   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.Empty,        (0, 1).Q1(), Sequence.OutH      | Sequence.Variant3   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.Empty,        (0, 1).Q3(), Sequence.OutH      | Sequence.Variant4   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
+            // // queen as rook (move or capture)
+            // (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 0).Q1(), Sequence.InH       | Sequence.Variant1   | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (1, 0).Q3(), Sequence.InH       | Sequence.Variant2   | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (0, 1).Q1(), Sequence.InH       | Sequence.Variant3   | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Queen,    Piece.EmptyOrFoe,   (0, 1).Q3(), Sequence.InH       | Sequence.Variant4   | Sequence.None                     | Sequence.Public, Piece.None),
+            // //=====rook=====
+            // // rook (pre, move-only)
+            // (Piece.Self | Piece.Rook,     Piece.Empty,        (1, 0).Q1(), Sequence.OutI      | Sequence.Variant1   | Sequence.InstantRecursive         | Sequence.None,   ~Piece.Mint),
+            // (Piece.Self | Piece.Rook,     Piece.Empty,        (1, 0).Q3(), Sequence.OutI      | Sequence.Variant2   | Sequence.InstantRecursive         | Sequence.None,   ~Piece.Mint),
+            // (Piece.Self | Piece.Rook,     Piece.Empty,        (0, 1).Q1(), Sequence.OutI      | Sequence.Variant3   | Sequence.InstantRecursive         | Sequence.None,   ~Piece.Mint),
+            // (Piece.Self | Piece.Rook,     Piece.Empty,        (0, 1).Q3(), Sequence.OutI      | Sequence.Variant4   | Sequence.InstantRecursive         | Sequence.None,   ~Piece.Mint),
+            // // rook (move or capture)
+            // (Piece.Self | Piece.Rook,     Piece.EmptyOrFoe,   (1, 0).Q1(), Sequence.InI       | Sequence.Variant1   | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.Rook,     Piece.EmptyOrFoe,   (1, 0).Q3(), Sequence.InI       | Sequence.Variant2   | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.Rook,     Piece.EmptyOrFoe,   (0, 1).Q1(), Sequence.InI       | Sequence.Variant3   | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.Rook,     Piece.EmptyOrFoe,   (0, 1).Q3(), Sequence.InI       | Sequence.Variant4   | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // //=====knight=====
+            (Piece.Self | Piece.Knight,   Piece.Empty,   (2, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Empty,   (2, 1).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Empty,   (2, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Empty,   (2, 1).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Empty,   (1, 2).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Empty,   (1, 2).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Empty,   (1, 2).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Empty,   (1, 2).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            
+            (Piece.Self | Piece.Knight,   Piece.Foe,   (2, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Foe,   (2, 1).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Foe,   (2, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Foe,   (2, 1).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Foe,   (1, 2).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Foe,   (1, 2).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Foe,   (1, 2).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Knight,   Piece.Foe,   (1, 2).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            // //=====king=====
+            // // king as rook
+            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 0).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 0).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (0, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (0, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // // king as bishop
+            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // // castling moves (left)
+            // (Piece.Self | Piece.MintRook, Piece.Empty,        (0, 1).Q1(), Sequence.OutD      | Sequence.Variant1   | Sequence.ParallelInstantRecursive | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.MintRook, Piece.AllyKing,     (0, 1).Q1(), Sequence.InD       | Sequence.Variant1   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
+            // (Piece.Self | Piece.MintKing, Piece.EmptyAndSafe, (0, 1).Q3(), Sequence.OutD      | Sequence.Variant1   | Sequence.ParallelInstantRecursive | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.MintKing, Piece.AllyRook,     (0, 1).Q3(), Sequence.InD       | Sequence.Variant1   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
+            // // castling moves (right)
+            // (Piece.Self | Piece.MintRook, Piece.Empty,        (0, 1).Q3(), Sequence.OutD      | Sequence.Variant2   | Sequence.ParallelInstantRecursive | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.MintRook, Piece.AllyKing,     (0, 1).Q3(), Sequence.InD       | Sequence.Variant2   | Sequence.ParallelMandatory        | Sequence.None,   ~Piece.Mint),
+            // (Piece.Self | Piece.MintKing, Piece.EmptyAndSafe, (0, 1).Q1(), Sequence.OutD      | Sequence.Variant2   | Sequence.ParallelInstantRecursive | Sequence.None,   Piece.None),
+            // (Piece.Self | Piece.MintKing, Piece.AllyRook,     (0, 1).Q1(), Sequence.InD       | Sequence.Variant2   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
+            // // en passant (1. capture sideways)
+            // (Piece.Self | Piece.Pawn,     Piece.PassingFoe,   (1, 0).Q1(), Sequence.OutE      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            // (Piece.Self | Piece.Pawn,     Piece.PassingFoe,   (1, 0).Q3(), Sequence.OutE      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            // // en passant (2. move forward)
+            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q1(), Sequence.InE       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, Piece.None),
+            // // en passant (reset passing flag)
+            // (Piece.Self | Piece.Passing,  Piece.None,         (0, 0).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.None,   ~Piece.Passing),
         ];
 
         public DataFrame GetPatterns()
@@ -467,6 +540,11 @@ public class ChessPolicy
             board[4, 0] = Set(Piece.White | Piece.Mint | Piece.King);
             board[4, 7] = Set(Piece.Black | Piece.Mint | Piece.King);
 
+            // empties
+            for (int x = 0; x < 8; x++)
+                for (int y = 2; y <= 5; y++)
+                    board[x, y] = Piece.Empty;
+
             return board;
         }
     }
@@ -497,6 +575,8 @@ public class ChessPolicy
         Queen = 1 << 13,
         King = 1 << 14,
 
+        Empty = 1 << 15,
+
 
         MintPawn = Mint | Pawn,
         MintRook = Mint | Rook,
@@ -507,10 +587,7 @@ public class ChessPolicy
 
         Any = Ally | Foe,
 
-        EmptyOrFoe = Empty | Foe,
-        Empty = ~Any,
-
-        EmptyAndSafe = Empty & ~Threatened,
+        EmptyAndSafe = Empty | ~Threatened,
 
         PassingFoe = Passing | Foe,
 
