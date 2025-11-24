@@ -113,3 +113,9 @@ jobs:
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
             ./Game.Chess.Tests.Integration.Runner --filter "FullyQualifiedName~Game.Chess.Tests.Integration.ChessSparkPolicyTests"
+
+      - name: Upload xUnit TRX logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: xunit-trx-logs
+          path: tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults.trx

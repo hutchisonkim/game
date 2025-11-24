@@ -28,7 +28,9 @@ class Program
             FileName = GetDotnetPath(),
             Arguments = $"vstest \"{testAssembly}\" " +
                         $"--TestCaseFilter:\"FullyQualifiedName~{testClass}\" " +
-                        "--logger \"console;verbosity=detailed\"",
+                        "--logger \"console;verbosity=detailed\" " +
+                        "--logger \"trx;LogFileName=TestResults.trx\"",
+                        // "--logger \"console;verbosity=detailed\"",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
