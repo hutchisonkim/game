@@ -112,7 +112,7 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            ./Game.Chess.Tests.Integration.Runner --filter "FullyQualifiedName~Game.Chess.Tests.Integration.ChessSparkPolicyTests" --logger \"trx;LogFileName=TestResults.trx\"
+            ./Game.Chess.Tests.Integration.Runner --logger \"trx;LogFileName=TestResults.trx\"
 
       - name: Upload xUnit TRX logs
         if: always()
