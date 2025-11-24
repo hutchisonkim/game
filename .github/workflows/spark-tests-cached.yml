@@ -115,7 +115,36 @@ jobs:
             ./Game.Chess.Tests.Integration.Runner --filter "FullyQualifiedName~Game.Chess.Tests.Integration.ChessSparkPolicyTests" --logger \"trx;LogFileName=TestResults.trx\"
 
       - name: Upload xUnit TRX logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xunit-trx-logs
           path: tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults/TestResults.trx
+
+      - name: Summarize TRX Results
+        if: always()
+        shell: bash
+        run: |
+          TRX="tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults/TestResults.trx"
+
+          if ! command -v xmllint >/dev/null; then
+            apt-get update -qq && apt-get install -y -qq libxml2-utils
+          fi
+
+          PASS=$(xmllint --xpath "count(//UnitTestResult[@outcome='Passed'])" "$TRX")
+          FAIL=$(xmllint --xpath "count(//UnitTestResult[@outcome='Failed'])" "$TRX")
+
+          {
+            echo "## Test Results"
+            echo ""
+            echo "**Passed:** $PASS"
+            echo "**Failed:** $FAIL"
+            echo ""
+
+            if [ "$FAIL" -gt 0 ]; then
+              echo "### Failures"
+              xmllint --xpath "//UnitTestResult[@outcome='Failed']" "$TRX" \
+                | sed 's/></>\n</g' \
+                | awk -F'"' '/testName=/ {tn=$2} /message=/ {msg=$2; print "* **" tn "** — " msg}'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
