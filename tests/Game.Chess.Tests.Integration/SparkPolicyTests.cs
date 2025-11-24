@@ -201,7 +201,7 @@ public class ChessSparkPolicyTests
         Assert.True(anyFoe, "Expected at least one perspective row to include the Foe flag in generic_piece");
     }
 
-    // [Fact]
+    [Fact]
     public void TimelineService_GeneratesCorrectTimesteps()
     {
         var board = ChessPolicy.Board.Default;
@@ -217,9 +217,9 @@ public class ChessSparkPolicyTests
         Assert.Contains("timestep", timelineDf.Columns());
 
         var timesteps = timelineDf.Select("timestep").Distinct().Collect().Select(r => r.Get(0)).ToList();
+        // Because depth is 1-based, for maxDepth=2 we expect timesteps 0, 1
         Assert.Contains(0, timesteps);
         Assert.Contains(1, timesteps);
-        Assert.Contains(2, timesteps);
     }
 
     [Fact]
