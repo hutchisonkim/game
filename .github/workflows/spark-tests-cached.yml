@@ -44,8 +44,8 @@ jobs:
         run: |
           echo "=== Restoring Project Packages ==="
           set -e
-          cd tests/Game.Chess.Tests.Unit.Runner
-          dotnet restore Game.Chess.Tests.Unit.Runner.csproj --runtime linux-x64
+          cd tests/Game.Chess.Tests.Integration.Runner
+          dotnet restore Game.Chess.Tests.Integration.Runner.csproj --runtime linux-x64
 
       - name: Fix Windows-style paths in NuGet cache
         shell: bash
@@ -94,7 +94,7 @@ jobs:
           apt-get update -qq && apt-get install -y -qq netcat-openbsd zip net-tools
 
           echo "Build and publishing test project..."
-          cd tests/Game.Chess.Tests.Unit.Runner
+          cd tests/Game.Chess.Tests.Integration.Runner
           dotnet build -f net8.0 -r linux-x64
           dotnet publish -f net8.0 -r linux-x64 -c Release --self-contained true
           PUBLISH_DIR="bin/Release/net8.0/linux-x64/publish"
@@ -112,4 +112,4 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            ./Game.Chess.Tests.Unit.Runner --filter "FullyQualifiedName~Game.Chess.Tests.Unit.ChessSparkPolicyTests"
+            ./Game.Chess.Tests.Integration.Runner --filter "FullyQualifiedName~Game.Chess.Tests.Integration.ChessSparkPolicyTests"

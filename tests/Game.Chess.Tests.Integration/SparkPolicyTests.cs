@@ -47,8 +47,6 @@ public class ChessSparkPolicyTests
     [Fact]
     public void Spark_BasicDataFrameOperations_Work()
     {
-        Console.WriteLine("[DEBUG] Spark_BasicDataFrameOperations_Work started");
-
         // Arrange
         var spark = SparkSession
             .Builder()
@@ -202,6 +200,7 @@ public class ChessSparkPolicyTests
     }
 
     [Fact]
+    [Trait("Category", "Slow")]
     public void TimelineService_GeneratesCorrectTimesteps()
     {
         var board = ChessPolicy.Board.Default;
