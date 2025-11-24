@@ -20,7 +20,7 @@ jobs:
         password: ${{ secrets.GHCR_PAT }}
 
     env:
-      TEST_CLASS: Game.Chess.Tests.Unit.ChessSparkPolicyTests
+      TEST_CLASS: Game.Chess.Tests.Integration.ChessSparkPolicyTests
       SPARK_HOME: /opt/spark
       SPARK_VERSION: "3.5.3"
       DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
