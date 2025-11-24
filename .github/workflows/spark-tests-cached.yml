@@ -120,29 +120,27 @@ jobs:
         with:
           name: xunit-trx-logs
           path: tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults/TestResults.trx
-
+          
       - name: Summarize TRX Results (Debug)
         if: always()
         shell: bash
         run: |
+          set -euo pipefail
           echo "=== DEBUG: Starting TRX summary step ==="
 
           TRX="tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults/TestResults.trx"
-
           echo "DEBUG: TRX path: $TRX"
 
           echo "DEBUG: Listing directory:"
-          ls -R tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults || echo "DEBUG: Directory not found!"
+          ls -R "$(dirname "$TRX")" || echo "DEBUG: Directory not found!"
 
-          echo "DEBUG: Checking if file exists:"
           if [ -f "$TRX" ]; then
             echo "DEBUG: TRX file found."
           else
             echo "ERROR: TRX FILE NOT FOUND"
           fi
 
-          echo
-          echo "DEBUG: Install xmllint if needed"
+          # Ensure xmllint is available
           if ! command -v xmllint >/dev/null; then
             echo "DEBUG: xmllint not found, installing..."
             apt-get update -qq && apt-get install -y -qq libxml2-utils
@@ -150,37 +148,24 @@ jobs:
             echo "DEBUG: xmllint already installed."
           fi
 
-          echo
           echo "DEBUG: Dump first 20 lines of TRX:"
           head -n 20 "$TRX" || echo "DEBUG: Could not read TRX"
 
-          echo
-          echo "DEBUG: Dumping XML namespaces detected in TRX:"
-          xmllint --xpath "namespace::*" "$TRX" 2>/dev/null || echo "DEBUG: Could not extract namespaces"
-
-          # Namespace for TRX files
           NS="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"
           echo "DEBUG: Using namespace: $NS"
 
-          echo
-          echo "DEBUG: Trying raw xmllint query for all UnitTestResult nodes:"
+          echo "DEBUG: Extracting all UnitTestResult nodes:"
           xmllint --xpath "//ns:UnitTestResult" --xpath-ns ns="$NS" "$TRX" 2>/dev/null \
             | sed 's/></>\n</g' || echo "DEBUG: Query returned nothing or failed."
 
-          echo
-          echo "DEBUG: Counting passed tests..."
           PASS=$(xmllint --xpath "count(//ns:UnitTestResult[@outcome='Passed'])" \
             --xpath-ns ns="$NS" "$TRX" 2>/dev/null || echo 0)
-          echo "DEBUG: PASS = $PASS"
-
-          echo "DEBUG: Counting failed tests..."
           FAIL=$(xmllint --xpath "count(//ns:UnitTestResult[@outcome='Failed'])" \
             --xpath-ns ns="$NS" "$TRX" 2>/dev/null || echo 0)
-          echo "DEBUG: FAIL = $FAIL"
 
-          echo
+          echo "DEBUG: PASS = $PASS, FAIL = $FAIL"
+
           echo "=== DEBUG: Writing summary ==="
-
           {
             echo "## Test Results"
             echo ""
@@ -190,7 +175,6 @@ jobs:
 
             if [ "$FAIL" -gt 0 ]; then
               echo "### Failures"
-              echo "DEBUG: Extracting failure details..."
               xmllint --xpath "//ns:UnitTestResult[@outcome='Failed']" \
                 --xpath-ns ns="$NS" "$TRX" \
                 | sed 's/></>\n</g' \
@@ -202,4 +186,5 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "=== DEBUG: Done ==="
+
 
