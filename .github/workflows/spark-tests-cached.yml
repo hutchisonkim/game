@@ -131,8 +131,14 @@ jobs:
             apt-get update -qq && apt-get install -y -qq libxml2-utils
           fi
 
-          PASS=$(xmllint --xpath "count(//UnitTestResult[@outcome='Passed'])" "$TRX")
-          FAIL=$(xmllint --xpath "count(//UnitTestResult[@outcome='Failed'])" "$TRX")
+          # Namespace for TRX files
+          NS="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"
+
+          PASS=$(xmllint --xpath "count(//ns:UnitTestResult[@outcome='Passed'])" \
+            --xpath-ns ns="$NS" "$TRX" 2>/dev/null || echo 0)
+
+          FAIL=$(xmllint --xpath "count(//ns:UnitTestResult[@outcome='Failed'])" \
+            --xpath-ns ns="$NS" "$TRX" 2>/dev/null || echo 0)
 
           {
             echo "## Test Results"
@@ -143,8 +149,14 @@ jobs:
 
             if [ "$FAIL" -gt 0 ]; then
               echo "### Failures"
-              xmllint --xpath "//UnitTestResult[@outcome='Failed']" "$TRX" \
+              xmllint --xpath "//ns:UnitTestResult[@outcome='Failed']" \
+                --xpath-ns ns="$NS" "$TRX" \
                 | sed 's/></>\n</g' \
-                | awk -F'"' '/testName=/ {tn=$2} /message=/ {msg=$2; print "* **" tn "** — " msg}'
+                | awk -F'"' '
+                    /testName=/ {name=$2}
+                    /message=/ {msg=$2; print "* **" name "** — " msg}
+                  '
             fi
+
           } >> "$GITHUB_STEP_SUMMARY"
+
