@@ -201,8 +201,10 @@ public class ChessPolicy
             var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
             
             // Check if pattern's In* requirements are met by activeSequences
-            // Convert Out flags to In flags: OutX >> 1 gives InX (due to how the enum is defined)
-            // Actually looking at the enum, OutA = 1 << 6, InA = 1 << 5, so Out >> 1 = In
+            // The In/Out pairs have consecutive bit positions in the enum:
+            // InA = 1 << 5, OutA = 1 << 6, InB = 1 << 7, OutB = 1 << 8, etc.
+            // This means OutX >> 1 = InX for all pairs, allowing us to convert
+            // active Out flags to their corresponding In flags via a single right shift.
             var activeInFlags = (activeSeqInt >> 1) & inMask; // Shift Out flags to corresponding In flags
             var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
             
