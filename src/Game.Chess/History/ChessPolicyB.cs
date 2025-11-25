@@ -342,6 +342,222 @@ public class ChessPolicy
             return finalDf;
         }
 
+        /// <summary>
+        /// Converts Out flags to corresponding In flags via bit shift.
+        /// The In/Out pairs have consecutive bit positions in the enum:
+        /// InA = 1 << 5, OutA = 1 << 6, InB = 1 << 7, OutB = 1 << 8, etc.
+        /// This means OutX >> 1 = InX for all pairs.
+        /// </summary>
+        public static int ConvertOutFlagsToInFlags(int outFlags)
+        {
+            var inMask = (int)Sequence.InMask;
+            return (outFlags >> 1) & inMask;
+        }
+
+        /// <summary>
+        /// Computes all sequenced moves for patterns that use Instant, Recursive, Mandatory, and Parallel flags.
+        /// This enables sliding pieces like Rook/Bishop/Queen to move through empty squares and
+        /// optionally capture at the end.
+        /// 
+        /// For Rook example:
+        /// - OutI patterns with InstantRecursive: move toward empty squares (can repeat)
+        /// - InI patterns with Public: final landing on empty or capturing a foe
+        /// </summary>
+        public static DataFrame ComputeSequencedMoves(
+            DataFrame perspectivesDf,
+            DataFrame patternsDf,
+            Piece[] specificFactions,
+            int turn = 0,
+            Sequence variantFilter = Sequence.None,
+            int maxRecursionDepth = 7,
+            bool debug = false)
+        {
+            // Split patterns into entry patterns (OutX, no In requirements) and continuation patterns (InX, Public)
+            var inMask = (int)Sequence.InMask;
+            var outMask = (int)Sequence.OutMask;
+            var instantRecursive = (int)Sequence.InstantRecursive;
+            var publicFlag = (int)Sequence.Public;
+            
+            // Entry patterns: have OutX flag, InstantRecursive, no InX requirements
+            var entryPatternsDf = patternsDf.Filter(
+                Col("sequence").BitwiseAND(Lit(outMask)).NotEqual(Lit(0))
+                .And(Col("sequence").BitwiseAND(Lit(instantRecursive)).EqualTo(Lit(instantRecursive)))
+                .And(Col("sequence").BitwiseAND(Lit(inMask)).EqualTo(Lit(0)))
+            );
+            
+            // Continuation/final patterns: have InX flag and Public flag
+            var continuationPatternsDf = patternsDf.Filter(
+                Col("sequence").BitwiseAND(Lit(inMask)).NotEqual(Lit(0))
+                .And(Col("sequence").BitwiseAND(Lit(publicFlag)).NotEqual(Lit(0)))
+            );
+            
+            if (debug)
+            {
+                Console.WriteLine($"Entry patterns count: {entryPatternsDf.Count()}");
+                Console.WriteLine($"Continuation patterns count: {continuationPatternsDf.Count()}");
+            }
+            
+            // Apply variant filter if specified
+            if (variantFilter != Sequence.None)
+            {
+                var variantMask = (int)variantFilter;
+                entryPatternsDf = entryPatternsDf.Filter(
+                    Col("sequence").BitwiseAND(Lit(variantMask)).NotEqual(Lit(0))
+                );
+                continuationPatternsDf = continuationPatternsDf.Filter(
+                    Col("sequence").BitwiseAND(Lit(variantMask)).NotEqual(Lit(0))
+                );
+            }
+            
+            // Get initial entry moves (no active sequence, but we need to collect Out flags)
+            // For entry moves, we use activeSequences=None but only use entry patterns
+            var currentMoves = ComputeNextCandidates(
+                perspectivesDf, 
+                entryPatternsDf, 
+                specificFactions, 
+                turn,
+                Sequence.None, // Entry patterns don't require In flags
+                debug
+            );
+            
+            // Accumulate all valid final moves (moves to Public patterns)
+            DataFrame? allFinalMoves = null;
+            
+            // Track the active Out flags from the current moves
+            // and recursively expand through InstantRecursive patterns
+            for (int depth = 0; depth < maxRecursionDepth && currentMoves.Count() > 0; depth++)
+            {
+                if (debug) Console.WriteLine($"Recursion depth {depth}: {currentMoves.Count()} current moves");
+                
+                // For each move with an Out flag, check what In patterns can follow
+                // Get the Out flags from current moves and convert to In flags
+                var movesWithOutFlags = currentMoves.Filter(
+                    Col("sequence").BitwiseAND(Lit(outMask)).NotEqual(Lit(0))
+                );
+                
+                if (movesWithOutFlags.Count() == 0) break;
+                
+                // Get the distinct Out flags being activated
+                var outFlagsRows = movesWithOutFlags
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask)).Alias("out_flags"))
+                    .Distinct()
+                    .Collect();
+                
+                // Compute union of all Out flags from current moves
+                int activeOutFlags = 0;
+                foreach (var row in outFlagsRows)
+                {
+                    activeOutFlags |= row.GetAs<int>("out_flags");
+                }
+                
+                if (activeOutFlags == 0) break;
+                
+                // Convert Out flags to corresponding In flags
+                var activeInFlags = ConvertOutFlagsToInFlags(activeOutFlags);
+                var activeSequence = (Sequence)activeOutFlags;
+                
+                if (debug) Console.WriteLine($"Active Out flags: {activeOutFlags:X}, converted In flags: {activeInFlags:X}");
+                
+                // Update perspectives to the destinations of current moves
+                // (for recursive moves, we need to compute from the new positions)
+                var nextPerspectives = ComputeNextPerspectivesFromMoves(perspectivesDf, movesWithOutFlags, specificFactions);
+                
+                if (nextPerspectives.Count() == 0) break;
+                
+                // Compute continuation moves (patterns with matching In flags)
+                var nextMoves = ComputeNextCandidates(
+                    nextPerspectives,
+                    continuationPatternsDf,
+                    specificFactions,
+                    turn,
+                    activeSequence,
+                    debug
+                );
+                
+                // Separate final moves (Public patterns that are terminal) from recursive moves
+                // Final moves: Public flag set, NOT InstantRecursive
+                var finalMoves = nextMoves.Filter(
+                    Col("sequence").BitwiseAND(Lit(publicFlag)).NotEqual(Lit(0))
+                );
+                
+                // Accumulate final moves
+                if (finalMoves.Count() > 0)
+                {
+                    allFinalMoves = allFinalMoves == null ? finalMoves : allFinalMoves.Union(finalMoves);
+                }
+                
+                // Check if any moves have OutX flags (for further recursion in same direction)
+                var recursiveMoves = nextMoves.Filter(
+                    Col("sequence").BitwiseAND(Lit(outMask)).NotEqual(Lit(0))
+                    .And(Col("sequence").BitwiseAND(Lit(instantRecursive)).EqualTo(Lit(instantRecursive)))
+                );
+                
+                if (recursiveMoves.Count() == 0)
+                {
+                    // Also try entry patterns from new positions for continued sliding
+                    currentMoves = ComputeNextCandidates(
+                        nextPerspectives,
+                        entryPatternsDf,
+                        specificFactions,
+                        turn,
+                        Sequence.None,
+                        debug
+                    );
+                }
+                else
+                {
+                    currentMoves = recursiveMoves;
+                }
+            }
+            
+            // Return all accumulated final moves, or empty DataFrame if none found
+            if (allFinalMoves == null)
+            {
+                // Return empty DataFrame with same schema
+                return currentMoves.Limit(0);
+            }
+            
+            return allFinalMoves;
+        }
+
+        /// <summary>
+        /// Computes new perspectives from move destinations, 
+        /// allowing continuation of the move sequence from the destination squares.
+        /// </summary>
+        private static DataFrame ComputeNextPerspectivesFromMoves(
+            DataFrame originalPerspectives,
+            DataFrame moves,
+            Piece[] specificFactions)
+        {
+            // Get unique destination positions from moves
+            var destinations = moves.Select(
+                Col("dst_x").Alias("new_x"),
+                Col("dst_y").Alias("new_y"),
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_piece"),
+                Col("src_piece").Alias("piece"),
+                Col("src_generic_piece").Alias("generic_piece")
+            );
+            
+            // Generate perspectives centered on each destination
+            // The piece "moves" to dst, so we need perspectives from there
+            return destinations.Select(
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_piece"),
+                Col("new_x").Alias("x"),
+                Col("new_y").Alias("y"),
+                Col("piece"),
+                Col("generic_piece"),
+                Sha2(ConcatWs("_",
+                    Col("new_x").Cast("string"),
+                    Col("new_y").Cast("string"),
+                    Col("generic_piece").Cast("string")),
+                256).Alias("perspective_id")
+            );
+        }
+
         private static DataFrame ComputeNextPerspectives(DataFrame candidatesDf)
         {
             return candidatesDf
