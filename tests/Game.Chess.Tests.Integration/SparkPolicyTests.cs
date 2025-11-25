@@ -920,7 +920,7 @@ public class ChessSparkPolicyTests
 
     [Fact]
     [Trait("Feature", "Sequence")]
-    public void ComputeNextCandidates_WithNoActiveSequence_ReturnsEntryPatterns()
+    public void ComputeNextCandidates_WithNoActiveSequence_ReturnsPublicPatterns()
     {
         // Arrange: Bishop in center of empty board
         var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
@@ -938,7 +938,8 @@ public class ChessSparkPolicyTests
         var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
             .Filter($"(src_conditions & {bishop}) != 0");
 
-        // Act: Compute candidates with no active sequence (entry point)
+        // Act: Compute candidates with no active sequence - backward compatible behavior
+        // All Public patterns should execute (including those with InF flags)
         var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(
             perspectivesDf, 
             patternsDf, 
@@ -948,8 +949,7 @@ public class ChessSparkPolicyTests
         );
         var moves = candidates.Collect();
 
-        // Assert: Should only get moves from patterns with no In* requirements or with Public flag
-        // The InF patterns have In requirements and should NOT execute without active OutF
+        // Assert: Should get moves from all Public patterns (backward compatible)
         Assert.True(moves.Count() >= 4, $"Expected at least 4 bishop moves (one per diagonal), got {moves.Count()}");
     }
 

@@ -187,32 +187,44 @@ public class ChessPolicy
 
             //
             // 4. Sequence filter - support pattern sequencing
-            // A pattern can execute if:
-            // - It has the Public flag AND has no In* requirements (entry point), OR
-            // - Its In* flags are satisfied by the activeSequences
+            // When activeSequences is None, just filter by Public flag (backward compatible)
+            // When activeSequences has Out* flags active, enable patterns with matching In* flags
             //
-            var inMask = (int)Sequence.InMask;
+            DataFrame dfC;
             var activeSeqInt = (int)activeSequences;
             
-            // Pattern's In* flags (what it requires)
-            var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
-            
-            // Check if pattern has no In* requirements (it's an entry pattern)
-            var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
-            
-            // Check if pattern's In* requirements are met by activeSequences
-            // The In/Out pairs have consecutive bit positions in the enum:
-            // InA = 1 << 5, OutA = 1 << 6, InB = 1 << 7, OutB = 1 << 8, etc.
-            // This means OutX >> 1 = InX for all pairs, allowing us to convert
-            // active Out flags to their corresponding In flags via a single right shift.
-            var activeInFlags = (activeSeqInt >> 1) & inMask; // Shift Out flags to corresponding In flags
-            var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
-            
-            // A pattern can execute if it's Public and (has no In requirements OR In requirements are met)
-            var dfC = dfB.Filter(
-                Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0))
-                .And(hasNoInRequirements.Or(inRequirementsMet))
-            );
+            if (activeSeqInt == 0)
+            {
+                // No active sequences - use simple Public filter (backward compatible)
+                dfC = dfB.Filter(
+                    Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0))
+                );
+            }
+            else
+            {
+                // Active sequences present - apply In/Out matching logic
+                var inMask = (int)Sequence.InMask;
+                
+                // Pattern's In* flags (what it requires)
+                var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
+                
+                // Check if pattern has no In* requirements (it's an entry pattern)
+                var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
+                
+                // Check if pattern's In* requirements are met by activeSequences
+                // The In/Out pairs have consecutive bit positions in the enum:
+                // InA = 1 << 5, OutA = 1 << 6, InB = 1 << 7, OutB = 1 << 8, etc.
+                // This means OutX >> 1 = InX for all pairs, allowing us to convert
+                // active Out flags to their corresponding In flags via a single right shift.
+                var activeInFlags = (activeSeqInt >> 1) & inMask; // Shift Out flags to corresponding In flags
+                var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
+                
+                // A pattern can execute if it's Public and (has no In requirements OR In requirements are met)
+                dfC = dfB.Filter(
+                    Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0))
+                    .And(hasNoInRequirements.Or(inRequirementsMet))
+                );
+            }
 
             if(debug) DebugShow(dfC, "After sequence filter (dfC)");
 
