@@ -136,6 +136,11 @@ jobs:
 
           if [ -f "$TRX" ]; then
             echo "DEBUG: TRX file found."
+
+            echo "DEBUG: Stripping BOM if present..."
+            CLEAN_TRX="/tmp/clean.trx"
+            tail -c +1 "$TRX" > "$CLEAN_TRX"
+            TRX="$CLEAN_TRX"
           else
             echo "ERROR: TRX FILE NOT FOUND"
           fi
