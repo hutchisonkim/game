@@ -141,10 +141,10 @@ jobs:
             CLEAN_TRX="/tmp/clean.trx"
 
             # Method 1: sed (very reliable)
-            sed '1s/^\xEF\xBB\xBF//' "$TRX" > "$CLEAN_TRX"
+            # sed '1s/^\xEF\xBB\xBF//' "$TRX" > "$CLEAN_TRX"
 
             # Or Method 2: use a small perl one-liner (also common in CI)
-            # perl -pe 's/\xEF\xBB\xBF// if $. == 1' "$TRX" > "$CLEAN_TRX"
+            perl -pe 's/\xEF\xBB\xBF// if $. == 1' "$TRX" > "$CLEAN_TRX"
 
             TRX="$CLEAN_TRX"
           else
