@@ -327,4 +327,442 @@ public class ChessSparkPolicyTests
         Assert.Empty(offBoardMoves);
     }
 
+    [Fact]
+    public void PatternFactory_Contains_KingMoves()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int king = (int)ChessPolicy.Piece.King;
+
+        // King can move 1 square in any direction
+        // Rook-like moves: (1,0), (-1,0), (0,1), (0,-1)
+        // Bishop-like moves: (1,1), (-1,1), (1,-1), (-1,-1)
+        string filter = $"(src_conditions & {king}) != 0 AND ABS(delta_x) <= 1 AND ABS(delta_y) <= 1 AND NOT (delta_x = 0 AND delta_y = 0)";
+        long count = patternsDf.Filter(filter).Count();
+
+        // King should have 16 patterns: 8 directions × 2 (Empty + Foe)
+        Assert.True(count >= 16, $"Expected at least 16 king move patterns, got {count}");
+    }
+
+    [Fact]
+    public void King_InCenter_Has8EmptySquareMoves()
+    {
+        // Arrange: King in center of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to king-only patterns
+        int king = (int)ChessPolicy.Piece.King;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {king}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // King in center should be able to move to 8 surrounding empty squares
+        Assert.Equal(8, moves.Count());
+    }
+
+    [Fact]
+    public void King_CanCaptureFoe()
+    {
+        // Arrange: White King at (4,4), Black pawn at (5,5)
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King;
+        board.Cell[5, 5] = ChessPolicy.Piece.Black | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to king-only patterns
+        int king = (int)ChessPolicy.Piece.King;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {king}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // King should be able to move to 7 empty squares + capture the enemy pawn = 8 moves
+        Assert.Equal(8, moves.Count());
+        
+        // Check that one move lands on (5,5) - the capture
+        var captureMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 5 && r.GetAs<int>("dst_y") == 5);
+        Assert.NotNull(captureMove);
+    }
+
+    [Fact]
+    public void King_CannotMoveOntoAlly()
+    {
+        // Arrange: White King at (4,4), White pawn at (5,5)
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King;
+        board.Cell[5, 5] = ChessPolicy.Piece.White | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to king-only patterns
+        int king = (int)ChessPolicy.Piece.King;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {king}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // King should only have 7 moves (cannot land on allied piece at 5,5)
+        Assert.Equal(7, moves.Count());
+        
+        // Verify no move lands on (5,5)
+        var invalidMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 5 && r.GetAs<int>("dst_y") == 5);
+        Assert.Null(invalidMove);
+    }
+
+    [Fact]
+    public void King_AtCorner_HasLimitedMoves()
+    {
+        // Arrange: King at corner (0,0) of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[0, 0] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to king-only patterns
+        int king = (int)ChessPolicy.Piece.King;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {king}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // King at corner should only have 3 valid moves
+        Assert.Equal(3, moves.Count());
+    }
+
+    [Fact]
+    public void PatternFactory_Contains_RookMoves()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int rook = (int)ChessPolicy.Piece.Rook;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+
+        // Rook moves horizontally and vertically
+        // Public patterns only for actual moves (not pre-moves)
+        string filter = $"(src_conditions & {rook}) != 0 AND (sequence & {publicSeq}) != 0";
+        long count = patternsDf.Filter(filter).Count();
+
+        // Rook should have 8 patterns: 4 directions × 2 (Empty + Foe)
+        Assert.True(count >= 8, $"Expected at least 8 rook public move patterns, got {count}");
+    }
+
+    [Fact]
+    public void Rook_CanMoveToAdjacentSquares()
+    {
+        // Arrange: Rook in center of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to rook-only public patterns
+        int rook = (int)ChessPolicy.Piece.Rook;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {rook}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // Rook moves to 4 adjacent squares initially (up, down, left, right)
+        // Full sliding requires recursive timeline expansion
+        Assert.True(moves.Count() >= 4, $"Expected at least 4 rook moves, got {moves.Count()}");
+    }
+
+    [Fact]
+    public void Rook_CanCaptureFoe()
+    {
+        // Arrange: White Rook at (0,0), Black pawn at (1,0) - adjacent
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[0, 0] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+        board.Cell[1, 0] = ChessPolicy.Piece.Black | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to rook-only public patterns
+        int rook = (int)ChessPolicy.Piece.Rook;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {rook}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // Check that there is a capture move to (1,0)
+        var captureMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 1 && r.GetAs<int>("dst_y") == 0);
+        Assert.NotNull(captureMove);
+    }
+
+    [Fact]
+    public void Rook_CannotMoveOntoAlly()
+    {
+        // Arrange: White Rook at (0,0), White pawn at (0,1) - adjacent
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[0, 0] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+        board.Cell[0, 1] = ChessPolicy.Piece.White | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to rook-only public patterns
+        int rook = (int)ChessPolicy.Piece.Rook;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {rook}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // Verify no move lands on (0,1) - the allied piece
+        var invalidMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 0 && r.GetAs<int>("dst_y") == 1);
+        Assert.Null(invalidMove);
+    }
+
+    [Fact]
+    public void PatternFactory_Contains_BishopMoves()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int bishop = (int)ChessPolicy.Piece.Bishop;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+
+        // Bishop moves diagonally
+        string filter = $"(src_conditions & {bishop}) != 0 AND (sequence & {publicSeq}) != 0";
+        long count = patternsDf.Filter(filter).Count();
+
+        // Bishop should have 8 patterns: 4 diagonals × 2 (Empty + Foe)
+        Assert.True(count >= 8, $"Expected at least 8 bishop public move patterns, got {count}");
+    }
+
+    [Fact]
+    public void Bishop_CanMoveToAdjacentDiagonals()
+    {
+        // Arrange: Bishop in center of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to bishop-only public patterns
+        int bishop = (int)ChessPolicy.Piece.Bishop;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {bishop}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // Bishop moves to 4 adjacent diagonal squares initially
+        // Full sliding requires recursive timeline expansion
+        Assert.True(moves.Count() >= 4, $"Expected at least 4 bishop moves, got {moves.Count()}");
+    }
+
+    [Fact]
+    public void Bishop_CanCaptureFoe()
+    {
+        // Arrange: White Bishop at (2,2), Black pawn at (3,3) - adjacent diagonal
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[2, 2] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop;
+        board.Cell[3, 3] = ChessPolicy.Piece.Black | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to bishop-only public patterns
+        int bishop = (int)ChessPolicy.Piece.Bishop;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {bishop}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // Check that there is a capture move to (3,3)
+        var captureMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 3 && r.GetAs<int>("dst_y") == 3);
+        Assert.NotNull(captureMove);
+    }
+
+    [Fact]
+    public void Bishop_CannotMoveOntoAlly()
+    {
+        // Arrange: White Bishop at (2,2), White pawn at (3,3) - adjacent diagonal
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[2, 2] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop;
+        board.Cell[3, 3] = ChessPolicy.Piece.White | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to bishop-only public patterns
+        int bishop = (int)ChessPolicy.Piece.Bishop;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {bishop}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // Verify no move lands on (3,3) - the allied piece
+        var invalidMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 3 && r.GetAs<int>("dst_y") == 3);
+        Assert.Null(invalidMove);
+    }
+
+    [Fact]
+    public void PatternFactory_Contains_QueenMoves()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int queen = (int)ChessPolicy.Piece.Queen;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+
+        // Queen moves like both rook and bishop
+        string filter = $"(src_conditions & {queen}) != 0 AND (sequence & {publicSeq}) != 0";
+        long count = patternsDf.Filter(filter).Count();
+
+        // Queen should have 16 patterns: 8 directions × 2 (Empty + Foe)
+        Assert.True(count >= 16, $"Expected at least 16 queen public move patterns, got {count}");
+    }
+
+    [Fact]
+    public void Queen_CanMoveToAdjacentSquares()
+    {
+        // Arrange: Queen in center of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Queen;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to queen-only public patterns
+        int queen = (int)ChessPolicy.Piece.Queen;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {queen}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // Queen moves to 8 adjacent squares initially (4 orthogonal + 4 diagonal)
+        // Full sliding requires recursive timeline expansion
+        Assert.True(moves.Count() >= 8, $"Expected at least 8 queen moves, got {moves.Count()}");
+    }
+
+    [Fact]
+    public void Queen_CanCaptureFoe()
+    {
+        // Arrange: White Queen at (0,0), Black pawn at (0,1) - adjacent
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[0, 0] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Queen;
+        board.Cell[0, 1] = ChessPolicy.Piece.Black | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to queen-only public patterns
+        int queen = (int)ChessPolicy.Piece.Queen;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {queen}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // Check that there is a capture move to (0,1)
+        var captureMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 0 && r.GetAs<int>("dst_y") == 1);
+        Assert.NotNull(captureMove);
+    }
+
+    [Fact]
+    public void Queen_CannotMoveOntoAlly()
+    {
+        // Arrange: White Queen at (0,0), White pawn at (1,1) - adjacent diagonal
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[0, 0] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Queen;
+        board.Cell[1, 1] = ChessPolicy.Piece.White | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to queen-only public patterns
+        int queen = (int)ChessPolicy.Piece.Queen;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {queen}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect();
+
+        // Verify no move lands on (1,1) - the allied piece
+        var invalidMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 1 && r.GetAs<int>("dst_y") == 1);
+        Assert.Null(invalidMove);
+    }
+
 }
