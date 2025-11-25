@@ -132,7 +132,7 @@ public class ChessPolicy
             Console.WriteLine($"Row count: {df.Count()}");
         }
 
-        public static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int turn = 0, Sequence activeSequences = Sequence.None, bool debug = false)
+        public static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int turn = 0, Sequence activeSequences = Sequence.None, bool debug = false, bool skipPublicFilter = false)
         {
             //
             // 0. Deduplicate patterns
@@ -189,11 +189,17 @@ public class ChessPolicy
             // 4. Sequence filter - support pattern sequencing
             // When activeSequences is None, just filter by Public flag (backward compatible)
             // When activeSequences has Out* flags active, enable patterns with matching In* flags
+            // When skipPublicFilter is true, skip the Public filter (for computing internal entry moves)
             //
             DataFrame dfC;
             var activeSeqInt = (int)activeSequences;
             
-            if (activeSeqInt == 0)
+            if (skipPublicFilter)
+            {
+                // Skip Public filter - used for computing internal entry moves
+                dfC = dfB;
+            }
+            else if (activeSeqInt == 0)
             {
                 // No active sequences - use simple Public filter (backward compatible)
                 dfC = dfB.Filter(
@@ -426,14 +432,15 @@ public class ChessPolicy
             }
             
             // Get initial entry moves (no active sequence, but we need to collect Out flags)
-            // For entry moves, we use activeSequences=None but only use entry patterns
+            // For entry moves, we skip the Public filter since entry patterns don't have Public flag
             var currentMoves = ComputeNextCandidates(
                 perspectivesDf, 
                 entryPatternsDf, 
                 specificFactions, 
                 turn,
                 Sequence.None, // Entry patterns don't require In flags
-                debug
+                debug,
+                skipPublicFilter: true // Entry patterns don't have Public flag
             );
             
             // Accumulate all valid final moves (moves to Public patterns)
@@ -517,7 +524,8 @@ public class ChessPolicy
                         specificFactions,
                         turn,
                         Sequence.None,
-                        debug
+                        debug,
+                        skipPublicFilter: true // Entry patterns don't have Public flag
                     );
                 }
                 else
