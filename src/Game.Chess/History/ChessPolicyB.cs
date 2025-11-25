@@ -439,17 +439,27 @@ public class ChessPolicy
             (Piece.Self | Piece.Knight,   Piece.Foe,   (1, 2).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
             (Piece.Self | Piece.Knight,   Piece.Foe,   (1, 2).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
             (Piece.Self | Piece.Knight,   Piece.Foe,   (1, 2).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            // //=====king=====
-            // // king as rook
-            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 0).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 0).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (0, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (0, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // // king as bishop
-            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // (Piece.Self | Piece.King,     Piece.EmptyOrFoe,   (1, 1).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            //=====king=====
+            // king as rook (move to empty)
+            (Piece.Self | Piece.King,     Piece.Empty,   (1, 0).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Empty,   (1, 0).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Empty,   (0, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Empty,   (0, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // king as rook (capture foe)
+            (Piece.Self | Piece.King,     Piece.Foe,     (1, 0).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Foe,     (1, 0).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Foe,     (0, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Foe,     (0, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // king as bishop (move to empty)
+            (Piece.Self | Piece.King,     Piece.Empty,   (1, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Empty,   (1, 1).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Empty,   (1, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Empty,   (1, 1).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            // king as bishop (capture foe)
+            (Piece.Self | Piece.King,     Piece.Foe,     (1, 1).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Foe,     (1, 1).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Foe,     (1, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.King,     Piece.Foe,     (1, 1).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
             // // castling moves (left)
             // (Piece.Self | Piece.MintRook, Piece.Empty,        (0, 1).Q1(), Sequence.OutD      | Sequence.Variant1   | Sequence.ParallelInstantRecursive | Sequence.Public, Piece.None),
             // (Piece.Self | Piece.MintRook, Piece.AllyKing,     (0, 1).Q1(), Sequence.InD       | Sequence.Variant1   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
