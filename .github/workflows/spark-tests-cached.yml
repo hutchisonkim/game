@@ -101,7 +101,7 @@ jobs:
           [ -d "$PUBLISH_DIR" ] || exit 1
            
           # Copy everything from the net8.0 folder to your publish dir
-          cp ~/.nuget/xunit.runner.console/2.9.3/tools/net6.0/* "$PUBLISH_DIR"/
+          # cp ~/.nuget/xunit.runner.console/2.9.3/tools/net6.0/* "$PUBLISH_DIR"/
 
           echo "Running Spark tests via spark-submit (xUnit console runner)..."
           cd "$PUBLISH_DIR"
@@ -112,7 +112,7 @@ jobs:
             --class org.apache.spark.deploy.dotnet.DotnetRunner \
             --master local \
             "microsoft-spark-3-5_2.12-2.3.0.jar" \
-            ./Game.Chess.Tests.Integration.Runner --logger \"trx;LogFileName=TestResults.trx\"
+            ./Game.Chess.Tests.Integration.Runner
 
       - name: Upload xUnit TRX logs
         if: always()

@@ -19,7 +19,7 @@ COPY .docker_cache /cache
 # ---- Base tools -----------------------------------------------------
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      curl ca-certificates tar procps bash wget gnupg apt-transport-https && \
+      curl ca-certificates tar procps bash wget gnupg apt-transport-https libxml2-utils netcat-openbsd zip net-tools && \
     rm -rf /var/lib/apt/lists/*
 
 # ---- Spark ----------------------------------------------------------

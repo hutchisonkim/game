@@ -6,7 +6,7 @@ class Program
 {
     static int Main()
     {
-        Console.WriteLine("****[DEBUG] Starting test runner****");
+        // Console.WriteLine("****[DEBUG] Starting test runner****");
 
         // Path to the test DLL (publish folder)
         string testAssembly = Path.Combine(AppContext.BaseDirectory, "Game.Chess.Tests.Integration.dll");
@@ -28,9 +28,9 @@ class Program
             FileName = GetDotnetPath(),
             Arguments = $"vstest \"{testAssembly}\" " +
                         $"--TestCaseFilter:\"FullyQualifiedName~{testClass}\" " +
-                        "--logger \"console;verbosity=detailed\" " +
+                        "--logger \"console;verbosity=detailed\" " + //detailed keeps test-output.log relevant (<PUBLISH_DIR>\test-output.log)
+                        // "--logger \"console;verbosity=minimal\" " +
                         "--logger \"trx;LogFileName=TestResults.trx\"",
-                        // "--logger \"console;verbosity=detailed\"",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -40,11 +40,11 @@ class Program
         psi.EnvironmentVariables["DOTNET_ROOT"] = @"C:\Program Files\dotnet";
         psi.EnvironmentVariables["DOTNET_WORKER_DIR"] = @"C:\Program Files\dotnet";
 
-        Console.WriteLine("****[DEBUG] Environment Variables****");
-        foreach (var key in Environment.GetEnvironmentVariables().Keys)
-        {
-            Console.WriteLine($"{key} = {Environment.GetEnvironmentVariable(key.ToString())}");
-        }
+        // Console.WriteLine("****[DEBUG] Environment Variables****");
+        // foreach (var key in Environment.GetEnvironmentVariables().Keys)
+        // {
+        //     Console.WriteLine($"{key} = {Environment.GetEnvironmentVariable(key.ToString())}");
+        // }
 
         using var proc = Process.Start(psi);
         using var logWriter = new StreamWriter(logFile, false) { AutoFlush = true };
