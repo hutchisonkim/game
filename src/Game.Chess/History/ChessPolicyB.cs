@@ -342,6 +342,22 @@ public class ChessPolicy
             return finalDf;
         }
 
+        // Static validation: Verify the bit shift relationship between Out and In flags at compile time
+        // This ensures OutX >> 1 = InX for all pairs
+        static TimelineService()
+        {
+            // Validate that OutX >> 1 = InX for all pairs
+            System.Diagnostics.Debug.Assert((int)Sequence.OutA >> 1 == (int)Sequence.InA, "OutA >> 1 should equal InA");
+            System.Diagnostics.Debug.Assert((int)Sequence.OutB >> 1 == (int)Sequence.InB, "OutB >> 1 should equal InB");
+            System.Diagnostics.Debug.Assert((int)Sequence.OutC >> 1 == (int)Sequence.InC, "OutC >> 1 should equal InC");
+            System.Diagnostics.Debug.Assert((int)Sequence.OutD >> 1 == (int)Sequence.InD, "OutD >> 1 should equal InD");
+            System.Diagnostics.Debug.Assert((int)Sequence.OutE >> 1 == (int)Sequence.InE, "OutE >> 1 should equal InE");
+            System.Diagnostics.Debug.Assert((int)Sequence.OutF >> 1 == (int)Sequence.InF, "OutF >> 1 should equal InF");
+            System.Diagnostics.Debug.Assert((int)Sequence.OutG >> 1 == (int)Sequence.InG, "OutG >> 1 should equal InG");
+            System.Diagnostics.Debug.Assert((int)Sequence.OutH >> 1 == (int)Sequence.InH, "OutH >> 1 should equal InH");
+            System.Diagnostics.Debug.Assert((int)Sequence.OutI >> 1 == (int)Sequence.InI, "OutI >> 1 should equal InI");
+        }
+
         /// <summary>
         /// Converts Out flags to corresponding In flags via bit shift.
         /// The In/Out pairs have consecutive bit positions in the enum:

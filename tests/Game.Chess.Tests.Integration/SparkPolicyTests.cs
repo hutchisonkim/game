@@ -1246,8 +1246,7 @@ public class ChessSparkPolicyTests
         var movesList = moves.Collect().ToList();
         
         // Assert: Rook should be able to reach all squares in horizontal and vertical lines
-        // From (4,4): 7 squares right, 4 squares left, 4 squares up, 3 squares down = 18 squares (excluding corners hit twice)
-        // Actually: columns 0-7 on row 4 (except 4), rows 0-7 on column 4 (except 4) = 7 + 7 = 14 squares
+        // From (4,4): columns 0-7 on row 4 (except 4), rows 0-7 on column 4 (except 4) = 7 + 7 = 14 squares
         Assert.True(movesList.Count >= 14, $"Expected at least 14 rook moves from center, got {movesList.Count}");
     }
 
