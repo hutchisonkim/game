@@ -765,4 +765,361 @@ public class ChessSparkPolicyTests
         Assert.Null(invalidMove);
     }
 
+    // =====================================================
+    // SEQUENCE PARAMETER TESTS
+    // Tests validating pattern sequencing functionality
+    // =====================================================
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void Sequence_InMaskAndOutMask_AreCorrectlyDefined()
+    {
+        // Verify that InMask covers all In* flags
+        var inMask = (int)ChessPolicy.Sequence.InMask;
+        Assert.True((inMask & (int)ChessPolicy.Sequence.InA) != 0);
+        Assert.True((inMask & (int)ChessPolicy.Sequence.InB) != 0);
+        Assert.True((inMask & (int)ChessPolicy.Sequence.InC) != 0);
+        Assert.True((inMask & (int)ChessPolicy.Sequence.InD) != 0);
+        Assert.True((inMask & (int)ChessPolicy.Sequence.InE) != 0);
+        Assert.True((inMask & (int)ChessPolicy.Sequence.InF) != 0);
+        Assert.True((inMask & (int)ChessPolicy.Sequence.InG) != 0);
+        Assert.True((inMask & (int)ChessPolicy.Sequence.InH) != 0);
+        Assert.True((inMask & (int)ChessPolicy.Sequence.InI) != 0);
+
+        // Verify that OutMask covers all Out* flags
+        var outMask = (int)ChessPolicy.Sequence.OutMask;
+        Assert.True((outMask & (int)ChessPolicy.Sequence.OutA) != 0);
+        Assert.True((outMask & (int)ChessPolicy.Sequence.OutB) != 0);
+        Assert.True((outMask & (int)ChessPolicy.Sequence.OutC) != 0);
+        Assert.True((outMask & (int)ChessPolicy.Sequence.OutD) != 0);
+        Assert.True((outMask & (int)ChessPolicy.Sequence.OutE) != 0);
+        Assert.True((outMask & (int)ChessPolicy.Sequence.OutF) != 0);
+        Assert.True((outMask & (int)ChessPolicy.Sequence.OutG) != 0);
+        Assert.True((outMask & (int)ChessPolicy.Sequence.OutH) != 0);
+        Assert.True((outMask & (int)ChessPolicy.Sequence.OutI) != 0);
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void Sequence_OutToIn_ConversionWorks()
+    {
+        // Verify that Out >> 1 = In for all pairs
+        Assert.Equal((int)ChessPolicy.Sequence.InA, (int)ChessPolicy.Sequence.OutA >> 1);
+        Assert.Equal((int)ChessPolicy.Sequence.InB, (int)ChessPolicy.Sequence.OutB >> 1);
+        Assert.Equal((int)ChessPolicy.Sequence.InC, (int)ChessPolicy.Sequence.OutC >> 1);
+        Assert.Equal((int)ChessPolicy.Sequence.InD, (int)ChessPolicy.Sequence.OutD >> 1);
+        Assert.Equal((int)ChessPolicy.Sequence.InE, (int)ChessPolicy.Sequence.OutE >> 1);
+        Assert.Equal((int)ChessPolicy.Sequence.InF, (int)ChessPolicy.Sequence.OutF >> 1);
+        Assert.Equal((int)ChessPolicy.Sequence.InG, (int)ChessPolicy.Sequence.OutG >> 1);
+        Assert.Equal((int)ChessPolicy.Sequence.InH, (int)ChessPolicy.Sequence.OutH >> 1);
+        Assert.Equal((int)ChessPolicy.Sequence.InI, (int)ChessPolicy.Sequence.OutI >> 1);
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void Sequence_BishopPatterns_HaveCorrectFlags()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int bishop = (int)ChessPolicy.Piece.Bishop;
+        int outF = (int)ChessPolicy.Sequence.OutF;
+        int inF = (int)ChessPolicy.Sequence.InF;
+        int instantRecursive = (int)ChessPolicy.Sequence.InstantRecursive;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+
+        // Bishop should have OutF patterns (pre-move, recursive) - NOT public
+        string outFilter = $"(src_conditions & {bishop}) != 0 AND (sequence & {outF}) != 0 AND (sequence & {instantRecursive}) != 0";
+        long outCount = patternsDf.Filter(outFilter).Count();
+        Assert.True(outCount >= 4, $"Expected at least 4 bishop OutF patterns, got {outCount}");
+
+        // Bishop should have InF patterns (final landing) - public
+        string inFilter = $"(src_conditions & {bishop}) != 0 AND (sequence & {inF}) != 0 AND (sequence & {publicSeq}) != 0";
+        long inCount = patternsDf.Filter(inFilter).Count();
+        Assert.True(inCount >= 4, $"Expected at least 4 bishop InF public patterns, got {inCount}");
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void Sequence_RookPatterns_HaveCorrectFlags()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int rook = (int)ChessPolicy.Piece.Rook;
+        int outI = (int)ChessPolicy.Sequence.OutI;
+        int inI = (int)ChessPolicy.Sequence.InI;
+        int instantRecursive = (int)ChessPolicy.Sequence.InstantRecursive;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+
+        // Rook should have OutI patterns (pre-move, recursive) - NOT public
+        string outFilter = $"(src_conditions & {rook}) != 0 AND (sequence & {outI}) != 0 AND (sequence & {instantRecursive}) != 0";
+        long outCount = patternsDf.Filter(outFilter).Count();
+        Assert.True(outCount >= 4, $"Expected at least 4 rook OutI patterns, got {outCount}");
+
+        // Rook should have InI patterns (final landing) - public
+        string inFilter = $"(src_conditions & {rook}) != 0 AND (sequence & {inI}) != 0 AND (sequence & {publicSeq}) != 0";
+        long inCount = patternsDf.Filter(inFilter).Count();
+        Assert.True(inCount >= 4, $"Expected at least 4 rook InI public patterns, got {inCount}");
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void Sequence_QueenPatterns_HaveCorrectFlags()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int queen = (int)ChessPolicy.Piece.Queen;
+        int outG = (int)ChessPolicy.Sequence.OutG;
+        int outH = (int)ChessPolicy.Sequence.OutH;
+        int inG = (int)ChessPolicy.Sequence.InG;
+        int inH = (int)ChessPolicy.Sequence.InH;
+        int instantRecursive = (int)ChessPolicy.Sequence.InstantRecursive;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+
+        // Queen as bishop - OutG patterns (pre-move, recursive)
+        string outGFilter = $"(src_conditions & {queen}) != 0 AND (sequence & {outG}) != 0 AND (sequence & {instantRecursive}) != 0";
+        long outGCount = patternsDf.Filter(outGFilter).Count();
+        Assert.True(outGCount >= 4, $"Expected at least 4 queen OutG patterns, got {outGCount}");
+
+        // Queen as bishop - InG patterns (final landing)
+        string inGFilter = $"(src_conditions & {queen}) != 0 AND (sequence & {inG}) != 0 AND (sequence & {publicSeq}) != 0";
+        long inGCount = patternsDf.Filter(inGFilter).Count();
+        Assert.True(inGCount >= 4, $"Expected at least 4 queen InG patterns, got {inGCount}");
+
+        // Queen as rook - OutH patterns (pre-move, recursive)
+        string outHFilter = $"(src_conditions & {queen}) != 0 AND (sequence & {outH}) != 0 AND (sequence & {instantRecursive}) != 0";
+        long outHCount = patternsDf.Filter(outHFilter).Count();
+        Assert.True(outHCount >= 4, $"Expected at least 4 queen OutH patterns, got {outHCount}");
+
+        // Queen as rook - InH patterns (final landing)
+        string inHFilter = $"(src_conditions & {queen}) != 0 AND (sequence & {inH}) != 0 AND (sequence & {publicSeq}) != 0";
+        long inHCount = patternsDf.Filter(inHFilter).Count();
+        Assert.True(inHCount >= 4, $"Expected at least 4 queen InH patterns, got {inHCount}");
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void Sequence_PawnPatterns_HaveCorrectFlags()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int pawn = (int)ChessPolicy.Piece.Pawn;
+        int outA = (int)ChessPolicy.Sequence.OutA;
+        int outB = (int)ChessPolicy.Sequence.OutB;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+
+        // Pawn forward move - OutA pattern (public)
+        string outAFilter = $"(src_conditions & {pawn}) != 0 AND (sequence & {outA}) != 0 AND (sequence & {publicSeq}) != 0";
+        long outACount = patternsDf.Filter(outAFilter).Count();
+        Assert.True(outACount >= 1, $"Expected at least 1 pawn OutA pattern, got {outACount}");
+
+        // Pawn capture - OutB pattern (public)
+        string outBFilter = $"(src_conditions & {pawn}) != 0 AND (sequence & {outB}) != 0 AND (sequence & {publicSeq}) != 0";
+        long outBCount = patternsDf.Filter(outBFilter).Count();
+        Assert.True(outBCount >= 2, $"Expected at least 2 pawn OutB patterns (left/right diagonal), got {outBCount}");
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void ComputeNextCandidates_WithNoActiveSequence_ReturnsEntryPatterns()
+    {
+        // Arrange: Bishop in center of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to bishop-only patterns
+        int bishop = (int)ChessPolicy.Piece.Bishop;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {bishop}) != 0");
+
+        // Act: Compute candidates with no active sequence (entry point)
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(
+            perspectivesDf, 
+            patternsDf, 
+            factions,
+            turn: 0,
+            activeSequences: ChessPolicy.Sequence.None
+        );
+        var moves = candidates.Collect();
+
+        // Assert: Should only get moves from patterns with no In* requirements or with Public flag
+        // The InF patterns have In requirements and should NOT execute without active OutF
+        Assert.True(moves.Count() >= 4, $"Expected at least 4 bishop moves (one per diagonal), got {moves.Count()}");
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void ComputeNextCandidates_WithActiveOutF_EnablesInFPatterns()
+    {
+        // Arrange: Bishop in center of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to bishop-only InF patterns (final landing)
+        int bishop = (int)ChessPolicy.Piece.Bishop;
+        int inF = (int)ChessPolicy.Sequence.InF;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {bishop}) != 0 AND (sequence & {inF}) != 0");
+
+        // Act: Compute candidates WITH active OutF sequence
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(
+            perspectivesDf, 
+            patternsDf, 
+            factions,
+            turn: 0,
+            activeSequences: ChessPolicy.Sequence.OutF
+        );
+        var moves = candidates.Collect();
+
+        // Assert: InF patterns should now be enabled
+        Assert.True(moves.Count() >= 4, $"Expected at least 4 bishop InF moves with active OutF, got {moves.Count()}");
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void ComputeNextCandidates_WithWrongActiveSequence_DoesNotEnableInFPatterns()
+    {
+        // Arrange: Bishop in center of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to bishop-only InF patterns (final landing)
+        int bishop = (int)ChessPolicy.Piece.Bishop;
+        int inF = (int)ChessPolicy.Sequence.InF;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {bishop}) != 0 AND (sequence & {inF}) != 0");
+
+        // Act: Compute candidates with WRONG active sequence (OutI instead of OutF)
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(
+            perspectivesDf, 
+            patternsDf, 
+            factions,
+            turn: 0,
+            activeSequences: ChessPolicy.Sequence.OutI // Wrong sequence!
+        );
+        var moves = candidates.Collect();
+
+        // Assert: InF patterns should NOT be enabled with OutI (wrong sequence)
+        Assert.Empty(moves);
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void ComputeNextCandidates_WithActiveOutI_EnablesInIPatterns()
+    {
+        // Arrange: Rook in center of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to rook-only InI patterns (final landing)
+        int rook = (int)ChessPolicy.Piece.Rook;
+        int inI = (int)ChessPolicy.Sequence.InI;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {rook}) != 0 AND (sequence & {inI}) != 0");
+
+        // Act: Compute candidates WITH active OutI sequence
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(
+            perspectivesDf, 
+            patternsDf, 
+            factions,
+            turn: 0,
+            activeSequences: ChessPolicy.Sequence.OutI
+        );
+        var moves = candidates.Collect();
+
+        // Assert: InI patterns should be enabled
+        Assert.True(moves.Count() >= 4, $"Expected at least 4 rook InI moves with active OutI, got {moves.Count()}");
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void ComputeNextCandidates_CandidatesPreserveSequenceColumn()
+    {
+        // Arrange: Rook in center of empty board
+        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
+        for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
+                board.Cell[x, y] = ChessPolicy.Piece.Empty;
+        
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        // Filter to rook-only public patterns
+        int rook = (int)ChessPolicy.Piece.Rook;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {rook}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        // Act: Compute candidates
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(
+            perspectivesDf, 
+            patternsDf, 
+            factions
+        );
+
+        // Assert: The 'sequence' column should be present in the results
+        Assert.Contains("sequence", candidates.Columns());
+        
+        var moves = candidates.Collect();
+        Assert.True(moves.Count() > 0, "Expected at least one move");
+        
+        // Verify sequence values are non-zero (patterns have sequence flags)
+        var sequenceValues = moves.Select(r => r.GetAs<int>("sequence")).ToList();
+        Assert.All(sequenceValues, seq => Assert.True(seq != 0, "Sequence should have flags set"));
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void Sequence_VariantFiltering_Works()
+    {
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
+
+        int bishop = (int)ChessPolicy.Piece.Bishop;
+        int variant1 = (int)ChessPolicy.Sequence.Variant1;
+        int variant2 = (int)ChessPolicy.Sequence.Variant2;
+        int variant3 = (int)ChessPolicy.Sequence.Variant3;
+        int variant4 = (int)ChessPolicy.Sequence.Variant4;
+
+        // Each bishop direction should have a different variant
+        string v1Filter = $"(src_conditions & {bishop}) != 0 AND (sequence & {variant1}) != 0";
+        string v2Filter = $"(src_conditions & {bishop}) != 0 AND (sequence & {variant2}) != 0";
+        string v3Filter = $"(src_conditions & {bishop}) != 0 AND (sequence & {variant3}) != 0";
+        string v4Filter = $"(src_conditions & {bishop}) != 0 AND (sequence & {variant4}) != 0";
+
+        // Each variant should have at least 2 patterns (OutF + InF for that direction)
+        Assert.True(patternsDf.Filter(v1Filter).Count() >= 2, "Expected Variant1 patterns");
+        Assert.True(patternsDf.Filter(v2Filter).Count() >= 2, "Expected Variant2 patterns");
+        Assert.True(patternsDf.Filter(v3Filter).Count() >= 2, "Expected Variant3 patterns");
+        Assert.True(patternsDf.Filter(v4Filter).Count() >= 2, "Expected Variant4 patterns");
+    }
+
 }

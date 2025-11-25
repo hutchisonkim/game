@@ -132,7 +132,7 @@ public class ChessPolicy
             Console.WriteLine($"Row count: {df.Count()}");
         }
 
-        public static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int turn = 0, bool debug = false)
+        public static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int turn = 0, Sequence activeSequences = Sequence.None, bool debug = false)
         {
             //
             // 0. Deduplicate patterns
@@ -186,10 +186,30 @@ public class ChessPolicy
             if(debug) DebugShow(dfB, "After filtering src_conditions (dfB)");
 
             //
-            // 4. Sequence.Public filter
+            // 4. Sequence filter - support pattern sequencing
+            // A pattern can execute if:
+            // - It has the Public flag AND has no In* requirements (entry point), OR
+            // - Its In* flags are satisfied by the activeSequences
             //
+            var inMask = (int)Sequence.InMask;
+            var activeSeqInt = (int)activeSequences;
+            
+            // Pattern's In* flags (what it requires)
+            var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
+            
+            // Check if pattern has no In* requirements (it's an entry pattern)
+            var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
+            
+            // Check if pattern's In* requirements are met by activeSequences
+            // Convert Out flags to In flags: OutX >> 1 gives InX (due to how the enum is defined)
+            // Actually looking at the enum, OutA = 1 << 6, InA = 1 << 5, so Out >> 1 = In
+            var activeInFlags = (activeSeqInt >> 1) & inMask; // Shift Out flags to corresponding In flags
+            var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
+            
+            // A pattern can execute if it's Public and (has no In requirements OR In requirements are met)
             var dfC = dfB.Filter(
                 Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0))
+                .And(hasNoInRequirements.Or(inRequirementsMet))
             );
 
             if(debug) DebugShow(dfC, "After sequence filter (dfC)");
@@ -669,6 +689,10 @@ public class ChessPolicy
         InstantRecursive = Instant | Recursive,
         ParallelInstantRecursive = Parallel | Instant | Recursive,
         ParallelMandatory = Parallel | Mandatory,
+
+        // Masks for In/Out flags
+        InMask = InA | InB | InC | InD | InE | InF | InG | InH | InI,
+        OutMask = OutA | OutB | OutC | OutD | OutE | OutF | OutG | OutH | OutI,
     }
 }
 
