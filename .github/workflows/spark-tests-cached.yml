@@ -166,15 +166,14 @@ jobs:
           echo "DEBUG: Using namespace: $NS"
 
           echo "DEBUG: Extracting all UnitTestResult nodes:"
-          xmllint --xpath "//ns:UnitTestResult" --xpath-ns ns="$NS" "$TRX" 2>/dev/null \
-            | sed 's/></>\n</g' || echo "DEBUG: Query returned nothing or failed."
+          xmllint --xpath "//*[local-name()='UnitTestResult']" "$TRX" 2>/dev/null \
+            | sed 's/></>\n</g' || echo "DEBUG: No UnitTestResult elements found."
 
-          PASS=$(xmllint --xpath "count(//ns:UnitTestResult[@outcome='Passed'])" \
-            --xpath-ns ns="$NS" "$TRX" 2>/dev/null || echo 0)
-          FAIL=$(xmllint --xpath "count(//ns:UnitTestResult[@outcome='Failed'])" \
-            --xpath-ns ns="$NS" "$TRX" 2>/dev/null || echo 0)
+          PASS=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Passed'])" "$TRX" 2>/dev/null || echo 0)
+          FAIL=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Failed'])" "$TRX" 2>/dev/null || echo 0)
+          NOT_EXECUTED=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='NotExecuted'])" "$TRX" 2>/dev/null || echo 0)
 
-          echo "DEBUG: PASS = $PASS, FAIL = $FAIL"
+          echo "DEBUG: PASS = $PASS, FAIL = $FAIL, NOT_EXECUTED = $NOT_EXECUTED"
 
           echo "=== DEBUG: Writing summary ==="
           {
