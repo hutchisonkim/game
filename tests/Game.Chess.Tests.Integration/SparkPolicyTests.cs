@@ -991,18 +991,6 @@ public class ChessSparkPolicyTests
     // ==================== Rook Sequenced Move Tests ====================
 
     /// <summary>
-    /// Helper method to create an empty 8x8 board
-    /// </summary>
-    private static ChessPolicy.Board CreateEmptyBoard()
-    {
-        var board = new ChessPolicy.Board(8, 8, new ChessPolicy.Piece[8, 8]);
-        for (int x = 0; x < 8; x++)
-            for (int y = 0; y < 8; y++)
-                board.Cell[x, y] = ChessPolicy.Piece.Empty;
-        return board;
-    }
-
-    /// <summary>
     /// Helper method to build a pattern filter string
     /// </summary>
     private static string BuildPatternFilter(int pieceType, int? sequenceFlags = null)
