@@ -1126,7 +1126,7 @@ public class ChessPolicy
         Variant2 = 1 << 24,
         Variant3 = 1 << 25,
         Variant4 = 1 << 26,
-        VariantAny = 1 << Variant1 | Variant2 | Variant3 | Variant4,
+        VariantAny = Variant1 | Variant2 | Variant3 | Variant4,
 
 
         // Combinations
