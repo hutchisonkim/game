@@ -38,6 +38,35 @@ public class ChessPolicy
     }
 
     /// <summary>
+    /// Generates perspectives for the given board with the Threatened bit set on cells
+    /// that are under attack by the opponent.
+    /// </summary>
+    public DataFrame GetPerspectivesWithThreats(Board board, Piece[] specificFactions, int turn = 0)
+    {
+        var piecesDf = _pieceFactory.GetPieces(board);
+        var patternsDf = _patternFactory.GetPatterns();
+
+        var perspectivesDf = GetPerspectivesDfFromPieces(piecesDf, specificFactions)
+            .WithColumn("perspective_id",
+                Sha2(ConcatWs("_",
+                    Col("x").Cast("string"),
+                    Col("y").Cast("string"),
+                    Col("generic_piece").Cast("string")),
+                256));
+
+        // Compute threatened cells from opponent's perspective
+        var threatenedCellsDf = TimelineService.ComputeThreatenedCells(
+            perspectivesDf,
+            patternsDf,
+            specificFactions,
+            turn: turn
+        );
+
+        // Add Threatened bit to the perspectives
+        return TimelineService.AddThreatenedBitToPerspectives(perspectivesDf, threatenedCellsDf);
+    }
+
+    /// <summary>
     /// Builds the timeline of moves for the board up to maxDepth
     /// </summary>
     public DataFrame BuildTimeline(Board board, Piece[] specificFactions, int maxDepth = 3)
@@ -798,6 +827,101 @@ public class ChessPolicy
                     Col("generic_piece"),
                     Col("perspective_id")
                 );
+        }
+
+        /// <summary>
+        /// Computes which cells are threatened by the opponent.
+        /// This method:
+        /// 1. Gets all attacking patterns (patterns where dst_conditions contains Foe - these can capture)
+        /// 2. Computes all attack destinations from the opponent's perspective
+        /// 3. Returns a DataFrame with distinct (x, y) cells that are threatened
+        /// 
+        /// This is similar to GetAttackingActionCandidates in ChessState but for the Spark-based implementation.
+        /// </summary>
+        public static DataFrame ComputeThreatenedCells(
+            DataFrame perspectivesDf,
+            DataFrame patternsDf,
+            Piece[] specificFactions,
+            int turn = 0,
+            bool debug = false)
+        {
+            // Get the opponent's turn (next player)
+            int opponentTurn = (turn + 1) % specificFactions.Length;
+            
+            // Filter patterns to get attacking patterns - patterns that can capture (dst_conditions has Foe bit)
+            // Also include patterns that target Empty squares with Pawn diagonal captures since pawns threaten diagonally
+            // but can also move forward to empty squares
+            var attackPatternsDf = patternsDf.Filter(
+                Col("dst_conditions").BitwiseAND(Lit((int)Piece.Foe)).NotEqual(Lit(0))
+            );
+
+            if (debug)
+            {
+                Console.WriteLine($"Attack patterns count: {attackPatternsDf.Count()}");
+            }
+
+            // Compute all attack destinations from opponent's perspective
+            // Use the existing ComputeNextCandidates but for the opponent
+            var attackCandidatesDf = ComputeNextCandidates(
+                perspectivesDf,
+                attackPatternsDf,
+                specificFactions,
+                turn: opponentTurn,
+                activeSequences: Sequence.None,
+                debug: debug
+            );
+
+            if (debug)
+            {
+                Console.WriteLine($"Attack candidates count: {attackCandidatesDf.Count()}");
+            }
+
+            // Extract unique destination cells (x, y) that are threatened
+            var threatenedCellsDf = attackCandidatesDf
+                .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
+                .Distinct();
+
+            if (debug)
+            {
+                Console.WriteLine($"Threatened cells count: {threatenedCellsDf.Count()}");
+            }
+
+            return threatenedCellsDf;
+        }
+
+        /// <summary>
+        /// Adds the Threatened bit to cells in perspectivesDf that are under attack by the opponent.
+        /// </summary>
+        public static DataFrame AddThreatenedBitToPerspectives(
+            DataFrame perspectivesDf,
+            DataFrame threatenedCellsDf,
+            bool debug = false)
+        {
+            // Left join perspectives with threatened cells
+            var joinedDf = perspectivesDf.Join(
+                threatenedCellsDf,
+                (Col("x") == Col("threatened_x")).And(Col("y") == Col("threatened_y")),
+                "left_outer"
+            );
+
+            // Add Threatened bit to generic_piece where cell is threatened
+            var updatedDf = joinedDf.WithColumn(
+                "generic_piece",
+                When(
+                    Col("threatened_x").IsNotNull(),
+                    Col("generic_piece").BitwiseOR(Lit((int)Piece.Threatened))
+                ).Otherwise(Col("generic_piece"))
+            );
+
+            // Drop the join columns
+            var finalDf = updatedDf.Drop("threatened_x", "threatened_y");
+
+            if (debug)
+            {
+                Console.WriteLine($"Perspectives with threatened bit: {finalDf.Count()}");
+            }
+
+            return finalDf;
         }
     }
 
