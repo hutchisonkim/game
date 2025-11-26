@@ -113,4 +113,76 @@ public static class MoveHelpers
             maxDepth: maxDepth);
         return moves.Collect().ToArray();
     }
+
+    /// <summary>
+    /// Gets moves for a specific piece type with custom sequence flags.
+    /// Provides more control over pattern filtering than GetMovesForPieceType.
+    /// </summary>
+    public static Row[] GetMovesFor(
+        SparkSession spark,
+        ChessPolicy policy,
+        ChessPolicy.Board board,
+        ChessPolicy.Piece pieceType,
+        ChessPolicy.Sequence? sequenceFlags = null,
+        ChessPolicy.Piece[]? factions = null)
+    {
+        factions ??= DefaultFactions;
+        var perspectivesDf = policy.GetPerspectives(board, factions);
+        
+        var factory = new TestPatternFactory(spark);
+        var patternsDf = sequenceFlags.HasValue 
+            ? factory.GetPatternsFor(pieceType, sequenceFlags.Value)
+            : factory.GetPatternsFor(pieceType);
+        
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(
+            perspectivesDf, patternsDf, factions);
+        
+        return candidates.Collect().ToArray();
+    }
+
+    /// <summary>
+    /// Gets patterns and computes moves with active sequence support.
+    /// Useful for testing sequence activation (e.g., sliding piece continuations).
+    /// </summary>
+    public static Row[] GetMovesWithActiveSequence(
+        SparkSession spark,
+        ChessPolicy policy,
+        ChessPolicy.Board board,
+        ChessPolicy.Piece pieceType,
+        ChessPolicy.Sequence? patternSequenceFilter,
+        ChessPolicy.Sequence activeSequences,
+        ChessPolicy.Piece[]? factions = null)
+    {
+        factions ??= DefaultFactions;
+        var perspectivesDf = policy.GetPerspectives(board, factions);
+        
+        var factory = new TestPatternFactory(spark);
+        var patternsDf = patternSequenceFilter.HasValue
+            ? factory.GetPatternsFor(pieceType, patternSequenceFilter.Value)
+            : factory.GetPatternsFor(pieceType);
+        
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(
+            perspectivesDf, patternsDf, factions,
+            turn: 0, activeSequences: activeSequences);
+        
+        return candidates.Collect().ToArray();
+    }
+
+    /// <summary>
+    /// Computes candidates directly from pre-built perspectives and patterns DataFrames.
+    /// Provides maximum flexibility for advanced test scenarios.
+    /// </summary>
+    public static Row[] ComputeCandidates(
+        DataFrame perspectivesDf,
+        DataFrame patternsDf,
+        ChessPolicy.Piece[]? factions = null,
+        int turn = 0,
+        ChessPolicy.Sequence activeSequences = ChessPolicy.Sequence.None)
+    {
+        factions ??= DefaultFactions;
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(
+            perspectivesDf, patternsDf, factions, turn, activeSequences);
+        
+        return candidates.Collect().ToArray();
+    }
 }
