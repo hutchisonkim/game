@@ -16,9 +16,15 @@ class Program
             return 1;
         }
 
-        // Class filter (optional)
-        string testClass = Environment.GetEnvironmentVariable("TEST_CLASS")
-                           ?? "Game.Chess.Tests.Integration.ChessSparkPolicyTests";
+        // Optional filter: prefer TEST_FILTER (full xUnit filter syntax),
+        // fallback to TEST_CLASS (legacy) to preserve compatibility.
+        string testFilter = Environment.GetEnvironmentVariable("TEST_FILTER");
+        string legacyTestClass = Environment.GetEnvironmentVariable("TEST_CLASS");
+        if (string.IsNullOrWhiteSpace(testFilter) && !string.IsNullOrWhiteSpace(legacyTestClass))
+        {
+            // Maintain backward compatibility: convert TEST_CLASS to FullyQualifiedName filter
+            testFilter = $"FullyQualifiedName~{legacyTestClass}";
+        }
 
         string logFile = Path.Combine(AppContext.BaseDirectory, "test-output.log");
 
@@ -27,9 +33,8 @@ class Program
         {
             FileName = GetDotnetPath(),
             Arguments = $"vstest \"{testAssembly}\" " +
-                        $"--TestCaseFilter:\"FullyQualifiedName~{testClass}\" " +
-                        "--logger \"console;verbosity=detailed\" " + //detailed keeps test-output.log relevant (<PUBLISH_DIR>\test-output.log)
-                        // "--logger \"console;verbosity=minimal\" " +
+                        BuildOptionalFilterArgs(testFilter) +
+                        "--logger \"console;verbosity=detailed\" " + // detailed keeps test-output.log relevant
                         "--logger \"trx;LogFileName=TestResults.trx\"",
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -73,5 +78,22 @@ class Program
         //     }
         // }
         return "dotnet"; // fallback to PATH
+    }
+
+    // Build optional filter args for vstest
+    static string BuildOptionalFilterArgs(string testFilter)
+    {
+        if (string.IsNullOrWhiteSpace(testFilter))
+        {
+            return string.Empty;
+        }
+
+        // If user provided a plain class name, adapt to FullyQualifiedName filter
+        // Otherwise assume the user provided a valid TestCaseFilter expression.
+        string filterExpr = testFilter.Contains('~') || testFilter.Contains('=')
+            ? testFilter
+            : $"FullyQualifiedName~{testFilter}";
+
+        return $"--TestCaseFilter:\"{filterExpr}\" ";
     }
 }

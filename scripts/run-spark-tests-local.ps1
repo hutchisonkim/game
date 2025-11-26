@@ -19,7 +19,7 @@ This script only *checks* environment variables; it does not change them.
 #>
 
 param(
-    [string]$TestFilter = 'FullyQualifiedName~Game.Chess.Tests.Integration.ChessSparkPolicyTests',
+    [string]$TestFilter = '',
     [string]$ProjectPath = 'tests/Game.Chess.Tests.Integration.Runner',
     [string]$Framework = 'net8.0'
 )
@@ -155,9 +155,13 @@ try {
             '--class', 'org.apache.spark.deploy.dotnet.DotnetRunner',
             '--master', 'local',
             $jarPath,
-            './Game.Chess.Tests.Integration.Runner',
-            '--filter', $TestFilter
+            './Game.Chess.Tests.Integration.Runner'
         )
+
+        # Append optional test filter only if provided
+        if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
+            $argsList += @('--filter', $TestFilter)
+        }
 
         # Launch spark-submit but dumping log into spark-test-output.log
         $sparkLogPath = Join-Path $publishDir "spark-test-output.log"
