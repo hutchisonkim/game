@@ -436,6 +436,46 @@ public class ChessPolicy
             // Collect all valid final moves (continuation moves with Public flag)
             DataFrame? allFinalMoves = null;
 
+            // Compute continuation moves from the ORIGINAL perspective with Out flags from entry moves
+            // This allows the first square in each direction to be a valid final move
+            if (entryMoves.Count() > 0)
+            {
+                var outFlagsRows = entryMoves
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask)).Alias("out_flags"))
+                    .Distinct()
+                    .Collect();
+
+                int initialOutFlags = 0;
+                foreach (var row in outFlagsRows)
+                {
+                    initialOutFlags |= row.GetAs<int>("out_flags");
+                }
+
+                if (initialOutFlags != 0)
+                {
+                    var initialActiveSequence = (Sequence)initialOutFlags;
+                    
+                    // Compute continuation moves from original position (first square in each direction)
+                    var initialContinuationMoves = ComputeNextCandidatesInternal(
+                        initialPerspectivesDf,
+                        perspectivesDf,
+                        continuationPatternsDf,
+                        specificFactions,
+                        turn,
+                        initialActiveSequence,
+                        skipPublicFilter: false,
+                        debug: debug
+                    );
+
+                    if (debug) Console.WriteLine($"Initial continuation moves: {initialContinuationMoves.Count()}");
+
+                    if (initialContinuationMoves.Count() > 0)
+                    {
+                        allFinalMoves = initialContinuationMoves;
+                    }
+                }
+            }
+
             // Current frontier of positions to expand from
             var currentEntryMoves = entryMoves;
 
@@ -521,6 +561,7 @@ public class ChessPolicy
         private static DataFrame ComputeNextPerspectivesFromMoves(DataFrame movesDf, DataFrame originalPerspectivesDf)
         {
             // Get unique source perspectives from the moves
+            // Include original_perspective_x/y if present (for preserving original actor position through recursive hops)
             var moveSources = movesDf.Select(
                 Col("perspective_x"),
                 Col("perspective_y"),
@@ -530,14 +571,17 @@ public class ChessPolicy
                 Col("src_piece"),
                 Col("src_generic_piece"),
                 Col("dst_x"),
-                Col("dst_y")
+                Col("dst_y"),
+                // Use Coalesce to handle case where original_perspective columns may not exist
+                Coalesce(Col("original_perspective_x"), Col("perspective_x")).Alias("existing_original_x"),
+                Coalesce(Col("original_perspective_y"), Col("perspective_y")).Alias("existing_original_y")
             ).Distinct();
 
             // The piece at src moves to dst
             // For the new perspective, the actor is now at dst, seeing itself at dst
             // - x/y = dst_x/y (where the piece is now)
             // - perspective_x/y = dst_x/y (new actor position for self-matching in actor filter)
-            // - original_perspective_x/y = original (for board lookup)
+            // - original_perspective_x/y = preserved from input (for board lookup)
             var newPerspectives = moveSources
                 .WithColumn("x", Col("dst_x"))
                 .WithColumn("y", Col("dst_y"))
@@ -545,9 +589,9 @@ public class ChessPolicy
                 .WithColumn("generic_piece", Col("src_generic_piece"))
                 .WithColumn("new_perspective_x", Col("dst_x"))
                 .WithColumn("new_perspective_y", Col("dst_y"))
-                // Keep original perspective coordinates for lookup
-                .WithColumn("original_perspective_x", Col("perspective_x"))
-                .WithColumn("original_perspective_y", Col("perspective_y"))
+                // Preserve original perspective coordinates for lookup (use the ORIGINAL, not intermediate)
+                .WithColumn("original_perspective_x", Col("existing_original_x"))
+                .WithColumn("original_perspective_y", Col("existing_original_y"))
                 .WithColumn("perspective_id",
                     Sha2(ConcatWs("_",
                         Col("dst_x").Cast("string"),
