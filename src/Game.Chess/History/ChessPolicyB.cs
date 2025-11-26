@@ -416,7 +416,8 @@ public class ChessPolicy
             // Start by computing entry moves
             // These need to bypass the Public filter since entry patterns don't have Public flag
             var entryMoves = ComputeNextCandidatesInternal(
-                perspectivesDf,
+                perspectivesDf,  // actor perspectives
+                perspectivesDf,  // lookup perspectives (full board)
                 entryPatternsDf,
                 specificFactions,
                 turn,
@@ -462,8 +463,10 @@ public class ChessPolicy
                 if (nextPerspectives.Count() == 0) break;
 
                 // Compute continuation moves (InX | Public) from new perspectives
+                // Use original perspectivesDf for lookup (to see what's at destination squares)
                 var continuationMoves = ComputeNextCandidatesInternal(
-                    nextPerspectives,
+                    nextPerspectives,  // actor perspectives (moved pieces)
+                    perspectivesDf,    // lookup perspectives (full board)
                     continuationPatternsDf,
                     specificFactions,
                     turn,
@@ -482,7 +485,8 @@ public class ChessPolicy
 
                 // For InstantRecursive, also compute more entry moves from the new perspectives
                 var nextEntryMoves = ComputeNextCandidatesInternal(
-                    nextPerspectives,
+                    nextPerspectives,  // actor perspectives (moved pieces)
+                    perspectivesDf,    // lookup perspectives (full board)
                     entryPatternsDf,
                     specificFactions,
                     turn,
@@ -556,7 +560,8 @@ public class ChessPolicy
         /// Internal version of ComputeNextCandidates with skipPublicFilter option.
         /// </summary>
         private static DataFrame ComputeNextCandidatesInternal(
-            DataFrame perspectivesDf,
+            DataFrame actorPerspectivesDf,
+            DataFrame lookupPerspectivesDf,
             DataFrame patternsDf,
             Piece[] specificFactions,
             int turn,
@@ -567,8 +572,8 @@ public class ChessPolicy
             // Deduplicate patterns
             var uniquePatternsDf = patternsDf.DropDuplicates();
 
-            // Build ACTOR perspectives
-            var actorPerspectives = perspectivesDf
+            // Build ACTOR perspectives - filter to pieces that are at their own perspective position
+            var actorPerspectives = actorPerspectivesDf
                 .Filter(
                     Col("x").EqualTo(Col("perspective_x")).And(
                     Col("y").EqualTo(Col("perspective_y"))).And(
@@ -651,8 +656,8 @@ public class ChessPolicy
                 .WithColumn("dst_y", Col("src_y") + (Col("delta_y") * Col("delta_y_sign")))
                 .Drop("delta_x", "delta_y", "delta_y_sign");
 
-            // Lookup destination piece
-            var lookupDf = perspectivesDf
+            // Lookup destination piece using the lookup perspectives (original board state)
+            var lookupDf = lookupPerspectivesDf
                 .Select(
                     Col("x").Alias("lookup_x"),
                     Col("y").Alias("lookup_y"),
