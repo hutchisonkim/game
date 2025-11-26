@@ -529,13 +529,17 @@ public class ChessPolicy
             ).Distinct();
 
             // The piece at src moves to dst
-            // We need to update the perspective to see from dst
-            // The piece itself doesn't change, but its position does
+            // For the new perspective, the actor is now at dst, seeing itself at dst
+            // perspective_x/y should be dst_x/y (new actor position)
+            // x/y should also be dst_x/y (the actor sees itself at this position)
             var newPerspectives = moveSources
                 .WithColumn("x", Col("dst_x"))
                 .WithColumn("y", Col("dst_y"))
                 .WithColumn("piece", Col("src_piece"))
                 .WithColumn("generic_piece", Col("src_generic_piece"))
+                // Update perspective to be from the new position
+                .WithColumn("new_perspective_x", Col("dst_x"))
+                .WithColumn("new_perspective_y", Col("dst_y"))
                 .WithColumn("perspective_id",
                     Sha2(ConcatWs("_",
                         Col("dst_x").Cast("string"),
@@ -543,8 +547,8 @@ public class ChessPolicy
                         Col("src_generic_piece").Cast("string")),
                     256))
                 .Select(
-                    Col("perspective_x"),
-                    Col("perspective_y"),
+                    Col("new_perspective_x").Alias("perspective_x"),
+                    Col("new_perspective_y").Alias("perspective_y"),
                     Col("perspective_piece"),
                     Col("x"),
                     Col("y"),
