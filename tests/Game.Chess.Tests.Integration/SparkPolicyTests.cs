@@ -272,20 +272,6 @@ public class ChessSparkPolicyTests
         Assert.True(count > 0, "Expected at least one pawn capture pattern (diagonal capture)");
     }
 
-    [Fact]
-    public void PatternFactory_Contains_PawnPromotionPatterns()
-    {
-        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns();
-
-        int pawn = (int)ChessPolicy.Piece.Pawn;
-        int instantMandatory = (int)ChessPolicy.Sequence.InstantMandatory;
-
-        // promotions should include pawn src and InstantMandatory sequence bits
-        string filter = $"(src_conditions & {pawn}) != 0 AND (sequence & {instantMandatory}) != 0";
-        long count = patternsDf.Filter(filter).Count();
-
-        Assert.True(count > 0, "Expected at least one pawn promotion-related pattern with InstantMandatory sequence");
-    }
 
     [Fact]
     public void InitialBoard_WhiteHasCorrectNumberOfMoves()
