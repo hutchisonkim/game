@@ -25,26 +25,27 @@ public class ThreatenedCellsTests : ChessTestBase
 
     [Fact]
     [Trait("Performance", "Fast")]
-    public void ComputeThreatenedCells_WhiteRookAtCorner_ThreatensRowAndColumn()
+    public void ComputeThreatenedCells_BlackRookAtCorner_ThreatensRowAndColumn()
     {
-        // Arrange - White Rook at (0, 0) threatens all squares in row 0 and column 0
+        // Arrange - Black Rook at (0, 0) threatens all squares in row 0 and column 0
         var board = CreateBoardWithPieces(
-            (0, 0, WhiteMintRook));
+            (0, 0, BlackMintRook));
 
         var perspectivesDf = Policy.GetPerspectives(board, DefaultFactions);
         var patternsDf = new PatternFactory(Spark).GetPatterns();
 
-        // Act - Compute threatened cells from Black's perspective (turn 1 = Black)
+        // Act - Compute threatened cells (opponent's attacks)
+        // turn=0 means it's White's turn, so we compute what Black threatens
         var threatenedCellsDf = TimelineService.ComputeThreatenedCells(
             perspectivesDf,
             patternsDf,
             DefaultFactions,
-            turn: 0  // White's turn, so we compute what White threatens
+            turn: 0  // White's turn, so Black's threats are computed
         );
 
         var threatenedCells = threatenedCellsDf.Collect().ToArray();
 
-        // Assert - Should have at least some threatened cells along row and column
+        // Assert - Should have threatened cells along row and column
         Assert.True(threatenedCells.Length > 0, "Expected at least one threatened cell");
     }
 
@@ -59,12 +60,15 @@ public class ThreatenedCellsTests : ChessTestBase
         var perspectivesDf = Policy.GetPerspectives(board, DefaultFactions);
         var patternsDf = new PatternFactory(Spark).GetPatterns();
 
-        // Act - Compute threatened cells from Black's perspective (turn 1 = Black)
+        // Act - Compute threatened cells (opponent's attacks)
+        // turn=1 means it's Black's turn, so we compute what White threatens
+        // However, since only a Black Knight is on the board, White has no pieces to threaten
+        // Let's change this to turn=0 to have Black threaten squares
         var threatenedCellsDf = TimelineService.ComputeThreatenedCells(
             perspectivesDf,
             patternsDf,
             DefaultFactions,
-            turn: 1  // Black's turn, so we compute what Black threatens
+            turn: 0  // White's turn, so Black's threats are computed
         );
 
         var threatenedCells = threatenedCellsDf.Collect().ToArray();
