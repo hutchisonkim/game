@@ -393,6 +393,7 @@ public class ChessPolicy
             var inMask = (int)Sequence.InMask;
             var instantRecursive = (int)Sequence.InstantRecursive;
             var publicFlag = (int)Sequence.Public;
+            var variantMask = (int)(Sequence.Variant1 | Sequence.Variant2 | Sequence.Variant3 | Sequence.Variant4);
 
             // Entry patterns: have Out* flag and InstantRecursive, but NOT Public
             var entryPatternsDf = patternsDf.Filter(
@@ -441,7 +442,7 @@ public class ChessPolicy
             if (entryMoves.Count() > 0)
             {
                 var outFlagsRows = entryMoves
-                    .Select(Col("sequence").BitwiseAND(Lit(outMask)).Alias("out_flags"))
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"))
                     .Distinct()
                     .Collect();
 
@@ -485,7 +486,7 @@ public class ChessPolicy
 
                 // Get the Out flags from current entry moves
                 var outFlagsRows = currentEntryMoves
-                    .Select(Col("sequence").BitwiseAND(Lit(outMask)).Alias("out_flags"))
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"))
                     .Distinct()
                     .Collect();
 
@@ -535,7 +536,7 @@ public class ChessPolicy
                     entryPatternsDf,
                     specificFactions,
                     turn,
-                    Sequence.None,
+                    activeSequence,
                     skipPublicFilter: true,
                     debug: debug
                 );
@@ -630,6 +631,8 @@ public class ChessPolicy
             // Deduplicate patterns
             var uniquePatternsDf = patternsDf.DropDuplicates();
 
+            var variantMask = (int)(Sequence.Variant1 | Sequence.Variant2 | Sequence.Variant3 | Sequence.Variant4);
+
             // Build ACTOR perspectives - filter to pieces that are at their own perspective position
             var actorPerspectives = actorPerspectivesDf
                 .Filter(
@@ -677,7 +680,13 @@ public class ChessPolicy
                     var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
                     var activeInFlags = (activeSeqInt >> 1) & inMask;
                     var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
-                    dfC = dfB.Filter(hasNoInRequirements.Or(inRequirementsMet));
+
+                    var activeVariant = activeSeqInt & variantMask;
+                    Column variantMatch = activeVariant == 0
+                        ? Lit(true)
+                        : Col("sequence").BitwiseAND(Lit(variantMask)).BitwiseAND(Lit(activeVariant)).NotEqual(Lit(0));
+
+                    dfC = dfB.Filter(hasNoInRequirements.Or(inRequirementsMet).And(variantMatch));
                 }
             }
             else if (activeSeqInt == 0)
@@ -693,9 +702,16 @@ public class ChessPolicy
                 var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
                 var activeInFlags = (activeSeqInt >> 1) & inMask;
                 var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
+
+                var activeVariant = activeSeqInt & variantMask;
+                Column variantMatch = activeVariant == 0
+                    ? Lit(true)
+                    : Col("sequence").BitwiseAND(Lit(variantMask)).BitwiseAND(Lit(activeVariant)).NotEqual(Lit(0));
+
                 dfC = dfB.Filter(
                     Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0))
                     .And(hasNoInRequirements.Or(inRequirementsMet))
+                    .And(variantMatch)
                 );
             }
 
