@@ -415,8 +415,13 @@ public class ChessPolicy
 
             // Start by computing entry moves
             // These need to bypass the Public filter since entry patterns don't have Public flag
+            // Add original_perspective columns for initial perspectives (they're the same as perspective_x/y)
+            var initialPerspectivesDf = perspectivesDf
+                .WithColumn("original_perspective_x", Col("perspective_x"))
+                .WithColumn("original_perspective_y", Col("perspective_y"));
+            
             var entryMoves = ComputeNextCandidatesInternal(
-                perspectivesDf,  // actor perspectives
+                initialPerspectivesDf,  // actor perspectives
                 perspectivesDf,  // lookup perspectives (full board)
                 entryPatternsDf,
                 specificFactions,
@@ -530,16 +535,19 @@ public class ChessPolicy
 
             // The piece at src moves to dst
             // For the new perspective, the actor is now at dst, seeing itself at dst
-            // perspective_x/y should be dst_x/y (new actor position)
-            // x/y should also be dst_x/y (the actor sees itself at this position)
+            // - x/y = dst_x/y (where the piece is now)
+            // - perspective_x/y = dst_x/y (new actor position for self-matching in actor filter)
+            // - original_perspective_x/y = original (for board lookup)
             var newPerspectives = moveSources
                 .WithColumn("x", Col("dst_x"))
                 .WithColumn("y", Col("dst_y"))
                 .WithColumn("piece", Col("src_piece"))
                 .WithColumn("generic_piece", Col("src_generic_piece"))
-                // Update perspective to be from the new position
                 .WithColumn("new_perspective_x", Col("dst_x"))
                 .WithColumn("new_perspective_y", Col("dst_y"))
+                // Keep original perspective coordinates for lookup
+                .WithColumn("original_perspective_x", Col("perspective_x"))
+                .WithColumn("original_perspective_y", Col("perspective_y"))
                 .WithColumn("perspective_id",
                     Sha2(ConcatWs("_",
                         Col("dst_x").Cast("string"),
@@ -554,7 +562,9 @@ public class ChessPolicy
                     Col("y"),
                     Col("piece"),
                     Col("generic_piece"),
-                    Col("perspective_id")
+                    Col("perspective_id"),
+                    Col("original_perspective_x"),
+                    Col("original_perspective_y")
                 );
 
             return newPerspectives;
@@ -661,6 +671,7 @@ public class ChessPolicy
                 .Drop("delta_x", "delta_y", "delta_y_sign");
 
             // Lookup destination piece using the lookup perspectives (original board state)
+            // For moved pieces, use original_perspective_x/y if available for the lookup
             var lookupDf = lookupPerspectivesDf
                 .Select(
                     Col("x").Alias("lookup_x"),
@@ -670,10 +681,15 @@ public class ChessPolicy
                     Col("generic_piece").Alias("lookup_generic_piece")
                 );
 
+            // Use original_perspective_x/y for lookup if they exist (for moved pieces)
+            // Otherwise use perspective_x/y (for initial pieces)
+            var lookupPerspectiveX = Coalesce(Col("original_perspective_x"), Col("perspective_x"));
+            var lookupPerspectiveY = Coalesce(Col("original_perspective_y"), Col("perspective_y"));
+
             var dfF = dfD.Join(
                 lookupDf,
-                (Col("perspective_x") == Col("lookup_perspective_x"))
-                .And(Col("perspective_y") == Col("lookup_perspective_y"))
+                (lookupPerspectiveX == Col("lookup_perspective_x"))
+                .And(lookupPerspectiveY == Col("lookup_perspective_y"))
                 .And(Col("dst_x") == Col("lookup_x"))
                 .And(Col("dst_y") == Col("lookup_y")),
                 "left_outer"
