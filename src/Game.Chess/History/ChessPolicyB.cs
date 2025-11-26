@@ -370,6 +370,326 @@ public class ChessPolicy
             return (outFlags >> 1) & inMask;
         }
 
+        /// <summary>
+        /// Computes all sequenced/recursive moves for sliding pieces like Rook/Bishop/Queen.
+        /// This follows the timeline architecture: iteratively expand perspectives and compute candidates.
+        /// 
+        /// Algorithm:
+        /// 1. Find entry patterns (OutX | InstantRecursive, no Public) - these start the sequence
+        /// 2. From entry move destinations, compute continuation patterns (InX | Public) - final landing spots
+        /// 3. For InstantRecursive, allow the entry pattern to repeat from each new position
+        /// 4. Accumulate all Public moves as valid final moves
+        /// </summary>
+        public static DataFrame ComputeSequencedMoves(
+            DataFrame perspectivesDf,
+            DataFrame patternsDf,
+            Piece[] specificFactions,
+            int turn = 0,
+            int maxDepth = 7,
+            bool debug = false)
+        {
+            // Filter patterns for entry (OutX, InstantRecursive, no Public) and continuation (InX, Public)
+            var outMask = (int)Sequence.OutMask;
+            var inMask = (int)Sequence.InMask;
+            var instantRecursive = (int)Sequence.InstantRecursive;
+            var publicFlag = (int)Sequence.Public;
+
+            // Entry patterns: have Out* flag and InstantRecursive, but NOT Public
+            var entryPatternsDf = patternsDf.Filter(
+                Col("sequence").BitwiseAND(Lit(outMask)).NotEqual(Lit(0))
+                .And(Col("sequence").BitwiseAND(Lit(instantRecursive)).EqualTo(Lit(instantRecursive)))
+                .And(Col("sequence").BitwiseAND(Lit(publicFlag)).EqualTo(Lit(0)))
+            );
+
+            // Continuation patterns: have In* flag and Public flag
+            var continuationPatternsDf = patternsDf.Filter(
+                Col("sequence").BitwiseAND(Lit(inMask)).NotEqual(Lit(0))
+                .And(Col("sequence").BitwiseAND(Lit(publicFlag)).NotEqual(Lit(0)))
+            );
+
+            if (debug)
+            {
+                Console.WriteLine($"Entry patterns count: {entryPatternsDf.Count()}");
+                Console.WriteLine($"Continuation patterns count: {continuationPatternsDf.Count()}");
+            }
+
+            // Start by computing entry moves
+            // These need to bypass the Public filter since entry patterns don't have Public flag
+            var entryMoves = ComputeNextCandidatesInternal(
+                perspectivesDf,
+                entryPatternsDf,
+                specificFactions,
+                turn,
+                Sequence.None,
+                skipPublicFilter: true,
+                debug: debug
+            );
+
+            if (debug) Console.WriteLine($"Initial entry moves: {entryMoves.Count()}");
+
+            // Collect all valid final moves (continuation moves with Public flag)
+            DataFrame? allFinalMoves = null;
+
+            // Current frontier of positions to expand from
+            var currentEntryMoves = entryMoves;
+
+            for (int depth = 0; depth < maxDepth && currentEntryMoves.Count() > 0; depth++)
+            {
+                if (debug) Console.WriteLine($"Depth {depth}: {currentEntryMoves.Count()} entry moves");
+
+                // Get the Out flags from current entry moves
+                var outFlagsRows = currentEntryMoves
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask)).Alias("out_flags"))
+                    .Distinct()
+                    .Collect();
+
+                int activeOutFlags = 0;
+                foreach (var row in outFlagsRows)
+                {
+                    activeOutFlags |= row.GetAs<int>("out_flags");
+                }
+
+                if (activeOutFlags == 0) break;
+
+                var activeSequence = (Sequence)activeOutFlags;
+                if (debug) Console.WriteLine($"Active Out flags: {activeOutFlags:X}");
+
+                // Create new perspectives from entry move destinations
+                // The piece "moves" to dst, so we need perspectives from there
+                var nextPerspectives = ComputeNextPerspectivesFromMoves(currentEntryMoves, perspectivesDf);
+
+                if (debug) Console.WriteLine($"Next perspectives: {nextPerspectives.Count()}");
+                if (nextPerspectives.Count() == 0) break;
+
+                // Compute continuation moves (InX | Public) from new perspectives
+                var continuationMoves = ComputeNextCandidatesInternal(
+                    nextPerspectives,
+                    continuationPatternsDf,
+                    specificFactions,
+                    turn,
+                    activeSequence,
+                    skipPublicFilter: false,
+                    debug: debug
+                );
+
+                if (debug) Console.WriteLine($"Continuation moves: {continuationMoves.Count()}");
+
+                // Add continuation moves to final results
+                if (continuationMoves.Count() > 0)
+                {
+                    allFinalMoves = allFinalMoves == null ? continuationMoves : allFinalMoves.Union(continuationMoves);
+                }
+
+                // For InstantRecursive, also compute more entry moves from the new perspectives
+                var nextEntryMoves = ComputeNextCandidatesInternal(
+                    nextPerspectives,
+                    entryPatternsDf,
+                    specificFactions,
+                    turn,
+                    Sequence.None,
+                    skipPublicFilter: true,
+                    debug: debug
+                );
+
+                if (debug) Console.WriteLine($"Next entry moves: {nextEntryMoves.Count()}");
+
+                currentEntryMoves = nextEntryMoves;
+            }
+
+            // Return all final moves, or empty DataFrame if none found
+            if (allFinalMoves == null)
+            {
+                return entryMoves.Limit(0); // Return empty with same schema
+            }
+
+            return allFinalMoves;
+        }
+
+        /// <summary>
+        /// Creates new perspectives centered on move destinations.
+        /// The piece at src moves to dst, so we need to compute perspectives from dst.
+        /// </summary>
+        private static DataFrame ComputeNextPerspectivesFromMoves(DataFrame movesDf, DataFrame originalPerspectivesDf)
+        {
+            // Get unique source perspectives from the moves
+            var moveSources = movesDf.Select(
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_piece"),
+                Col("src_x"),
+                Col("src_y"),
+                Col("src_piece"),
+                Col("src_generic_piece"),
+                Col("dst_x"),
+                Col("dst_y")
+            ).Distinct();
+
+            // The piece at src moves to dst
+            // We need to update the perspective to see from dst
+            // The piece itself doesn't change, but its position does
+            var newPerspectives = moveSources
+                .WithColumn("x", Col("dst_x"))
+                .WithColumn("y", Col("dst_y"))
+                .WithColumn("piece", Col("src_piece"))
+                .WithColumn("generic_piece", Col("src_generic_piece"))
+                .WithColumn("perspective_id",
+                    Sha2(ConcatWs("_",
+                        Col("dst_x").Cast("string"),
+                        Col("dst_y").Cast("string"),
+                        Col("src_generic_piece").Cast("string")),
+                    256))
+                .Select(
+                    Col("perspective_x"),
+                    Col("perspective_y"),
+                    Col("perspective_piece"),
+                    Col("x"),
+                    Col("y"),
+                    Col("piece"),
+                    Col("generic_piece"),
+                    Col("perspective_id")
+                );
+
+            return newPerspectives;
+        }
+
+        /// <summary>
+        /// Internal version of ComputeNextCandidates with skipPublicFilter option.
+        /// </summary>
+        private static DataFrame ComputeNextCandidatesInternal(
+            DataFrame perspectivesDf,
+            DataFrame patternsDf,
+            Piece[] specificFactions,
+            int turn,
+            Sequence activeSequences,
+            bool skipPublicFilter,
+            bool debug)
+        {
+            // Deduplicate patterns
+            var uniquePatternsDf = patternsDf.DropDuplicates();
+
+            // Build ACTOR perspectives
+            var actorPerspectives = perspectivesDf
+                .Filter(
+                    Col("x").EqualTo(Col("perspective_x")).And(
+                    Col("y").EqualTo(Col("perspective_y"))).And(
+                        Col("piece") != Lit((int)Piece.Empty)
+                    )
+                );
+
+            var turnFaction = specificFactions[turn % specificFactions.Length];
+            actorPerspectives = actorPerspectives
+                .Filter(
+                    Col("piece").BitwiseAND(Lit((int)turnFaction)).NotEqual(Lit(0))
+                );
+
+            // Cross-join actor pieces with patterns
+            var dfA = actorPerspectives
+                .WithColumnRenamed("piece", "src_piece")
+                .WithColumnRenamed("generic_piece", "src_generic_piece")
+                .WithColumnRenamed("x", "src_x")
+                .WithColumnRenamed("y", "src_y")
+                .CrossJoin(uniquePatternsDf);
+
+            // Require ALL bits of src_conditions
+            var dfB = dfA.Filter(
+                Col("src_generic_piece").BitwiseAND(Col("src_conditions"))
+                .EqualTo(Col("src_conditions"))
+            );
+
+            // Sequence filter
+            DataFrame dfC;
+            var activeSeqInt = (int)activeSequences;
+
+            if (skipPublicFilter)
+            {
+                // Skip Public filter for entry patterns
+                if (activeSeqInt == 0)
+                {
+                    dfC = dfB;
+                }
+                else
+                {
+                    var inMask = (int)Sequence.InMask;
+                    var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
+                    var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
+                    var activeInFlags = (activeSeqInt >> 1) & inMask;
+                    var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
+                    dfC = dfB.Filter(hasNoInRequirements.Or(inRequirementsMet));
+                }
+            }
+            else if (activeSeqInt == 0)
+            {
+                dfC = dfB.Filter(
+                    Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0))
+                );
+            }
+            else
+            {
+                var inMask = (int)Sequence.InMask;
+                var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
+                var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
+                var activeInFlags = (activeSeqInt >> 1) & inMask;
+                var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
+                dfC = dfB.Filter(
+                    Col("sequence").BitwiseAND(Lit((int)Sequence.Public)).NotEqual(Lit(0))
+                    .And(hasNoInRequirements.Or(inRequirementsMet))
+                );
+            }
+
+            // Compute dst_x, dst_y with faction-based delta_y sign
+            Column deltaYSignCol = Lit(1);
+            for (int i = specificFactions.Length - 1; i >= 0; i--)
+            {
+                var condition = Col("perspective_piece").BitwiseAND(Lit((int)specificFactions[i])).NotEqual(Lit(0));
+                var value = Lit(i % 2 == 0 ? 1 : -1);
+                deltaYSignCol = When(condition, value).Otherwise(deltaYSignCol);
+            }
+
+            var dfD = dfC
+                .WithColumn("delta_y_sign", deltaYSignCol)
+                .WithColumn("dst_x", Col("src_x") + Col("delta_x"))
+                .WithColumn("dst_y", Col("src_y") + (Col("delta_y") * Col("delta_y_sign")))
+                .Drop("delta_x", "delta_y", "delta_y_sign");
+
+            // Lookup destination piece
+            var lookupDf = perspectivesDf
+                .Select(
+                    Col("x").Alias("lookup_x"),
+                    Col("y").Alias("lookup_y"),
+                    Col("perspective_x").Alias("lookup_perspective_x"),
+                    Col("perspective_y").Alias("lookup_perspective_y"),
+                    Col("generic_piece").Alias("lookup_generic_piece")
+                );
+
+            var dfF = dfD.Join(
+                lookupDf,
+                (Col("perspective_x") == Col("lookup_perspective_x"))
+                .And(Col("perspective_y") == Col("lookup_perspective_y"))
+                .And(Col("dst_x") == Col("lookup_x"))
+                .And(Col("dst_y") == Col("lookup_y")),
+                "left_outer"
+            );
+
+            var dfG = dfF.Na().Fill((int)Piece.OutOfBounds, new[] { "lookup_generic_piece" });
+
+            var dfH = dfG.Filter(
+                Col("lookup_generic_piece") != Lit((int)Piece.OutOfBounds)
+            );
+
+            var dfI = dfH
+                .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y")
+                .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");
+
+            var dfJ = dfI.Filter(
+                Col("dst_generic_piece").BitwiseAND(Col("dst_conditions"))
+                .EqualTo(Col("dst_conditions"))
+            );
+
+            var finalDf = dfJ.Drop("src_conditions", "dst_conditions");
+
+            return finalDf;
+        }
+
         private static DataFrame ComputeNextPerspectives(DataFrame candidatesDf)
         {
             return candidatesDf

@@ -1218,4 +1218,96 @@ public class ChessSparkPolicyTests
         Assert.True(count >= 8, $"Expected at least 8 rook continuation patterns, got {count}");
     }
 
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void ComputeSequencedMoves_Rook_CenterOfEmptyBoard_CanReachAllSquaresInLine()
+    {
+        // Arrange: Rook in center of empty board at (4, 4)
+        var board = CreateEmptyBoard();
+        board.Cell[4, 4] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        int rook = (int)ChessPolicy.Piece.Rook;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {rook}) != 0");
+
+        // Act: Compute sequenced moves
+        var moves = ChessPolicy.TimelineService.ComputeSequencedMoves(
+            perspectivesDf, 
+            patternsDf, 
+            factions,
+            turn: 0,
+            maxDepth: 7,
+            debug: false
+        );
+        var movesList = moves.Collect().ToList();
+        
+        // Assert: Rook should be able to reach all squares in horizontal and vertical lines
+        // From (4,4): columns 0-7 on row 4 (except 4), rows 0-7 on column 4 (except 4) = 7 + 7 = 14 squares
+        Assert.True(movesList.Count >= 14, $"Expected at least 14 rook moves from center, got {movesList.Count}");
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void ComputeSequencedMoves_Rook_CanCaptureDistantFoe()
+    {
+        // Arrange: White Rook at (0, 0), Black pawn at (0, 5)
+        var board = CreateEmptyBoard();
+        board.Cell[0, 0] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+        board.Cell[0, 5] = ChessPolicy.Piece.Black | ChessPolicy.Piece.Pawn;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        int rook = (int)ChessPolicy.Piece.Rook;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {rook}) != 0");
+
+        // Act: Compute sequenced moves
+        var moves = ChessPolicy.TimelineService.ComputeSequencedMoves(
+            perspectivesDf, 
+            patternsDf, 
+            factions,
+            turn: 0
+        );
+        var movesList = moves.Collect().ToList();
+        
+        // Assert: Should be able to capture the distant foe at (0, 5)
+        var captureMove = movesList.FirstOrDefault(r => 
+            r.GetAs<int>("dst_x") == 0 && r.GetAs<int>("dst_y") == 5);
+        Assert.NotNull(captureMove);
+    }
+
+    [Fact]
+    [Trait("Feature", "Sequence")]
+    public void ComputeSequencedMoves_Rook_CanMoveToAdjacentEmpty()
+    {
+        // Arrange: White Rook at (0, 0)
+        var board = CreateEmptyBoard();
+        board.Cell[0, 0] = ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var perspectivesDf = Policy.GetPerspectives(board, factions);
+        
+        int rook = (int)ChessPolicy.Piece.Rook;
+        var patternsDf = new ChessPolicy.PatternFactory(Spark).GetPatterns()
+            .Filter($"(src_conditions & {rook}) != 0");
+
+        // Act: Compute sequenced moves
+        var moves = ChessPolicy.TimelineService.ComputeSequencedMoves(
+            perspectivesDf, 
+            patternsDf, 
+            factions,
+            turn: 0
+        );
+        var movesList = moves.Collect().ToList();
+        
+        // Assert: Should be able to move to adjacent empty square (0, 1)
+        var adjacentMove = movesList.FirstOrDefault(r => 
+            r.GetAs<int>("dst_x") == 0 && r.GetAs<int>("dst_y") == 1);
+        Assert.NotNull(adjacentMove);
+    }
+
 }
