@@ -23,7 +23,7 @@ public class ThreatenedCellsTests : ChessTestBase
     {
     }
 
-    [Fact(Skip = "Sliding piece threat computation for distant squares not yet implemented - see issue #12")]
+    [Fact]
     [Trait("Performance", "Fast")]
     public void ComputeThreatenedCells_BlackRookAtCorner_ThreatensRowAndColumn()
     {
@@ -77,7 +77,7 @@ public class ThreatenedCellsTests : ChessTestBase
         Assert.Equal(8, threatenedCells.Length);
     }
 
-    [Fact(Skip = "Sliding piece threat computation for distant squares not yet implemented - see issue #12")]
+    [Fact]
     [Trait("Performance", "Fast")]
     public void AddThreatenedBitToPerspectives_MarksCorrectCells()
     {
@@ -113,7 +113,7 @@ public class ThreatenedCellsTests : ChessTestBase
             "Expected some perspectives to have the Threatened bit set");
     }
 
-    [Fact(Skip = "Sliding piece threat computation for distant squares not yet implemented - see issue #12")]
+    [Fact]
     [Trait("Performance", "Fast")]
     public void GetPerspectivesWithThreats_IntegrationTest()
     {
