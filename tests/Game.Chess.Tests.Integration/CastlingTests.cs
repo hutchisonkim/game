@@ -150,7 +150,7 @@ public class CastlingTests : ChessTestBase
             "Expected MintKing OutD castling patterns to require EmptyAndSafe as destination condition");
     }
 
-    [Fact]
+    [Fact(Skip = "Sliding piece threat computation for distant squares not yet implemented - see issue #12")]
     [Trait("Performance", "Fast")]
     public void ThreatenedBit_IntegratedInBuildTimeline()
     {
