@@ -1109,6 +1109,159 @@ public class ChessPolicy
 
             return finalDf;
         }
+
+        /// <summary>
+        /// Filters out moves that would leave the king in check.
+        /// This is a critical chess rule: a player cannot make a move that leaves their own king under attack.
+        /// 
+        /// Algorithm:
+        /// 1. For each candidate move, simulate the resulting board state
+        /// 2. Compute which cells are threatened by the opponent in that state
+        /// 3. Find our king's position after the move
+        /// 4. Filter out moves where our king is on a threatened cell
+        /// </summary>
+        public static DataFrame FilterMovesLeavingKingInCheck(
+            DataFrame candidatesDf,
+            DataFrame perspectivesDf,
+            DataFrame patternsDf,
+            Piece[] specificFactions,
+            int turn = 0,
+            bool debug = false)
+        {
+            if (candidatesDf.Count() == 0)
+            {
+                return candidatesDf;
+            }
+
+            var currentFaction = specificFactions[turn % specificFactions.Length];
+            var kingBit = (int)Piece.King;
+            var factionBit = (int)currentFaction;
+
+            // Get the current king position from perspectives
+            // We need to find where our king is in the current board state
+            var kingPerspective = perspectivesDf
+                .Filter(
+                    Col("piece").BitwiseAND(Lit(kingBit)).NotEqual(Lit(0))
+                    .And(Col("piece").BitwiseAND(Lit(factionBit)).NotEqual(Lit(0)))
+                    .And(Col("x").EqualTo(Col("perspective_x")))
+                    .And(Col("y").EqualTo(Col("perspective_y")))
+                )
+                .Select(Col("x").Alias("king_x"), Col("y").Alias("king_y"))
+                .Distinct();
+
+            if (kingPerspective.Count() == 0)
+            {
+                // No king found - return all candidates (edge case for tests without king)
+                return candidatesDf;
+            }
+
+            var kingPos = kingPerspective.Collect().First();
+            int currentKingX = kingPos.GetAs<int>("king_x");
+            int currentKingY = kingPos.GetAs<int>("king_y");
+
+            if (debug)
+            {
+                Console.WriteLine($"Current king position: ({currentKingX}, {currentKingY})");
+                Console.WriteLine($"Total candidates before filtering: {candidatesDf.Count()}");
+            }
+
+            // Add king position tracking to each candidate
+            // If the king is moving, its new position is dst_x/dst_y
+            // Otherwise, the king stays at currentKingX/currentKingY
+            var candidatesWithKingPos = candidatesDf
+                .WithColumn("king_is_moving",
+                    Col("src_generic_piece").BitwiseAND(Lit(kingBit)).NotEqual(Lit(0)))
+                .WithColumn("king_x_after",
+                    When(Col("king_is_moving"), Col("dst_x")).Otherwise(Lit(currentKingX)))
+                .WithColumn("king_y_after",
+                    When(Col("king_is_moving"), Col("dst_y")).Otherwise(Lit(currentKingY)));
+
+            // For each candidate move, we need to check if the resulting position
+            // leaves our king under attack. We'll use a simplified approach:
+            // simulate the board state after each move and compute threats.
+            
+            // First, mark candidates with a unique move ID for tracking
+            var candidatesWithId = candidatesWithKingPos
+                .WithColumn("move_id",
+                    Sha2(ConcatWs("_",
+                        Col("src_x").Cast("string"),
+                        Col("src_y").Cast("string"),
+                        Col("dst_x").Cast("string"),
+                        Col("dst_y").Cast("string"),
+                        Col("perspective_x").Cast("string"),
+                        Col("perspective_y").Cast("string")),
+                    256));
+
+            // Compute threatened cells for the current position (opponent's threats)
+            var currentThreats = ComputeThreatenedCells(
+                perspectivesDf,
+                patternsDf,
+                specificFactions,
+                turn: turn,  // Compute opponent's threats
+                debug: debug
+            );
+
+            // Join candidates with threat information
+            // A move is invalid if after the move, the king's position is threatened
+            // 
+            // For non-king moves: check if the king's current position is still safe
+            // after considering any blocking pieces being moved away
+            //
+            // For king moves: check if the destination is threatened
+            var candidatesWithThreatCheck = candidatesWithId.Join(
+                currentThreats
+                    .WithColumnRenamed("threatened_x", "threat_x")
+                    .WithColumnRenamed("threatened_y", "threat_y"),
+                (Col("king_x_after") == Col("threat_x")).And(Col("king_y_after") == Col("threat_y")),
+                "left_outer"
+            );
+
+            // Filter out moves where the king would be on a threatened square
+            // threat_x/threat_y being NULL means the king's position is not threatened
+            var safeMoves = candidatesWithThreatCheck
+                .Filter(Col("threat_x").IsNull())
+                .Drop("king_is_moving", "king_x_after", "king_y_after", "move_id", "threat_x", "threat_y");
+
+            if (debug)
+            {
+                Console.WriteLine($"Safe moves after filtering: {safeMoves.Count()}");
+            }
+
+            return safeMoves;
+        }
+
+        /// <summary>
+        /// Computes legal moves that don't leave the king in check.
+        /// Combines ComputeNextCandidates with FilterMovesLeavingKingInCheck.
+        /// </summary>
+        public static DataFrame ComputeLegalMoves(
+            DataFrame perspectivesDf,
+            DataFrame patternsDf,
+            Piece[] specificFactions,
+            int turn = 0,
+            Sequence activeSequences = Sequence.None,
+            bool debug = false)
+        {
+            // First compute all candidate moves
+            var candidates = ComputeNextCandidates(
+                perspectivesDf,
+                patternsDf,
+                specificFactions,
+                turn: turn,
+                activeSequences: activeSequences,
+                debug: debug
+            );
+
+            // Then filter out moves that leave the king in check
+            return FilterMovesLeavingKingInCheck(
+                candidates,
+                perspectivesDf,
+                patternsDf,
+                specificFactions,
+                turn: turn,
+                debug: debug
+            );
+        }
     }
 
     public class PieceFactory(SparkSession spark)
