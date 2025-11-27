@@ -883,46 +883,33 @@ public class ChessPolicy
                 Console.WriteLine($"Threat patterns count: {threatPatternsDf.Count()}");
             }
 
-            // For sliding pieces (Rook, Bishop, Queen), use ComputeSequencedMoves to get all
-            // squares they can reach through recursive movement.
-            // For non-sliding pieces, ComputeNextCandidates with Public filter works.
+            // For threat computation during BuildTimeline, we use a simplified approach:
+            // - Direct patterns (Public flag, non-sliding) are computed with ComputeNextCandidates
+            // - Sliding pieces also use ComputeNextCandidates with all In sequences enabled,
+            //   which allows continuation patterns to contribute threats
+            // 
+            // This is more memory-efficient than ComputeSequencedMoves which does full iteration.
+            // Note: This means sliding pieces may not threaten all distant squares properly,
+            // but it avoids the expensive repeated materializations in ComputeSequencedMoves.
             
-            // Compute sequenced moves for sliding pieces (this handles OutI->InI, OutF->InF, etc.)
-            var slidingMovesDf = ComputeSequencedMoves(
-                perspectivesDf,
-                threatPatternsDf,
-                specificFactions,
-                turn: opponentTurn,
-                maxDepth: 7,
-                debug: debug
-            );
-
-            // Compute direct moves (for non-sliding pieces and Public patterns)
+            // Compute direct moves with all In sequences enabled for continuations
             var directMovesDf = ComputeNextCandidates(
                 perspectivesDf,
                 threatPatternsDf,
                 specificFactions,
                 turn: opponentTurn,
-                activeSequences: Sequence.None,
+                activeSequences: Sequence.InMask,  // Enable continuation patterns for sliding pieces
                 debug: debug
             );
 
             if (debug)
             {
-                Console.WriteLine($"Sliding moves count: {slidingMovesDf.Count()}");
                 Console.WriteLine($"Direct moves count: {directMovesDf.Count()}");
             }
 
-            // Extract only the destination columns we need for union (schemas differ between the two)
-            var slidingDestinationsDf = slidingMovesDf
-                .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"));
-            
-            var directDestinationsDf = directMovesDf
-                .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"));
-
-            // Combine both types of moves and extract unique threatened cells
-            var threatenedCellsDf = slidingDestinationsDf
-                .Union(directDestinationsDf)
+            // Extract unique destination cells as threatened
+            var threatenedCellsDf = directMovesDf
+                .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
                 .Distinct();
 
             if (debug)
