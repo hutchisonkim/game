@@ -262,7 +262,10 @@ public class ChessPolicy
                 // InA = 1 << 5, OutA = 1 << 6, InB = 1 << 7, OutB = 1 << 8, etc.
                 // This means OutX >> 1 = InX for all pairs, allowing us to convert
                 // active Out flags to their corresponding In flags via a single right shift.
-                var activeInFlags = (activeSeqInt >> 1) & inMask; // Shift Out flags to corresponding In flags
+                // Additionally, In flags can be passed directly in activeSequences (for threat computation).
+                var activeInFlagsFromOut = (activeSeqInt >> 1) & inMask; // Shift Out flags to corresponding In flags
+                var activeInFlagsDirect = activeSeqInt & inMask; // In flags passed directly
+                var activeInFlags = activeInFlagsFromOut | activeInFlagsDirect; // Combine both
                 var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
                 
                 // A pattern can execute if it's Public and (has no In requirements OR In requirements are met)
@@ -724,7 +727,9 @@ public class ChessPolicy
                     var inMask = (int)Sequence.InMask;
                     var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
                     var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
-                    var activeInFlags = (activeSeqInt >> 1) & inMask;
+                    var activeInFlagsFromOut = (activeSeqInt >> 1) & inMask;
+                    var activeInFlagsDirect = activeSeqInt & inMask;
+                    var activeInFlags = activeInFlagsFromOut | activeInFlagsDirect;
                     var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
 
                     var activeVariant = activeSeqInt & variantMask;
@@ -746,7 +751,9 @@ public class ChessPolicy
                 var inMask = (int)Sequence.InMask;
                 var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
                 var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
-                var activeInFlags = (activeSeqInt >> 1) & inMask;
+                var activeInFlagsFromOut = (activeSeqInt >> 1) & inMask;
+                var activeInFlagsDirect = activeSeqInt & inMask;
+                var activeInFlags = activeInFlagsFromOut | activeInFlagsDirect;
                 var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
 
                 var activeVariant = activeSeqInt & variantMask;
