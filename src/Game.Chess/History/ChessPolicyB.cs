@@ -141,16 +141,33 @@ public class ChessPolicy
     {
         public static DataFrame BuildTimeline(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int maxDepth = 3)
         {
-            var timelineDf = perspectivesDf.WithColumn("timestep", Lit(0));
+            // Start at timestep 0 with threatened cells computed for the initial position
+            // turn=0 means it's the first faction's turn
+            var threatenedCellsDf = ComputeThreatenedCells(perspectivesDf, patternsDf, specificFactions, turn: 0);
+            var perspectivesWithThreats = AddThreatenedBitToPerspectives(perspectivesDf, threatenedCellsDf);
+            var timelineDf = perspectivesWithThreats.WithColumn("timestep", Lit(0));
 
             for (int depth = 1; depth <= maxDepth; depth++)
             {
-                var candidatesDf = ComputeNextCandidates(timelineDf.Filter(Col("timestep") == depth - 1), patternsDf, specificFactions);
+                // Current turn is (depth - 1) % specificFactions.Length
+                int currentTurn = (depth - 1) % specificFactions.Length;
+                
+                // Get perspectives at the previous timestep with threatened cells already computed
+                var currentPerspectives = timelineDf.Filter(Col("timestep") == depth - 1);
+                
+                // Compute candidates based on current perspectives (with threatened bits)
+                var candidatesDf = ComputeNextCandidates(currentPerspectives, patternsDf, specificFactions, turn: currentTurn);
 
-                var nextPerspectivesDf = ComputeNextPerspectives(candidatesDf)
+                // Compute next perspectives from candidates
+                var nextPerspectivesDf = ComputeNextPerspectives(candidatesDf);
+                
+                // Compute threatened cells for the next turn
+                int nextTurn = depth % specificFactions.Length;
+                var nextThreatenedCellsDf = ComputeThreatenedCells(nextPerspectivesDf, patternsDf, specificFactions, turn: nextTurn);
+                var nextPerspectivesWithThreats = AddThreatenedBitToPerspectives(nextPerspectivesDf, nextThreatenedCellsDf)
                     .WithColumn("timestep", Lit(depth));
 
-                timelineDf = timelineDf.Union(nextPerspectivesDf);
+                timelineDf = timelineDf.Union(nextPerspectivesWithThreats);
             }
 
             return timelineDf;
