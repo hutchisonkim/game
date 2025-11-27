@@ -878,7 +878,6 @@ public class ChessPolicy
             // 
             // We set dst_conditions to Piece.None to bypass destination filtering entirely,
             // allowing us to compute all squares a piece could reach.
-            // This is equivalent to the "includeTargetless=true" behavior in ChessState.GetAttackingActionCandidates.
             var threatPatternsDf = patternsDf.WithColumn(
                 "dst_conditions",
                 Lit((int)Piece.None)
@@ -890,41 +889,187 @@ public class ChessPolicy
                 Console.WriteLine($"Threat patterns count: {threatPatternsDf.Count()}");
             }
 
-            // For threat computation during BuildTimeline, we use a simplified approach:
-            // - Direct patterns (Public flag, non-sliding) are computed with ComputeNextCandidates
-            // - Sliding pieces also use ComputeNextCandidates with all In sequences enabled,
-            //   which allows continuation patterns to contribute threats
-            // 
-            // This is more memory-efficient than ComputeSequencedMoves which does full iteration.
-            // Note: This means sliding pieces may not threaten all distant squares properly,
-            // but it avoids the expensive repeated materializations in ComputeSequencedMoves.
-            
-            // Compute direct moves with all In sequences enabled for continuations
+            // STEP 1: Compute direct (non-sliding) threats using ComputeNextCandidates
+            // These are pieces like Knight, King, Pawn that don't use InstantRecursive sequences
             var directMovesDf = ComputeNextCandidates(
                 perspectivesDf,
                 threatPatternsDf,
                 specificFactions,
                 turn: opponentTurn,
-                activeSequences: Sequence.InMask,  // Enable continuation patterns for sliding pieces
+                activeSequences: Sequence.InMask,  // Enable continuation patterns for first step
                 debug: debug
             );
 
-            if (debug)
-            {
-                Console.WriteLine($"Direct moves count: {directMovesDf.Count()}");
-            }
-
-            // Extract unique destination cells as threatened
+            // Extract unique destination cells from direct moves
             var threatenedCellsDf = directMovesDf
                 .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
                 .Distinct();
 
             if (debug)
             {
-                Console.WriteLine($"Threatened cells count: {threatenedCellsDf.Count()}");
+                Console.WriteLine($"Direct threats count: {threatenedCellsDf.Count()}");
+            }
+
+            // STEP 2: Compute sliding piece threats iteratively
+            // This is more memory-efficient than ComputeSequencedMoves because we:
+            // - Only track the "frontier" of positions at each step
+            // - Only collect threatened cells (not full move candidates)
+            // - Filter early to reduce row counts
+            var slidingThreatsDf = ComputeSlidingThreats(
+                perspectivesDf,
+                patternsDf,
+                specificFactions,
+                opponentTurn,
+                maxDepth: 7,
+                debug: debug
+            );
+
+            // Union direct and sliding threats
+            if (slidingThreatsDf.Count() > 0)
+            {
+                threatenedCellsDf = threatenedCellsDf.Union(slidingThreatsDf).Distinct();
+            }
+
+            if (debug)
+            {
+                Console.WriteLine($"Total threatened cells count: {threatenedCellsDf.Count()}");
             }
 
             return threatenedCellsDf;
+        }
+
+        /// <summary>
+        /// Computes threatened cells for sliding pieces (Rook, Bishop, Queen) using an
+        /// iterative approach that is more memory-efficient than ComputeSequencedMoves.
+        /// 
+        /// The key optimization is that we only track:
+        /// 1. The "frontier" of current positions at each iteration
+        /// 2. The threatened cells collected so far
+        /// 
+        /// We avoid the expensive cross-joins in ComputeNextCandidatesInternal by:
+        /// - Pre-filtering to only sliding pieces
+        /// - Only tracking position and direction (not full move candidates)
+        /// - Using early filtering to reduce row counts at each step
+        /// </summary>
+        private static DataFrame ComputeSlidingThreats(
+            DataFrame perspectivesDf,
+            DataFrame patternsDf,
+            Piece[] specificFactions,
+            int opponentTurn,
+            int maxDepth = 7,
+            bool debug = false)
+        {
+            var outMask = (int)Sequence.OutMask;
+            var instantRecursive = (int)Sequence.InstantRecursive;
+            var publicFlag = (int)Sequence.Public;
+
+            // Get entry patterns for sliding pieces (OutX | InstantRecursive, no Public)
+            var entryPatternsDf = patternsDf.Filter(
+                Col("sequence").BitwiseAND(Lit(outMask)).NotEqual(Lit(0))
+                .And(Col("sequence").BitwiseAND(Lit(instantRecursive)).EqualTo(Lit(instantRecursive)))
+                .And(Col("sequence").BitwiseAND(Lit(publicFlag)).EqualTo(Lit(0)))
+            );
+
+            if (entryPatternsDf.Count() == 0)
+            {
+                // No sliding patterns, return empty DataFrame
+                return perspectivesDf.Limit(0)
+                    .Select(Lit(0).Alias("threatened_x"), Lit(0).Alias("threatened_y"))
+                    .Limit(0);
+            }
+
+            // Add original_perspective columns for initial perspectives
+            var initialPerspectivesDf = perspectivesDf
+                .WithColumn("original_perspective_x", Col("perspective_x"))
+                .WithColumn("original_perspective_y", Col("perspective_y"));
+
+            // Compute initial entry moves (first step of sliding)
+            var currentFrontier = ComputeNextCandidatesInternal(
+                initialPerspectivesDf,
+                perspectivesDf,
+                entryPatternsDf,
+                specificFactions,
+                opponentTurn,
+                Sequence.None,
+                skipPublicFilter: true,
+                debug: false  // Reduce noise
+            );
+
+            if (debug) Console.WriteLine($"Sliding initial frontier: {currentFrontier.Count()}");
+
+            if (currentFrontier.Count() == 0)
+            {
+                return perspectivesDf.Limit(0)
+                    .Select(Lit(0).Alias("threatened_x"), Lit(0).Alias("threatened_y"))
+                    .Limit(0);
+            }
+
+            // Collect all threatened cells from sliding pieces
+            // First step: all dst positions are threatened
+            var allThreatenedCells = currentFrontier
+                .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
+                .Distinct();
+
+            // Track positions where we can continue sliding (only through empty squares)
+            // Filter to only moves that landed on Empty squares (can continue sliding)
+            var emptyBit = (int)Piece.Empty;
+            var emptyFrontier = currentFrontier
+                .Filter(Col("dst_generic_piece").BitwiseAND(Lit(emptyBit)).NotEqual(Lit(0)));
+
+            // Iterate to find all threatened cells along sliding paths
+            for (int depth = 1; depth < maxDepth && emptyFrontier.Count() > 0; depth++)
+            {
+                if (debug) Console.WriteLine($"Sliding depth {depth}: frontier size {emptyFrontier.Count()}");
+
+                // Create new perspectives from empty frontier positions
+                var nextPerspectives = ComputeNextPerspectivesFromMoves(emptyFrontier, perspectivesDf);
+
+                if (nextPerspectives.Count() == 0) break;
+
+                // Get the Out flags and Variant flags to continue in the same direction
+                var variantMask = (int)(Sequence.Variant1 | Sequence.Variant2 | Sequence.Variant3 | Sequence.Variant4);
+                var outFlagsRows = emptyFrontier
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"))
+                    .Distinct()
+                    .Collect();
+
+                int activeOutFlags = 0;
+                foreach (var row in outFlagsRows)
+                {
+                    activeOutFlags |= row.GetAs<int>("out_flags");
+                }
+
+                if (activeOutFlags == 0) break;
+
+                var activeSequence = (Sequence)activeOutFlags;
+
+                // Compute next step of sliding from new perspectives
+                var nextMoves = ComputeNextCandidatesInternal(
+                    nextPerspectives,
+                    perspectivesDf,
+                    entryPatternsDf,
+                    specificFactions,
+                    opponentTurn,
+                    activeSequence,
+                    skipPublicFilter: true,
+                    debug: false
+                );
+
+                if (nextMoves.Count() == 0) break;
+
+                // All destination cells are threatened
+                var newThreatened = nextMoves
+                    .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
+                    .Distinct();
+
+                allThreatenedCells = allThreatenedCells.Union(newThreatened);
+
+                // Continue only through empty squares
+                emptyFrontier = nextMoves
+                    .Filter(Col("dst_generic_piece").BitwiseAND(Lit(emptyBit)).NotEqual(Lit(0)));
+            }
+
+            return allThreatenedCells.Distinct();
         }
 
         /// <summary>
