@@ -1050,7 +1050,7 @@ public class ChessPolicy
                     debug: false
                 );
 
-                if (nextMoves.Count() == 0) break;
+                if (nextMoves.Limit(1).Count() == 0) break;
 
                 // All destination cells are threatened
                 var newThreatened = nextMoves
