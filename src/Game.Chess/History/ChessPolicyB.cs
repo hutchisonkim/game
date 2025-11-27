@@ -833,10 +833,11 @@ public class ChessPolicy
         /// Computes which cells are threatened by the opponent.
         /// This method:
         /// 1. Gets all attacking patterns (patterns where dst_conditions contains Foe - these can capture)
-        /// 2. Computes all attack destinations from the opponent's perspective
-        /// 3. Returns a DataFrame with distinct (x, y) cells that are threatened
+        /// 2. Clears dst_conditions to bypass destination filtering (for targetless threat computation)
+        /// 3. Computes all attack destinations from the opponent's perspective
+        /// 4. Returns a DataFrame with distinct (x, y) cells that are threatened
         /// 
-        /// This is similar to GetAttackingActionCandidates in ChessState but for the Spark-based implementation.
+        /// This is similar to GetAttackingActionCandidates in ChessState with includeTargetless=true.
         /// </summary>
         public static DataFrame ComputeThreatenedCells(
             DataFrame perspectivesDf,
@@ -849,22 +850,31 @@ public class ChessPolicy
             int opponentTurn = (turn + 1) % specificFactions.Length;
             
             // Filter patterns to get attacking patterns - patterns that can capture (dst_conditions has Foe bit)
-            // Also include patterns that target Empty squares with Pawn diagonal captures since pawns threaten diagonally
-            // but can also move forward to empty squares
+            // These are the patterns that represent attacking moves
             var attackPatternsDf = patternsDf.Filter(
                 Col("dst_conditions").BitwiseAND(Lit((int)Piece.Foe)).NotEqual(Lit(0))
+            );
+
+            // For threat computation, we want to find ALL squares a piece can attack,
+            // not just squares with enemy pieces. So we set dst_conditions to Piece.None
+            // to bypass the destination condition filter entirely.
+            // This is equivalent to the "includeTargetless=true" behavior in ChessState.GetAttackingActionCandidates
+            var threatPatternsDf = attackPatternsDf.WithColumn(
+                "dst_conditions",
+                Lit((int)Piece.None)
             );
 
             if (debug)
             {
                 Console.WriteLine($"Attack patterns count: {attackPatternsDf.Count()}");
+                Console.WriteLine($"Threat patterns count: {threatPatternsDf.Count()}");
             }
 
             // Compute all attack destinations from opponent's perspective
-            // Use the existing ComputeNextCandidates but for the opponent
+            // Use the existing ComputeNextCandidates but for the opponent with modified patterns
             var attackCandidatesDf = ComputeNextCandidates(
                 perspectivesDf,
-                attackPatternsDf,
+                threatPatternsDf,
                 specificFactions,
                 turn: opponentTurn,
                 activeSequences: Sequence.None,
