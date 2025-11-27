@@ -173,10 +173,11 @@ public class KingInCheckTests : ChessTestBase
     public void ComputeLegalMoves_IntegrationTest_FiltersIllegalMoves()
     {
         // Arrange - Simple setup with king and threatening piece
-        // King at (0, 0), Rook at (7, 0) threatens row 0 (y=0)
+        // King at (4, 0), Rook at (4, 7) threatens column 4 (x=4)
+        // This matches the passing test pattern
         var board = CreateBoardWithPieces(
-            (0, 0, WhiteMintKing),
-            (7, 0, BlackMintRook));
+            (4, 0, WhiteMintKing),
+            (4, 7, BlackMintRook));  // Rook threatens column 4
 
         var perspectivesDf = Policy.GetPerspectives(board, DefaultFactions);
         var patternsDf = new PatternFactory(Spark).GetPatterns();
@@ -201,21 +202,21 @@ public class KingInCheckTests : ChessTestBase
 
         var legalMovesArray = legalMoves.Collect().ToArray();
 
-        // Assert - King at (0, 0) under attack from rook at (7, 0)
-        // King can move to (0, 1) or (1, 1) to escape
-        // Moving to (1, 0) stays on row 0 under attack
+        // Assert - King at (4, 0) under attack from rook at (4, 7)
+        // King can move to (3, 0), (3, 1), (5, 0), (5, 1) to escape
+        // Moving to (4, 1) stays on column 4 under attack
         Assert.True(legalMovesArray.Length > 0, "King should have escape moves");
         
         foreach (var move in legalMovesArray)
         {
             int srcGenericPiece = move.GetAs<int>("src_generic_piece");
-            int dstY = move.GetAs<int>("dst_y");
+            int dstX = move.GetAs<int>("dst_x");
             
             bool isKingMove = (srcGenericPiece & (int)Piece.King) != 0;
             if (isKingMove)
             {
-                // King must escape - cannot stay on row 0 (y=0) which is threatened by the rook
-                Assert.NotEqual(0, dstY);
+                // King must escape - cannot stay on column 4 (x=4) which is threatened by the rook
+                Assert.NotEqual(4, dstX);
             }
         }
     }
