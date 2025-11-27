@@ -1018,7 +1018,7 @@ public class ChessPolicy
                 // Create new perspectives from empty frontier positions
                 var nextPerspectives = ComputeNextPerspectivesFromMoves(emptyFrontier, perspectivesDf);
 
-                if (nextPerspectives.Count() == 0) break;
+                if (nextPerspectives.Limit(1).Count() == 0) break;
 
                 // Get the Out flags and Variant flags to continue in the same direction
                 var variantMask = (int)(Sequence.Variant1 | Sequence.Variant2 | Sequence.Variant3 | Sequence.Variant4);
