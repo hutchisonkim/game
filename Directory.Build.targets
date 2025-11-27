@@ -1,0 +1,52 @@
+<Project>
+  <!--
+    Fix for Microsoft.Spark NuGet package DLL extraction on Linux.
+    The package uses Windows-style backslashes in its internal paths, causing DLLs
+    to be extracted with literal backslash characters in filenames on Linux.
+    
+    This target extracts the nupkg and adds direct assembly references.
+  -->
+
+  <Target Name="FixMicrosoftSparkPathsBeforeBuild" BeforeTargets="ResolveAssemblyReferences" Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <PropertyGroup>
+      <MicrosoftSparkPackageDir>$(NuGetPackageRoot)microsoft.spark/2.3.0</MicrosoftSparkPackageDir>
+      <_SparkDllPath>$(MicrosoftSparkPackageDir)/lib/netstandard2.1/Microsoft.Spark.dll</_SparkDllPath>
+      <_NupkgPath>$(MicrosoftSparkPackageDir)/microsoft.spark.2.3.0.nupkg</_NupkgPath>
+    </PropertyGroup>
+
+    <!-- Check if we need to fix (nupkg exists but dll doesn't) -->
+    <PropertyGroup>
+      <_NeedsFix>false</_NeedsFix>
+      <_NeedsFix Condition="Exists('$(_NupkgPath)') AND !Exists('$(_SparkDllPath)')">true</_NeedsFix>
+    </PropertyGroup>
+
+    <!-- Fix permissions and remove problematic backslash-named files before extraction -->
+    <Exec
+      Command="chmod -R u+rwx '$(MicrosoftSparkPackageDir)' 2>/dev/null || true; find '$(MicrosoftSparkPackageDir)' -name '*\\*' -delete 2>/dev/null || true"
+      Condition="'$(_NeedsFix)' == 'true'"
+      IgnoreExitCode="true"
+      StandardOutputImportance="low"
+      StandardErrorImportance="low" />
+
+    <!-- Extract nupkg to fix the paths -->
+    <Exec
+      Command="unzip -o '$(_NupkgPath)' -d '$(MicrosoftSparkPackageDir)'"
+      Condition="'$(_NeedsFix)' == 'true'"
+      IgnoreExitCode="true"
+      StandardOutputImportance="low"
+      StandardErrorImportance="low" />
+
+    <Message
+      Text="Fixed Microsoft.Spark package paths for Linux"
+      Condition="'$(_NeedsFix)' == 'true'"
+      Importance="high" />
+
+    <!-- Add direct reference to Microsoft.Spark.dll after extraction -->
+    <ItemGroup Condition="Exists('$(_SparkDllPath)') OR '$(_NeedsFix)' == 'true'">
+      <Reference Include="Microsoft.Spark">
+        <HintPath>$(_SparkDllPath)</HintPath>
+        <Private>true</Private>
+      </Reference>
+    </ItemGroup>
+  </Target>
+</Project>
