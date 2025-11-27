@@ -173,15 +173,27 @@ public class KingInCheckTests : ChessTestBase
     public void ComputeLegalMoves_IntegrationTest_FiltersIllegalMoves()
     {
         // Arrange - Simple setup with king and threatening piece
+        // King at (0, 0), Rook at (7, 0) threatens row 0 (y=0)
         var board = CreateBoardWithPieces(
             (0, 0, WhiteMintKing),
-            (7, 0, BlackMintRook));  // Rook threatens row 0
+            (7, 0, BlackMintRook));
 
         var perspectivesDf = Policy.GetPerspectives(board, DefaultFactions);
         var patternsDf = new PatternFactory(Spark).GetPatterns();
 
-        // Act - Use the combined ComputeLegalMoves method
-        var legalMoves = TimelineService.ComputeLegalMoves(
+        // Get king patterns only (Public sequence patterns for king moves)
+        int kingType = (int)Piece.King;
+        int publicSeq = (int)Sequence.Public;
+        var kingPatternsDf = patternsDf
+            .Filter($"(src_conditions & {kingType}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        // Get all candidate king moves
+        var candidates = TimelineService.ComputeNextCandidates(
+            perspectivesDf, kingPatternsDf, DefaultFactions, turn: 0);
+
+        // Act - Filter moves that leave king in check
+        var legalMoves = TimelineService.FilterMovesLeavingKingInCheck(
+            candidates,
             perspectivesDf,
             patternsDf,
             DefaultFactions,
@@ -202,7 +214,7 @@ public class KingInCheckTests : ChessTestBase
             bool isKingMove = (srcGenericPiece & (int)Piece.King) != 0;
             if (isKingMove)
             {
-                // King must escape to row 1 (y = 1)
+                // King must escape - cannot stay on row 0 (y=0) which is threatened by the rook
                 Assert.NotEqual(0, dstY);
             }
         }
