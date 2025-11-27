@@ -918,7 +918,7 @@ public class ChessPolicy
             // - Filter early to reduce row counts
             var slidingThreatsDf = ComputeSlidingThreats(
                 perspectivesDf,
-                patternsDf,
+                threatPatternsDf,  // Use modified patterns with dst_conditions=None
                 specificFactions,
                 opponentTurn,
                 maxDepth: 7,
@@ -993,7 +993,7 @@ public class ChessPolicy
 
             if (debug) Console.WriteLine($"Sliding initial frontier: {currentFrontier.Count()}");
 
-            if (currentFrontier.Count() == 0)
+            if (currentFrontier.Limit(1).Count() == 0)
             {
                 return CreateEmptyThreatenedCellsDf(perspectivesDf);
             }
