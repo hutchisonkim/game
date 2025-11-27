@@ -913,11 +913,16 @@ public class ChessPolicy
                 Console.WriteLine($"Direct moves count: {directMovesDf.Count()}");
             }
 
-            // Combine both types of moves and extract unique threatened cells
-            var allMovesDf = slidingMovesDf.Union(directMovesDf);
+            // Extract only the destination columns we need for union (schemas differ between the two)
+            var slidingDestinationsDf = slidingMovesDf
+                .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"));
             
-            var threatenedCellsDf = allMovesDf
-                .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
+            var directDestinationsDf = directMovesDf
+                .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"));
+
+            // Combine both types of moves and extract unique threatened cells
+            var threatenedCellsDf = slidingDestinationsDf
+                .Union(directDestinationsDf)
                 .Distinct();
 
             if (debug)
