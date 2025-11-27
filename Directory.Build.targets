@@ -27,7 +27,7 @@
 
     <!-- Fix permissions before extraction -->
     <Exec
-      Command="chmod -R u+rwx '$(_MicrosoftSparkPackageDir)'"
+      Command="[ -w '$(_MicrosoftSparkPackageDir)' ] || chmod -R u+rwx '$(_MicrosoftSparkPackageDir)'"
       Condition="'$(_NeedsFix)' == 'true'"
       IgnoreExitCode="true"
       StandardOutputImportance="low"
