@@ -38,6 +38,35 @@ public class ChessPolicy
     }
 
     /// <summary>
+    /// Generates perspectives for the given board with the Threatened bit set on cells
+    /// that are under attack by the opponent.
+    /// </summary>
+    public DataFrame GetPerspectivesWithThreats(Board board, Piece[] specificFactions, int turn = 0)
+    {
+        var piecesDf = _pieceFactory.GetPieces(board);
+        var patternsDf = _patternFactory.GetPatterns();
+
+        var perspectivesDf = GetPerspectivesDfFromPieces(piecesDf, specificFactions)
+            .WithColumn("perspective_id",
+                Sha2(ConcatWs("_",
+                    Col("x").Cast("string"),
+                    Col("y").Cast("string"),
+                    Col("generic_piece").Cast("string")),
+                256));
+
+        // Compute threatened cells from opponent's perspective
+        var threatenedCellsDf = TimelineService.ComputeThreatenedCells(
+            perspectivesDf,
+            patternsDf,
+            specificFactions,
+            turn: turn
+        );
+
+        // Add Threatened bit to the perspectives
+        return TimelineService.AddThreatenedBitToPerspectives(perspectivesDf, threatenedCellsDf);
+    }
+
+    /// <summary>
     /// Builds the timeline of moves for the board up to maxDepth
     /// </summary>
     public DataFrame BuildTimeline(Board board, Piece[] specificFactions, int maxDepth = 3)
@@ -112,16 +141,33 @@ public class ChessPolicy
     {
         public static DataFrame BuildTimeline(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int maxDepth = 3)
         {
-            var timelineDf = perspectivesDf.WithColumn("timestep", Lit(0));
+            // Start at timestep 0 with threatened cells computed for the initial position
+            // turn=0 means it's the first faction's turn
+            var threatenedCellsDf = ComputeThreatenedCells(perspectivesDf, patternsDf, specificFactions, turn: 0);
+            var perspectivesWithThreats = AddThreatenedBitToPerspectives(perspectivesDf, threatenedCellsDf);
+            var timelineDf = perspectivesWithThreats.WithColumn("timestep", Lit(0));
 
             for (int depth = 1; depth <= maxDepth; depth++)
             {
-                var candidatesDf = ComputeNextCandidates(timelineDf.Filter(Col("timestep") == depth - 1), patternsDf, specificFactions);
+                // Current turn is (depth - 1) % specificFactions.Length
+                int currentTurn = (depth - 1) % specificFactions.Length;
+                
+                // Get perspectives at the previous timestep with threatened cells already computed
+                var currentPerspectives = timelineDf.Filter(Col("timestep") == depth - 1);
+                
+                // Compute candidates based on current perspectives (with threatened bits)
+                var candidatesDf = ComputeNextCandidates(currentPerspectives, patternsDf, specificFactions, turn: currentTurn);
 
-                var nextPerspectivesDf = ComputeNextPerspectives(candidatesDf)
+                // Compute next perspectives from candidates
+                var nextPerspectivesDf = ComputeNextPerspectives(candidatesDf);
+                
+                // Compute threatened cells for the next turn
+                int nextTurn = depth % specificFactions.Length;
+                var nextThreatenedCellsDf = ComputeThreatenedCells(nextPerspectivesDf, patternsDf, specificFactions, turn: nextTurn);
+                var nextPerspectivesWithThreats = AddThreatenedBitToPerspectives(nextPerspectivesDf, nextThreatenedCellsDf)
                     .WithColumn("timestep", Lit(depth));
 
-                timelineDf = timelineDf.Union(nextPerspectivesDf);
+                timelineDf = timelineDf.Union(nextPerspectivesWithThreats);
             }
 
             return timelineDf;
@@ -216,7 +262,10 @@ public class ChessPolicy
                 // InA = 1 << 5, OutA = 1 << 6, InB = 1 << 7, OutB = 1 << 8, etc.
                 // This means OutX >> 1 = InX for all pairs, allowing us to convert
                 // active Out flags to their corresponding In flags via a single right shift.
-                var activeInFlags = (activeSeqInt >> 1) & inMask; // Shift Out flags to corresponding In flags
+                // Additionally, In flags can be passed directly in activeSequences (for threat computation).
+                var activeInFlagsFromOut = (activeSeqInt >> 1) & inMask; // Shift Out flags to corresponding In flags
+                var activeInFlagsDirect = activeSeqInt & inMask; // In flags passed directly
+                var activeInFlags = activeInFlagsFromOut | activeInFlagsDirect; // Combine both
                 var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
                 
                 // A pattern can execute if it's Public and (has no In requirements OR In requirements are met)
@@ -678,7 +727,9 @@ public class ChessPolicy
                     var inMask = (int)Sequence.InMask;
                     var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
                     var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
-                    var activeInFlags = (activeSeqInt >> 1) & inMask;
+                    var activeInFlagsFromOut = (activeSeqInt >> 1) & inMask;
+                    var activeInFlagsDirect = activeSeqInt & inMask;
+                    var activeInFlags = activeInFlagsFromOut | activeInFlagsDirect;
                     var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
 
                     var activeVariant = activeSeqInt & variantMask;
@@ -700,7 +751,9 @@ public class ChessPolicy
                 var inMask = (int)Sequence.InMask;
                 var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
                 var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
-                var activeInFlags = (activeSeqInt >> 1) & inMask;
+                var activeInFlagsFromOut = (activeSeqInt >> 1) & inMask;
+                var activeInFlagsDirect = activeSeqInt & inMask;
+                var activeInFlags = activeInFlagsFromOut | activeInFlagsDirect;
                 var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
 
                 var activeVariant = activeSeqInt & variantMask;
@@ -799,6 +852,115 @@ public class ChessPolicy
                     Col("perspective_id")
                 );
         }
+
+        /// <summary>
+        /// Computes which cells are threatened by the opponent.
+        /// This method:
+        /// 1. Gets all attacking patterns (patterns where dst_conditions contains Foe - these can capture)
+        /// 2. Clears dst_conditions to bypass destination filtering (for targetless threat computation)
+        /// 3. Computes all attack destinations from the opponent's perspective
+        /// 4. Returns a DataFrame with distinct (x, y) cells that are threatened
+        /// 
+        /// This is similar to GetAttackingActionCandidates in ChessState with includeTargetless=true.
+        /// </summary>
+        public static DataFrame ComputeThreatenedCells(
+            DataFrame perspectivesDf,
+            DataFrame patternsDf,
+            Piece[] specificFactions,
+            int turn = 0,
+            bool debug = false)
+        {
+            // Get the opponent's turn (next player)
+            int opponentTurn = (turn + 1) % specificFactions.Length;
+            
+            // For threat computation, we need ALL patterns that a piece could execute.
+            // A piece threatens a square if it could move there (either to capture or move).
+            // 
+            // We set dst_conditions to Piece.None to bypass destination filtering entirely,
+            // allowing us to compute all squares a piece could reach.
+            // This is equivalent to the "includeTargetless=true" behavior in ChessState.GetAttackingActionCandidates.
+            var threatPatternsDf = patternsDf.WithColumn(
+                "dst_conditions",
+                Lit((int)Piece.None)
+            );
+
+            if (debug)
+            {
+                Console.WriteLine($"Original patterns count: {patternsDf.Count()}");
+                Console.WriteLine($"Threat patterns count: {threatPatternsDf.Count()}");
+            }
+
+            // For threat computation during BuildTimeline, we use a simplified approach:
+            // - Direct patterns (Public flag, non-sliding) are computed with ComputeNextCandidates
+            // - Sliding pieces also use ComputeNextCandidates with all In sequences enabled,
+            //   which allows continuation patterns to contribute threats
+            // 
+            // This is more memory-efficient than ComputeSequencedMoves which does full iteration.
+            // Note: This means sliding pieces may not threaten all distant squares properly,
+            // but it avoids the expensive repeated materializations in ComputeSequencedMoves.
+            
+            // Compute direct moves with all In sequences enabled for continuations
+            var directMovesDf = ComputeNextCandidates(
+                perspectivesDf,
+                threatPatternsDf,
+                specificFactions,
+                turn: opponentTurn,
+                activeSequences: Sequence.InMask,  // Enable continuation patterns for sliding pieces
+                debug: debug
+            );
+
+            if (debug)
+            {
+                Console.WriteLine($"Direct moves count: {directMovesDf.Count()}");
+            }
+
+            // Extract unique destination cells as threatened
+            var threatenedCellsDf = directMovesDf
+                .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
+                .Distinct();
+
+            if (debug)
+            {
+                Console.WriteLine($"Threatened cells count: {threatenedCellsDf.Count()}");
+            }
+
+            return threatenedCellsDf;
+        }
+
+        /// <summary>
+        /// Adds the Threatened bit to cells in perspectivesDf that are under attack by the opponent.
+        /// </summary>
+        public static DataFrame AddThreatenedBitToPerspectives(
+            DataFrame perspectivesDf,
+            DataFrame threatenedCellsDf,
+            bool debug = false)
+        {
+            // Left join perspectives with threatened cells
+            var joinedDf = perspectivesDf.Join(
+                threatenedCellsDf,
+                (Col("x") == Col("threatened_x")).And(Col("y") == Col("threatened_y")),
+                "left_outer"
+            );
+
+            // Add Threatened bit to generic_piece where cell is threatened
+            var updatedDf = joinedDf.WithColumn(
+                "generic_piece",
+                When(
+                    Col("threatened_x").IsNotNull(),
+                    Col("generic_piece").BitwiseOR(Lit((int)Piece.Threatened))
+                ).Otherwise(Col("generic_piece"))
+            );
+
+            // Drop the join columns
+            var finalDf = updatedDf.Drop("threatened_x", "threatened_y");
+
+            if (debug)
+            {
+                Console.WriteLine($"Perspectives with threatened bit: {finalDf.Count()}");
+            }
+
+            return finalDf;
+        }
     }
 
     public class PieceFactory(SparkSession spark)
@@ -832,19 +994,19 @@ public class ChessPolicy
             // pawn forward (move-only)
             (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q1(), Sequence.OutA      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.Empty),
             // pawn forward (post, do nothing)
-            // (Piece.Self | Piece.MintPawn, Piece.Empty,        (0, 0).Q1(), Sequence.InA       | Sequence.VariantAny | Sequence.Instant                  | Sequence.Public, ~Piece.Mint),
-            // // pawn forward (post, move-only)
-            // (Piece.Self | Piece.MintPawn, Piece.Empty,        (0, 1).Q1(), Sequence.InA       | Sequence.VariantAny | Sequence.Instant                  | Sequence.Public, ~Piece.Mint | Piece.Passing),
-            // // pawn forward (capture-only)
+            (Piece.Self | Piece.MintPawn, Piece.Empty,        (0, 0).Q1(), Sequence.InA       | Sequence.VariantAny | Sequence.Instant                  | Sequence.Public, ~Piece.Mint),
+            // pawn forward (post, move-only)
+            (Piece.Self | Piece.MintPawn, Piece.Empty,        (0, 1).Q1(), Sequence.InA       | Sequence.VariantAny | Sequence.Instant                  | Sequence.Public, ~Piece.Mint | Piece.Passing),
+            // pawn forward (capture-only)
             (Piece.Self | Piece.Pawn,     Piece.Foe,          (1, 1).Q1(), Sequence.OutB      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
             (Piece.Self | Piece.Pawn,     Piece.Foe,          (1, 1).Q2(), Sequence.OutB      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // // pawn promotion trigger
-            // (Piece.Self | Piece.Pawn,     Piece.OutOfBounds,  (0, 1).Q1(), Sequence.InAB_OutC | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.None,   Piece.None),
-            // // pawn promotions
-            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Knight),
-            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Rook),
-            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Bishop),
-            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Queen),
+            // pawn promotion trigger
+            (Piece.Self | Piece.Pawn,     Piece.OutOfBounds,  (0, 1).Q1(), Sequence.InAB_OutC | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.None,   Piece.None),
+            // pawn promotions
+            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Knight),
+            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Rook),
+            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Bishop),
+            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q3(), Sequence.InC       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, ~Piece.Pawn | Piece.Queen),
             //=====bishop=====
             // bishop (pre, move-only)
             (Piece.Self | Piece.Bishop,   Piece.Empty,        (1, 1).Q1(), Sequence.OutF      | Sequence.Variant1   | Sequence.InstantRecursive         | Sequence.None,   Piece.None),
@@ -947,23 +1109,23 @@ public class ChessPolicy
             (Piece.Self | Piece.King,     Piece.Foe,     (1, 1).Q2(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
             (Piece.Self | Piece.King,     Piece.Foe,     (1, 1).Q3(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
             (Piece.Self | Piece.King,     Piece.Foe,     (1, 1).Q4(), Sequence.None      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, ~Piece.Mint),
-            // // castling moves (left)
-            // (Piece.Self | Piece.MintRook, Piece.Empty,        (0, 1).Q1(), Sequence.OutD      | Sequence.Variant1   | Sequence.ParallelInstantRecursive | Sequence.Public, Piece.None),
-            // (Piece.Self | Piece.MintRook, Piece.AllyKing,     (0, 1).Q1(), Sequence.InD       | Sequence.Variant1   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
-            // (Piece.Self | Piece.MintKing, Piece.EmptyAndSafe, (0, 1).Q3(), Sequence.OutD      | Sequence.Variant1   | Sequence.ParallelInstantRecursive | Sequence.Public, Piece.None),
-            // (Piece.Self | Piece.MintKing, Piece.AllyRook,     (0, 1).Q3(), Sequence.InD       | Sequence.Variant1   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
-            // // castling moves (right)
-            // (Piece.Self | Piece.MintRook, Piece.Empty,        (0, 1).Q3(), Sequence.OutD      | Sequence.Variant2   | Sequence.ParallelInstantRecursive | Sequence.None,   Piece.None),
-            // (Piece.Self | Piece.MintRook, Piece.AllyKing,     (0, 1).Q3(), Sequence.InD       | Sequence.Variant2   | Sequence.ParallelMandatory        | Sequence.None,   ~Piece.Mint),
-            // (Piece.Self | Piece.MintKing, Piece.EmptyAndSafe, (0, 1).Q1(), Sequence.OutD      | Sequence.Variant2   | Sequence.ParallelInstantRecursive | Sequence.None,   Piece.None),
-            // (Piece.Self | Piece.MintKing, Piece.AllyRook,     (0, 1).Q1(), Sequence.InD       | Sequence.Variant2   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
-            // // en passant (1. capture sideways)
-            // (Piece.Self | Piece.Pawn,     Piece.PassingFoe,   (1, 0).Q1(), Sequence.OutE      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            // (Piece.Self | Piece.Pawn,     Piece.PassingFoe,   (1, 0).Q3(), Sequence.OutE      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
-            // // en passant (2. move forward)
-            // (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q1(), Sequence.InE       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, Piece.None),
-            // // en passant (reset passing flag)
-            // (Piece.Self | Piece.Passing,  Piece.None,         (0, 0).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.None,   ~Piece.Passing),
+            // castling moves (left)
+            (Piece.Self | Piece.MintRook, Piece.Empty,        (0, 1).Q1(), Sequence.OutD      | Sequence.Variant1   | Sequence.ParallelInstantRecursive | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.MintRook, Piece.AllyKing,     (0, 1).Q1(), Sequence.InD       | Sequence.Variant1   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
+            (Piece.Self | Piece.MintKing, Piece.EmptyAndSafe, (0, 1).Q3(), Sequence.OutD      | Sequence.Variant1   | Sequence.ParallelInstantRecursive | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.MintKing, Piece.AllyRook,     (0, 1).Q3(), Sequence.InD       | Sequence.Variant1   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
+            // castling moves (right)
+            (Piece.Self | Piece.MintRook, Piece.Empty,        (0, 1).Q3(), Sequence.OutD      | Sequence.Variant2   | Sequence.ParallelInstantRecursive | Sequence.None,   Piece.None),
+            (Piece.Self | Piece.MintRook, Piece.AllyKing,     (0, 1).Q3(), Sequence.InD       | Sequence.Variant2   | Sequence.ParallelMandatory        | Sequence.None,   ~Piece.Mint),
+            (Piece.Self | Piece.MintKing, Piece.EmptyAndSafe, (0, 1).Q1(), Sequence.OutD      | Sequence.Variant2   | Sequence.ParallelInstantRecursive | Sequence.None,   Piece.None),
+            (Piece.Self | Piece.MintKing, Piece.AllyRook,     (0, 1).Q1(), Sequence.InD       | Sequence.Variant2   | Sequence.ParallelMandatory        | Sequence.Public, ~Piece.Mint),
+            // en passant (1. capture sideways)
+            (Piece.Self | Piece.Pawn,     Piece.PassingFoe,   (1, 0).Q1(), Sequence.OutE      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            (Piece.Self | Piece.Pawn,     Piece.PassingFoe,   (1, 0).Q3(), Sequence.OutE      | Sequence.VariantAny | Sequence.None                     | Sequence.Public, Piece.None),
+            // en passant (2. move forward)
+            (Piece.Self | Piece.Pawn,     Piece.Empty,        (0, 1).Q1(), Sequence.InE       | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.Public, Piece.None),
+            // en passant (reset passing flag)
+            (Piece.Self | Piece.Passing,  Piece.None,         (0, 0).Q1(), Sequence.None      | Sequence.VariantAny | Sequence.InstantMandatory         | Sequence.None,   ~Piece.Passing),
         ];
 
         public DataFrame GetPatterns()
