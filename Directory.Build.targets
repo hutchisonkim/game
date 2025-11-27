@@ -1,0 +1,62 @@
+<Project>
+  <!--
+    Fix for Microsoft.Spark NuGet package DLL extraction on Linux.
+    The package uses Windows-style backslashes in its internal paths, causing DLLs
+    to be extracted with literal backslash characters in filenames on Linux.
+    
+    This target extracts the nupkg and adds direct assembly references.
+    The direct reference is required because NuGet's project.assets.json lacks
+    compile/runtime sections for Microsoft.Spark when files have malformed paths.
+  -->
+
+  <!-- Configurable version property - can be overridden in Directory.Build.props or project files -->
+  <PropertyGroup>
+    <MicrosoftSparkVersion Condition="'$(MicrosoftSparkVersion)' == ''">2.3.0</MicrosoftSparkVersion>
+  </PropertyGroup>
+
+  <!-- 
+    Target to fix Microsoft.Spark paths on Linux.
+    Uses flock for atomic locking to prevent race conditions in parallel builds.
+  -->
+  <Target Name="FixMicrosoftSparkPathsBeforeBuild" BeforeTargets="ResolveAssemblyReferences" Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <PropertyGroup>
+      <_MicrosoftSparkPackageDir>$(NuGetPackageRoot)microsoft.spark/$(MicrosoftSparkVersion)</_MicrosoftSparkPackageDir>
+      <_SparkDllPath>$(_MicrosoftSparkPackageDir)/lib/netstandard2.1/Microsoft.Spark.dll</_SparkDllPath>
+      <_NupkgPath>$(_MicrosoftSparkPackageDir)/microsoft.spark.$(MicrosoftSparkVersion).nupkg</_NupkgPath>
+    </PropertyGroup>
+
+    <!-- Check if we need to fix (nupkg exists but dll doesn't) -->
+    <PropertyGroup>
+      <_NeedsFix>false</_NeedsFix>
+      <_NeedsFix Condition="Exists('$(_NupkgPath)') AND !Exists('$(_SparkDllPath)')">true</_NeedsFix>
+    </PropertyGroup>
+
+    <!-- 
+      Use flock for atomic locking to prevent parallel build race conditions.
+      Only one project will perform the extraction; others will wait and then skip if already fixed.
+    -->
+    <Exec
+      Command="flock -w 60 '$(_MicrosoftSparkPackageDir)' -c &quot;if [ ! -f '$(_SparkDllPath)' ]; then chmod -R u+rwx '$(_MicrosoftSparkPackageDir)' 2>/dev/null; find '$(_MicrosoftSparkPackageDir)' -name '*\\*' -print0 | xargs -0 rm -f 2>/dev/null; unzip -o '$(_NupkgPath)' -d '$(_MicrosoftSparkPackageDir)'; fi&quot;"
+      Condition="'$(_NeedsFix)' == 'true'"
+      IgnoreExitCode="true"
+      StandardOutputImportance="low"
+      StandardErrorImportance="high" />
+
+    <Message
+      Text="Fixed Microsoft.Spark package paths for Linux"
+      Condition="'$(_NeedsFix)' == 'true'"
+      Importance="high" />
+
+    <!-- 
+      Add direct reference to Microsoft.Spark.dll.
+      This is required because NuGet's project.assets.json lacks compile/runtime sections
+      for Microsoft.Spark when files were extracted with malformed paths.
+    -->
+    <ItemGroup Condition="Exists('$(_SparkDllPath)')">
+      <Reference Include="Microsoft.Spark">
+        <HintPath>$(_SparkDllPath)</HintPath>
+        <Private>true</Private>
+      </Reference>
+    </ItemGroup>
+  </Target>
+</Project>
