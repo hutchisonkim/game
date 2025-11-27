@@ -7,11 +7,16 @@
     This target extracts the nupkg and adds direct assembly references.
   -->
 
+  <!-- Configurable version property - can be overridden in Directory.Build.props or project files -->
+  <PropertyGroup>
+    <MicrosoftSparkVersion Condition="'$(MicrosoftSparkVersion)' == ''">2.3.0</MicrosoftSparkVersion>
+  </PropertyGroup>
+
   <Target Name="FixMicrosoftSparkPathsBeforeBuild" BeforeTargets="ResolveAssemblyReferences" Condition="$([MSBuild]::IsOSPlatform('Linux'))">
     <PropertyGroup>
-      <MicrosoftSparkPackageDir>$(NuGetPackageRoot)microsoft.spark/2.3.0</MicrosoftSparkPackageDir>
-      <_SparkDllPath>$(MicrosoftSparkPackageDir)/lib/netstandard2.1/Microsoft.Spark.dll</_SparkDllPath>
-      <_NupkgPath>$(MicrosoftSparkPackageDir)/microsoft.spark.2.3.0.nupkg</_NupkgPath>
+      <_MicrosoftSparkPackageDir>$(NuGetPackageRoot)microsoft.spark/$(MicrosoftSparkVersion)</_MicrosoftSparkPackageDir>
+      <_SparkDllPath>$(_MicrosoftSparkPackageDir)/lib/netstandard2.1/Microsoft.Spark.dll</_SparkDllPath>
+      <_NupkgPath>$(_MicrosoftSparkPackageDir)/microsoft.spark.$(MicrosoftSparkVersion).nupkg</_NupkgPath>
     </PropertyGroup>
 
     <!-- Check if we need to fix (nupkg exists but dll doesn't) -->
@@ -20,9 +25,17 @@
       <_NeedsFix Condition="Exists('$(_NupkgPath)') AND !Exists('$(_SparkDllPath)')">true</_NeedsFix>
     </PropertyGroup>
 
-    <!-- Fix permissions and remove problematic backslash-named files before extraction -->
+    <!-- Fix permissions before extraction -->
     <Exec
-      Command="chmod -R u+rwx '$(MicrosoftSparkPackageDir)' 2>/dev/null || true; find '$(MicrosoftSparkPackageDir)' -name '*\\*' -delete 2>/dev/null || true"
+      Command="chmod -R u+rwx '$(_MicrosoftSparkPackageDir)'"
+      Condition="'$(_NeedsFix)' == 'true'"
+      IgnoreExitCode="true"
+      StandardOutputImportance="low"
+      StandardErrorImportance="low" />
+
+    <!-- Remove problematic backslash-named files before extraction -->
+    <Exec
+      Command="find '$(_MicrosoftSparkPackageDir)' -name '*\\*' -delete"
       Condition="'$(_NeedsFix)' == 'true'"
       IgnoreExitCode="true"
       StandardOutputImportance="low"
@@ -30,7 +43,7 @@
 
     <!-- Extract nupkg to fix the paths -->
     <Exec
-      Command="unzip -o '$(_NupkgPath)' -d '$(MicrosoftSparkPackageDir)'"
+      Command="unzip -o '$(_NupkgPath)' -d '$(_MicrosoftSparkPackageDir)'"
       Condition="'$(_NeedsFix)' == 'true'"
       IgnoreExitCode="true"
       StandardOutputImportance="low"
@@ -41,8 +54,8 @@
       Condition="'$(_NeedsFix)' == 'true'"
       Importance="high" />
 
-    <!-- Add direct reference to Microsoft.Spark.dll after extraction -->
-    <ItemGroup Condition="Exists('$(_SparkDllPath)') OR '$(_NeedsFix)' == 'true'">
+    <!-- Add direct reference to Microsoft.Spark.dll only if it exists after extraction -->
+    <ItemGroup Condition="Exists('$(_SparkDllPath)')">
       <Reference Include="Microsoft.Spark">
         <HintPath>$(_SparkDllPath)</HintPath>
         <Private>true</Private>
