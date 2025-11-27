@@ -1350,82 +1350,95 @@ public class ChessPolicy
                     Col("piece").Alias("attacker_piece")
                 );
             
-            // Check for pins: if our piece at (src_x, src_y) is between an opponent attacker and our king
-            // and the piece, king, and attacker are collinear
-            var nonKingWithPinCheck = nonKingMovesCheck
-                .CrossJoin(opponentSlidingPieces)
-                .WithColumn("is_on_same_file", 
-                    Col("attacker_x").EqualTo(Col("src_x")).And(Col("src_x").EqualTo(Lit(currentKingX))))
-                .WithColumn("is_on_same_rank",
-                    Col("attacker_y").EqualTo(Col("src_y")).And(Col("src_y").EqualTo(Lit(currentKingY))))
-                .WithColumn("is_on_same_diagonal",
-                    // Check if all three points (attacker, src, king) are on same diagonal
-                    Abs(Col("attacker_x") - Col("src_x")).EqualTo(Abs(Col("attacker_y") - Col("src_y")))
-                    .And(Abs(Col("src_x") - Lit(currentKingX)).EqualTo(Abs(Col("src_y") - Lit(currentKingY))))
-                    .And(Abs(Col("attacker_x") - Lit(currentKingX)).EqualTo(Abs(Col("attacker_y") - Lit(currentKingY))))
-                )
-                .WithColumn("src_between_attacker_and_king",
-                    // src is between attacker and king
-                    (
-                        // For files and ranks
-                        (Col("is_on_same_file").Or(Col("is_on_same_rank")))
-                        .And(
-                            (Col("src_x").Between(Least(Col("attacker_x"), Lit(currentKingX)), Greatest(Col("attacker_x"), Lit(currentKingX))))
+            DataFrame validNonKingMoves;
+            
+            // If there are no opponent sliding pieces, no pin detection needed
+            // All non-king moves that passed the threat check are valid
+            if (opponentSlidingPieces.Count() == 0)
+            {
+                validNonKingMoves = nonKingMovesCheck
+                    .Select(candidatesWithId.Columns().Select(c => Col(c)).ToArray())
+                    .Distinct();
+            }
+            else
+            {
+                // Check for pins: if our piece at (src_x, src_y) is between an opponent attacker and our king
+                // and the piece, king, and attacker are collinear
+                var nonKingWithPinCheck = nonKingMovesCheck
+                    .CrossJoin(opponentSlidingPieces)
+                    .WithColumn("is_on_same_file", 
+                        Col("attacker_x").EqualTo(Col("src_x")).And(Col("src_x").EqualTo(Lit(currentKingX))))
+                    .WithColumn("is_on_same_rank",
+                        Col("attacker_y").EqualTo(Col("src_y")).And(Col("src_y").EqualTo(Lit(currentKingY))))
+                    .WithColumn("is_on_same_diagonal",
+                        // Check if all three points (attacker, src, king) are on same diagonal
+                        Abs(Col("attacker_x") - Col("src_x")).EqualTo(Abs(Col("attacker_y") - Col("src_y")))
+                        .And(Abs(Col("src_x") - Lit(currentKingX)).EqualTo(Abs(Col("src_y") - Lit(currentKingY))))
+                        .And(Abs(Col("attacker_x") - Lit(currentKingX)).EqualTo(Abs(Col("attacker_y") - Lit(currentKingY))))
+                    )
+                    .WithColumn("src_between_attacker_and_king",
+                        // src is between attacker and king
+                        (
+                            // For files and ranks
+                            (Col("is_on_same_file").Or(Col("is_on_same_rank")))
+                            .And(
+                                (Col("src_x").Between(Least(Col("attacker_x"), Lit(currentKingX)), Greatest(Col("attacker_x"), Lit(currentKingX))))
+                                .And(Col("src_y").Between(Least(Col("attacker_y"), Lit(currentKingY)), Greatest(Col("attacker_y"), Lit(currentKingY))))
+                            )
+                        )
+                        .Or(
+                            // For diagonals
+                            Col("is_on_same_diagonal")
+                            .And(Col("src_x").Between(Least(Col("attacker_x"), Lit(currentKingX)), Greatest(Col("attacker_x"), Lit(currentKingX))))
                             .And(Col("src_y").Between(Least(Col("attacker_y"), Lit(currentKingY)), Greatest(Col("attacker_y"), Lit(currentKingY))))
                         )
                     )
-                    .Or(
-                        // For diagonals
-                        Col("is_on_same_diagonal")
-                        .And(Col("src_x").Between(Least(Col("attacker_x"), Lit(currentKingX)), Greatest(Col("attacker_x"), Lit(currentKingX))))
-                        .And(Col("src_y").Between(Least(Col("attacker_y"), Lit(currentKingY)), Greatest(Col("attacker_y"), Lit(currentKingY))))
-                    )
-                )
-                .WithColumn("attacker_can_use_line",
-                    // Attacker piece type matches the line type
-                    (Col("is_on_same_file").Or(Col("is_on_same_rank")))
-                        .And(
-                            Col("attacker_piece").BitwiseAND(Lit((int)Piece.Rook)).NotEqual(Lit(0))
-                            .Or(Col("attacker_piece").BitwiseAND(Lit((int)Piece.Queen)).NotEqual(Lit(0)))
-                        )
-                    .Or(
-                        Col("is_on_same_diagonal")
-                        .And(
-                            Col("attacker_piece").BitwiseAND(Lit((int)Piece.Bishop)).NotEqual(Lit(0))
-                            .Or(Col("attacker_piece").BitwiseAND(Lit((int)Piece.Queen)).NotEqual(Lit(0)))
+                    .WithColumn("attacker_can_use_line",
+                        // Attacker piece type matches the line type
+                        (Col("is_on_same_file").Or(Col("is_on_same_rank")))
+                            .And(
+                                Col("attacker_piece").BitwiseAND(Lit((int)Piece.Rook)).NotEqual(Lit(0))
+                                .Or(Col("attacker_piece").BitwiseAND(Lit((int)Piece.Queen)).NotEqual(Lit(0)))
+                            )
+                        .Or(
+                            Col("is_on_same_diagonal")
+                            .And(
+                                Col("attacker_piece").BitwiseAND(Lit((int)Piece.Bishop)).NotEqual(Lit(0))
+                                .Or(Col("attacker_piece").BitwiseAND(Lit((int)Piece.Queen)).NotEqual(Lit(0)))
+                            )
                         )
                     )
-                )
-                .WithColumn("is_pinned",
-                    Col("src_between_attacker_and_king").And(Col("attacker_can_use_line"))
-                )
-                .WithColumn("move_stays_on_line",
-                    // If pinned, the move must stay on the same line to remain legal
-                    When(
-                        Col("is_on_same_file"),
-                        Col("dst_x").EqualTo(Lit(currentKingX))  // Must stay on same file
+                    .WithColumn("is_pinned",
+                        Col("src_between_attacker_and_king").And(Col("attacker_can_use_line"))
                     )
-                    .When(
-                        Col("is_on_same_rank"),
-                        Col("dst_y").EqualTo(Lit(currentKingY))  // Must stay on same rank
+                    .WithColumn("move_stays_on_line",
+                        // If pinned, the move must stay on the same line to remain legal
+                        When(
+                            Col("is_on_same_file"),
+                            Col("dst_x").EqualTo(Lit(currentKingX))  // Must stay on same file
+                        )
+                        .When(
+                            Col("is_on_same_rank"),
+                            Col("dst_y").EqualTo(Lit(currentKingY))  // Must stay on same rank
+                        )
+                        .When(
+                            Col("is_on_same_diagonal"),
+                            // Must stay on the diagonal between attacker and king
+                            Abs(Col("dst_x") - Lit(currentKingX)).EqualTo(Abs(Col("dst_y") - Lit(currentKingY)))
+                        )
+                        .Otherwise(Lit(true))
+                    );
+                
+                // Filter: if pinned, move must stay on the pinning line
+                // If not pinned, move is ok
+                validNonKingMoves = nonKingWithPinCheck
+                    .Filter(
+                        Not(Col("is_pinned"))  // Not pinned, any move is ok
+                        .Or(Col("move_stays_on_line"))  // Pinned but stays on line
                     )
-                    .When(
-                        Col("is_on_same_diagonal"),
-                        // Must stay on the diagonal between attacker and king
-                        Abs(Col("dst_x") - Lit(currentKingX)).EqualTo(Abs(Col("dst_y") - Lit(currentKingY)))
-                    )
-                    .Otherwise(Lit(true))
-                );
-            
-            // Filter: if pinned, move must stay on the pinning line
-            // If not pinned, move is ok
-            var validNonKingMoves = nonKingWithPinCheck
-                .Filter(
-                    Not(Col("is_pinned"))  // Not pinned, any move is ok
-                    .Or(Col("move_stays_on_line"))  // Pinned but stays on line
-                )
-                .Select(candidatesWithId.Columns().Select(c => Col(c)).ToArray())  // Select only original columns
-                .Distinct();
+                    .Select(candidatesWithId.Columns().Select(c => Col(c)).ToArray())  // Select only original columns
+                    .Distinct();
+            }
             
             // Combine king moves and non-king moves
             var allSafeMoves = kingMovesCheck.Union(validNonKingMoves);
