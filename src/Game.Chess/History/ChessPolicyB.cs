@@ -868,8 +868,6 @@ public class ChessPolicy
             
             // For threat computation, we need ALL patterns that a piece could execute.
             // A piece threatens a square if it could move there (either to capture or move).
-            // For non-sliding pieces (Knight, King, Pawn), these are direct attack patterns.
-            // For sliding pieces (Rook, Bishop, Queen), we need both sliding AND capture patterns.
             // 
             // We set dst_conditions to Piece.None to bypass destination filtering entirely,
             // allowing us to compute all squares a piece could reach.
@@ -885,25 +883,40 @@ public class ChessPolicy
                 Console.WriteLine($"Threat patterns count: {threatPatternsDf.Count()}");
             }
 
-            // Compute all destinations from opponent's perspective using all patterns
-            // Use the existing ComputeNextCandidates with all sequences active to allow
-            // continuation patterns (InI, InF, etc.) for sliding pieces
-            var attackCandidatesDf = ComputeNextCandidates(
+            // For sliding pieces (Rook, Bishop, Queen), use ComputeSequencedMoves to get all
+            // squares they can reach through recursive movement.
+            // For non-sliding pieces, ComputeNextCandidates with Public filter works.
+            
+            // Compute sequenced moves for sliding pieces (this handles OutI->InI, OutF->InF, etc.)
+            var slidingMovesDf = ComputeSequencedMoves(
                 perspectivesDf,
                 threatPatternsDf,
                 specificFactions,
                 turn: opponentTurn,
-                activeSequences: Sequence.InMask,  // Enable all In sequences for sliding piece continuations
+                maxDepth: 7,
+                debug: debug
+            );
+
+            // Compute direct moves (for non-sliding pieces and Public patterns)
+            var directMovesDf = ComputeNextCandidates(
+                perspectivesDf,
+                threatPatternsDf,
+                specificFactions,
+                turn: opponentTurn,
+                activeSequences: Sequence.None,
                 debug: debug
             );
 
             if (debug)
             {
-                Console.WriteLine($"Attack candidates count: {attackCandidatesDf.Count()}");
+                Console.WriteLine($"Sliding moves count: {slidingMovesDf.Count()}");
+                Console.WriteLine($"Direct moves count: {directMovesDf.Count()}");
             }
 
-            // Extract unique destination cells (x, y) that are threatened
-            var threatenedCellsDf = attackCandidatesDf
+            // Combine both types of moves and extract unique threatened cells
+            var allMovesDf = slidingMovesDf.Union(directMovesDf);
+            
+            var threatenedCellsDf = allMovesDf
                 .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
                 .Distinct();
 
