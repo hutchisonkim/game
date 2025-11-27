@@ -926,10 +926,7 @@ public class ChessPolicy
             );
 
             // Union direct and sliding threats
-            if (slidingThreatsDf.Count() > 0)
-            {
-                threatenedCellsDf = threatenedCellsDf.Union(slidingThreatsDf).Distinct();
-            }
+            threatenedCellsDf = threatenedCellsDf.Union(slidingThreatsDf).Distinct();
 
             if (debug)
             {
