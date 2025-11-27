@@ -1059,7 +1059,7 @@ public class ChessPolicy
                     .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
                     .Distinct();
 
-                allThreatenedCells = allThreatenedCells.Union(newThreatened);
+                allThreatenedCells = allThreatenedCells.Union(newThreatened).Distinct();
 
                 // Continue only through empty squares
                 emptyFrontier = nextMoves
