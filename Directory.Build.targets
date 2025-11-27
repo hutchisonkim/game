@@ -37,9 +37,8 @@
     <Exec
       Command="if [ -d '$(_MicrosoftSparkPackageDir)' ]; then find '$(_MicrosoftSparkPackageDir)' -name '*\\*' -print0 | xargs -0 rm -f; fi"
       Condition="'$(_NeedsFix)' == 'true' AND Exists('$(_MicrosoftSparkPackageDir)')"
-      IgnoreExitCode="true"
       StandardOutputImportance="low"
-      StandardErrorImportance="low" />
+      StandardErrorImportance="high" />
 
     <!-- Extract nupkg to fix the paths -->
     <Exec
