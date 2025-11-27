@@ -1014,7 +1014,7 @@ public class ChessPolicy
                 .Filter(Col("dst_generic_piece").BitwiseAND(Lit(emptyBit)).NotEqual(Lit(0)));
 
             // Iterate to find all threatened cells along sliding paths
-            for (int depth = 1; depth < maxDepth && emptyFrontier.Count() > 0; depth++)
+            for (int depth = 1; depth < maxDepth; depth++)
             {
                 if (debug) Console.WriteLine($"Sliding depth {depth}: frontier size {emptyFrontier.Count()}");
 
