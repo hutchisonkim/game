@@ -35,8 +35,8 @@
 
     <!-- Remove problematic backslash-named files before extraction -->
     <Exec
-      Command="find '$(_MicrosoftSparkPackageDir)' -name '*\\*' -delete"
-      Condition="'$(_NeedsFix)' == 'true'"
+      Command="if [ -d '$(_MicrosoftSparkPackageDir)' ]; then find '$(_MicrosoftSparkPackageDir)' -name '*\\*' -print0 | xargs -0 rm -f; fi"
+      Condition="'$(_NeedsFix)' == 'true' AND Exists('$(_MicrosoftSparkPackageDir)')"
       IgnoreExitCode="true"
       StandardOutputImportance="low"
       StandardErrorImportance="low" />
