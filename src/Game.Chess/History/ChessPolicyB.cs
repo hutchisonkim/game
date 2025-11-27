@@ -876,8 +876,9 @@ public class ChessPolicy
             // For threat computation, we need ALL patterns that a piece could execute.
             // A piece threatens a square if it could move there (either to capture or move).
             // 
-            // We set dst_conditions to Piece.None to bypass destination filtering entirely,
-            // allowing us to compute all squares a piece could reach.
+            // Setting dst_conditions to Piece.None (0) bypasses destination filtering entirely.
+            // This is because the bitwise AND check `(dst_piece & dst_conditions) == dst_conditions`
+            // always succeeds when dst_conditions is 0, allowing computation of all reachable squares.
             var threatPatternsDf = patternsDf.WithColumn(
                 "dst_conditions",
                 Lit((int)Piece.None)
@@ -972,10 +973,8 @@ public class ChessPolicy
 
             if (entryPatternsDf.Count() == 0)
             {
-                // No sliding patterns, return empty DataFrame
-                return perspectivesDf.Limit(0)
-                    .Select(Lit(0).Alias("threatened_x"), Lit(0).Alias("threatened_y"))
-                    .Limit(0);
+                // No sliding patterns, return empty threatened cells DataFrame
+                return CreateEmptyThreatenedCellsDf(perspectivesDf);
             }
 
             // Add original_perspective columns for initial perspectives
@@ -999,9 +998,7 @@ public class ChessPolicy
 
             if (currentFrontier.Count() == 0)
             {
-                return perspectivesDf.Limit(0)
-                    .Select(Lit(0).Alias("threatened_x"), Lit(0).Alias("threatened_y"))
-                    .Limit(0);
+                return CreateEmptyThreatenedCellsDf(perspectivesDf);
             }
 
             // Collect all threatened cells from sliding pieces
@@ -1070,6 +1067,17 @@ public class ChessPolicy
             }
 
             return allThreatenedCells.Distinct();
+        }
+
+        /// <summary>
+        /// Creates an empty DataFrame with the threatened cells schema (threatened_x, threatened_y).
+        /// Used when there are no sliding pieces or no threatened cells to return.
+        /// </summary>
+        private static DataFrame CreateEmptyThreatenedCellsDf(DataFrame perspectivesDf)
+        {
+            return perspectivesDf.Limit(0)
+                .Select(Lit(0).Alias("threatened_x"), Lit(0).Alias("threatened_y"))
+                .Limit(0);
         }
 
         /// <summary>
