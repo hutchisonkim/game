@@ -1025,17 +1025,15 @@ public class ChessPolicy
 
                 // Get the Out flags and Variant flags to continue in the same direction
                 var variantMask = (int)(Sequence.Variant1 | Sequence.Variant2 | Sequence.Variant3 | Sequence.Variant4);
-                var outFlagsRows = emptyFrontier
-                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"))
-                    .Distinct()
-                    .Collect();
+                var outFlagsDf = emptyFrontier
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"));
 
-                int activeOutFlags = 0;
-                foreach (var row in outFlagsRows)
-                {
-                    activeOutFlags |= row.GetAs<int>("out_flags");
-                }
+                var activeOutFlagsRow = outFlagsDf
+                    .Agg(Max(Col("out_flags")).Alias("active_out_flags"))
+                    .Collect()
+                    .First();
 
+                int activeOutFlags = activeOutFlagsRow.GetAs<int>("active_out_flags");
                 if (activeOutFlags == 0) break;
 
                 var activeSequence = (Sequence)activeOutFlags;
