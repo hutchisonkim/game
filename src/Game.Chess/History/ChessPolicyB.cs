@@ -1158,7 +1158,8 @@ public class ChessPolicy
             Piece[] specificFactions,
             bool debug = false)
         {
-            if (candidatesDf.Count() == 0)
+            // Use Limit(1).Count() for efficient empty check - avoids full DataFrame count
+            if (candidatesDf.Limit(1).Count() == 0)
             {
                 return perspectivesDf;
             }
@@ -1570,7 +1571,8 @@ public class ChessPolicy
             Piece[] specificFactions,
             int turn = 0)
         {
-            if (candidateDf.Count() == 0)
+            // Use Limit(1).Count() for efficient empty check - avoids full DataFrame count
+            if (candidateDf.Limit(1).Count() == 0)
             {
                 return true; // No move to validate
             }
