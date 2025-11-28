@@ -99,7 +99,6 @@ public class KingInCheckTests : ChessTestBase
             int srcY = move.GetAs<int>("src_y");
             int srcGenericPiece = move.GetAs<int>("src_generic_piece");
             int dstX = move.GetAs<int>("dst_x");
-            int dstY = move.GetAs<int>("dst_y");
 
             // If the pawn moves, it must be blocking the rook (moving to file 4)
             bool isPawnMove = (srcGenericPiece & (int)Piece.Pawn) != 0;
