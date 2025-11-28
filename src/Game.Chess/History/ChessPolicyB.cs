@@ -1233,17 +1233,6 @@ public class ChessPolicy
             // If (board_x, board_y) == (src_x, src_y), mark as empty (piece has moved)
             // If (board_x, board_y) == (dst_x, dst_y), use moved piece
             var emptyBit = (int)Piece.Empty;
-            var simulatedWithMoves = simulatedPerspectives
-                .WithColumn("sim_piece",
-                    When(
-                        Col("board_x").EqualTo(Col("src_x")).And(Col("board_y").EqualTo(Col("src_y"))),
-                        Lit(emptyBit)  // Source cell becomes empty
-                    )
-                    .When(
-                        Col("board_x").EqualTo(Col("dst_x")).And(Col("board_y").EqualTo(Col("dst_y"))),
-                        Col("src_piece")  // Destination cell has the moved piece
-                    )
-                    .Otherwise(Col("board_piece")));  // Other cells unchanged
             
             // Now compute which kings would be under attack in each simulated position
             // For the opponent to attack our king, we compute their moves targeting our king position
