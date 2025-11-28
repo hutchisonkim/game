@@ -1165,6 +1165,7 @@ public class ChessPolicy
             }
 
             // Get the move details - we need src_x, src_y, dst_x, dst_y, and the piece info
+            // Rename columns to avoid ambiguity when joining with perspectivesDf
             var moveDf = candidatesDf.Select(
                 Col("src_x"),
                 Col("src_y"),
@@ -1172,16 +1173,17 @@ public class ChessPolicy
                 Col("src_generic_piece"),
                 Col("dst_x"),
                 Col("dst_y"),
-                Col("perspective_x"),
-                Col("perspective_y"),
-                Col("perspective_piece")
+                Col("perspective_x").Alias("move_perspective_x"),
+                Col("perspective_y").Alias("move_perspective_y"),
+                Col("perspective_piece").Alias("move_perspective_piece")
             ).Distinct();
 
             // Join perspectives with moves to identify which cells change
+            // Using aliased columns to avoid ambiguous references
             var joinedDf = perspectivesDf.Join(
                 moveDf,
-                Col("perspective_x").EqualTo(moveDf["perspective_x"]).And(
-                Col("perspective_y").EqualTo(moveDf["perspective_y"])),
+                Col("perspective_x").EqualTo(Col("move_perspective_x")).And(
+                Col("perspective_y").EqualTo(Col("move_perspective_y"))),
                 "left_outer"
             );
 
@@ -1238,7 +1240,8 @@ public class ChessPolicy
             var finalDf = newPerspectivesDf
                 .WithColumn("piece", Col("new_piece"))
                 .WithColumn("generic_piece", newGenericPieceCol)
-                .Drop("new_piece", "src_x", "src_y", "src_piece", "src_generic_piece", "dst_x", "dst_y");
+                .Drop("new_piece", "src_x", "src_y", "src_piece", "src_generic_piece", "dst_x", "dst_y", 
+                      "move_perspective_x", "move_perspective_y", "move_perspective_piece");
 
             // Remove any duplicate columns from the join
             var columns = perspectivesDf.Columns();
