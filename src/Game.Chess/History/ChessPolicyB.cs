@@ -1211,9 +1211,6 @@ public class ChessPolicy
             // using an aggregation pattern.
 
             // Get distinct moves to check
-            var distinctMoves = candidatesWithId
-                .Select("src_x", "src_y", "dst_x", "dst_y", "king_x_after", "king_y_after", "move_id", "src_piece")
-                .Distinct();
 
             // For simulating board state after move:
             // The piece moves from (src_x, src_y) to (dst_x, dst_y)
