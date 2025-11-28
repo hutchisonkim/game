@@ -1115,12 +1115,11 @@ public class ChessPolicy
         /// This is a critical chess rule: a player cannot make a move that leaves their own king under attack.
         /// 
         /// Algorithm:
-        /// 1. For each candidate move, simulate the resulting board state
-        /// 2. Compute which cells are threatened by the opponent in that simulated state
-        /// 3. Find our king's position after the move
-        /// 4. Filter out moves where our king is on a threatened cell
+        /// 1. Compute the set of threatened cells by the opponent on the current board state.
+        /// 2. Use pin detection logic to identify moves that would expose the king to attack (including discovered checks).
+        /// 3. Filter out candidate moves that would leave the king on a threatened cell or violate pin constraints.
         /// 
-        /// This correctly handles:
+        /// This approach efficiently handles:
         /// - King moving to safety
         /// - Pinned pieces (pieces that can't move because they block an attack on the king)
         /// - Discovered checks (where moving a piece exposes the king to an attack)
