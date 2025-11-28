@@ -103,7 +103,7 @@ public class KingInCheckTests : ChessTestBase
             if (isPawnMove)
             {
                 // Pawn at (3,1) cannot block (would need to be on file 4)
-                // This test verifies pawn moves are filtered out
+                Assert.True(false, "Pawn at (3,1) should not have any legal moves");
             }
             
             // If the king moves, it must move off file 4 to escape the rook
