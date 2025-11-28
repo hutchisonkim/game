@@ -1191,24 +1191,12 @@ public class ChessPolicy
                     256));
 
             // For proper check validation, we need to simulate the board after each move.
-            // We'll create a modified perspectives DataFrame for each move that:
-            // 1. Removes the piece from src position
-            // 2. Places the piece at dst position
-            // 3. Removes any captured piece at dst position
-            //
-            // This is done by modifying the perspectives DataFrame to reflect the move,
-            // then computing threats on the new board state.
-            
-            // For each candidate move, create a simulated board state
-            // Key insight: we can compute threats on a per-move basis by:
-            // - Adding a marker column to perspectives that indicates which cells change
-            // - Filtering to compute threats considering the moved piece
-            
-            // Strategy: For each unique (src_x, src_y, dst_x, dst_y) combination, 
-            // create a simulated board and check if king is safe.
-            // 
-            // Optimized approach: Since we're using DataFrames, we'll check safety row-by-row
-            // using an aggregation pattern.
+            // For each candidate move, simulate the resulting board state by:
+            //   - Removing the piece from its source position,
+            //   - Placing it at the destination position,
+            //   - Removing any captured piece at the destination.
+            // Then, compute threats on the new board state using DataFrame operations
+            // to determine if the king remains safe after the move.
 
             // Get distinct moves to check
 
