@@ -96,7 +96,6 @@ public class KingInCheckTests : ChessTestBase
         foreach (var move in legalMovesArray)
         {
             int srcX = move.GetAs<int>("src_x");
-            int srcY = move.GetAs<int>("src_y");
             int srcGenericPiece = move.GetAs<int>("src_generic_piece");
             int dstX = move.GetAs<int>("dst_x");
 
