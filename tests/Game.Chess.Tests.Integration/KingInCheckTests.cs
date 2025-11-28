@@ -95,7 +95,6 @@ public class KingInCheckTests : ChessTestBase
         // Pawn moves at (3, 1) don't block the rook's attack on the king
         foreach (var move in legalMovesArray)
         {
-            int srcX = move.GetAs<int>("src_x");
             int srcGenericPiece = move.GetAs<int>("src_generic_piece");
             int dstX = move.GetAs<int>("dst_x");
 
