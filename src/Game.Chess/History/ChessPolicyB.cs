@@ -1256,7 +1256,7 @@ public class ChessPolicy
                 perspectivesDf,
                 patternsDf,
                 specificFactions,
-                turn: turn,  // ComputeThreatenedCells internally uses turn+1 for opponent
+                turn: turn,  // Computes opponent threats for the current turn
                 debug: debug
             );
             
