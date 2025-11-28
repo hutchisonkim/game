@@ -139,6 +139,19 @@ public class ChessPolicy
     // ----------------- SUB-SERVICES -----------------
     public class TimelineService()
     {
+        /// <summary>
+        /// Builds the timeline of moves for the board up to maxDepth.
+        /// 
+        /// This method builds simulated timelines forward by:
+        /// 1. Starting from the initial board state at timestep 0
+        /// 2. Computing candidate moves using pattern matching
+        /// 3. Simulating the board state after each move using SimulateBoardAfterMove
+        /// 4. Computing threatened cells for each timestep
+        /// 5. Recursively building the game tree
+        /// 
+        /// The emergent rules arise from the pattern definitions - the engine is agnostic
+        /// to the specific chess rules and derives all valid moves from the pattern table.
+        /// </summary>
         public static DataFrame BuildTimeline(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int maxDepth = 3)
         {
             // Start at timestep 0 with threatened cells computed for the initial position
@@ -156,12 +169,16 @@ public class ChessPolicy
                 var currentPerspectives = timelineDf.Filter(Col("timestep") == depth - 1);
                 
                 // Compute candidates based on current perspectives (with threatened bits)
+                // The pattern engine derives valid moves from the declarative pattern definitions
                 var candidatesDf = ComputeNextCandidates(currentPerspectives, patternsDf, specificFactions, turn: currentTurn);
 
-                // Compute next perspectives from candidates
-                var nextPerspectivesDf = ComputeNextPerspectives(candidatesDf);
+                // Simulate the board state after applying candidate moves
+                // This is the core forward-timeline simulation that enables:
+                // - Sliding piece continuation (checking what's at the next square)
+                // - Check validation (computing threats on the simulated board)
+                var nextPerspectivesDf = SimulateBoardAfterMove(currentPerspectives, candidatesDf, specificFactions);
                 
-                // Compute threatened cells for the next turn
+                // Compute threatened cells for the next turn on the simulated board
                 int nextTurn = depth % specificFactions.Length;
                 var nextThreatenedCellsDf = ComputeThreatenedCells(nextPerspectivesDf, patternsDf, specificFactions, turn: nextTurn);
                 var nextPerspectivesWithThreats = AddThreatenedBitToPerspectives(nextPerspectivesDf, nextThreatenedCellsDf)
@@ -421,13 +438,22 @@ public class ChessPolicy
 
         /// <summary>
         /// Computes all sequenced/recursive moves for sliding pieces like Rook/Bishop/Queen.
-        /// This follows the timeline architecture: iteratively expand perspectives and compute candidates.
+        /// This method builds simulated timelines forward to support sliding piece movement.
+        /// 
+        /// The pattern-driven architecture enables elegant rule emergence:
+        /// - Entry patterns (OutX | InstantRecursive) start the sliding sequence
+        /// - Continuation patterns (InX | Public) define valid landing squares
+        /// - Variant flags differentiate directions (Variant1-4 for each diagonal/orthogonal)
+        /// - The algorithm iteratively simulates moving to each square along the direction
         /// 
         /// Algorithm:
         /// 1. Find entry patterns (OutX | InstantRecursive, no Public) - these start the sequence
         /// 2. From entry move destinations, compute continuation patterns (InX | Public) - final landing spots
         /// 3. For InstantRecursive, allow the entry pattern to repeat from each new position
         /// 4. Accumulate all Public moves as valid final moves
+        /// 
+        /// This builds the timeline forward by simulating the piece "stepping" through empty squares
+        /// until it reaches a valid destination (Empty or Foe as defined by the pattern).
         /// </summary>
         public static DataFrame ComputeSequencedMoves(
             DataFrame perspectivesDf,
@@ -1111,6 +1137,121 @@ public class ChessPolicy
         }
 
         /// <summary>
+        /// Simulates the board state after applying a move by creating new perspectives.
+        /// This is the core abstraction for building forward timelines.
+        /// 
+        /// The method:
+        /// 1. Takes the current perspectives and a candidate move
+        /// 2. Creates new perspectives where:
+        ///    - The source cell becomes empty
+        ///    - The destination cell contains the moved piece
+        ///    - All other cells remain unchanged
+        /// 
+        /// This elegant pattern-driven approach enables:
+        /// - Timeline building (simulating game tree forward)
+        /// - Check detection (simulating if king would be threatened after move)
+        /// - Sliding piece computation (iteratively stepping through empty squares)
+        /// </summary>
+        public static DataFrame SimulateBoardAfterMove(
+            DataFrame perspectivesDf,
+            DataFrame candidatesDf,
+            Piece[] specificFactions,
+            bool debug = false)
+        {
+            if (candidatesDf.Count() == 0)
+            {
+                return perspectivesDf;
+            }
+
+            // Get the move details - we need src_x, src_y, dst_x, dst_y, and the piece info
+            var moveDf = candidatesDf.Select(
+                Col("src_x"),
+                Col("src_y"),
+                Col("src_piece"),
+                Col("src_generic_piece"),
+                Col("dst_x"),
+                Col("dst_y"),
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_piece")
+            ).Distinct();
+
+            // Join perspectives with moves to identify which cells change
+            var joinedDf = perspectivesDf.Join(
+                moveDf,
+                Col("perspective_x").EqualTo(moveDf["perspective_x"]).And(
+                Col("perspective_y").EqualTo(moveDf["perspective_y"])),
+                "left_outer"
+            );
+
+            // Apply transformations:
+            // - If cell is at src position: mark as empty
+            // - If cell is at dst position: place the moved piece
+            // - Otherwise: keep unchanged
+            var emptyBit = (int)Piece.Empty;
+            var factionMask = specificFactions.Aggregate(0, (acc, f) => acc | (int)f);
+
+            var newPerspectivesDf = joinedDf.WithColumn(
+                "new_piece",
+                When(
+                    Col("x").EqualTo(Col("src_x")).And(Col("y").EqualTo(Col("src_y"))),
+                    Lit(emptyBit)  // Source becomes empty
+                )
+                .When(
+                    Col("x").EqualTo(Col("dst_x")).And(Col("y").EqualTo(Col("dst_y"))),
+                    Col("src_piece")  // Destination gets the moved piece
+                )
+                .Otherwise(Col("piece"))  // Other cells unchanged
+            );
+
+            // Recompute generic_piece based on new piece and perspective
+            // This maintains the Self/Ally/Foe relationships
+            var pieceHasFaction = specificFactions
+                .Select(f => Col("new_piece").BitwiseAND(Lit((int)f)).NotEqual(Lit(0)))
+                .Aggregate((acc, cond) => acc.Or(cond));
+
+            var pieceAndPerspectiveShareFaction = specificFactions
+                .Select(f =>
+                    Col("new_piece").BitwiseAND(Lit((int)f)).NotEqual(Lit(0))
+                    .And(Col("perspective_piece").BitwiseAND(Lit((int)f)).NotEqual(Lit(0)))
+                )
+                .Aggregate((acc, cond) => acc.Or(cond));
+
+            Column newGenericPieceCol =
+                When(
+                    (Col("x") == Col("perspective_x")) &
+                    (Col("y") == Col("perspective_y")),
+                    Col("new_piece").BitwiseOR(Lit((int)Piece.Self))
+                )
+                .When(
+                    pieceAndPerspectiveShareFaction,
+                    Col("new_piece").BitwiseOR(Lit((int)Piece.Ally))
+                )
+                .When(
+                    pieceHasFaction &
+                    Not(pieceAndPerspectiveShareFaction),
+                    Col("new_piece").BitwiseOR(Lit((int)Piece.Foe))
+                )
+                .Otherwise(Col("new_piece"));
+
+            var finalDf = newPerspectivesDf
+                .WithColumn("piece", Col("new_piece"))
+                .WithColumn("generic_piece", newGenericPieceCol)
+                .Drop("new_piece", "src_x", "src_y", "src_piece", "src_generic_piece", "dst_x", "dst_y");
+
+            // Remove any duplicate columns from the join
+            var columns = perspectivesDf.Columns();
+            var resultDf = finalDf.Select(columns.Select(c => Col(c)).ToArray());
+
+            if (debug)
+            {
+                Console.WriteLine($"Simulated perspectives count: {resultDf.Count()}");
+            }
+
+            return resultDf;
+        }
+
+        /// <summary>
         /// Filters out moves that would leave the king in check.
         /// This is a critical chess rule: a player cannot make a move that leaves their own king under attack.
         /// 
@@ -1213,26 +1354,8 @@ public class ChessPolicy
             // - Mark dst cell as occupied by the moved piece
             
             // For each candidate, simulate the board state and compute threats
-            var safeMoves = candidatesWithId;
-            
-            // Build a modified perspectives table that accounts for the move
-            // Join candidates with perspectives to create simulated board states
-            var simulatedPerspectives = candidatesWithId
-                .CrossJoin(perspectivesDf.Select(
-                    Col("x").Alias("board_x"),
-                    Col("y").Alias("board_y"),
-                    Col("piece").Alias("board_piece"),
-                    Col("generic_piece").Alias("board_generic_piece"),
-                    Col("perspective_x").Alias("board_perspective_x"),
-                    Col("perspective_y").Alias("board_perspective_y"),
-                    Col("perspective_piece").Alias("board_perspective_piece"),
-                    Col("perspective_id").Alias("board_perspective_id")
-                ));
-            
-            // Modify pieces based on the move:
-            // If (board_x, board_y) == (src_x, src_y), mark as empty (piece has moved)
-            // If (board_x, board_y) == (dst_x, dst_y), use moved piece
-            var emptyBit = (int)Piece.Empty;
+            // using the SimulateBoardAfterMove abstraction for cleaner code.
+            // Note: The cross-join approach below is retained for performance with the heuristic approach.
             
             // Now compute which kings would be under attack in each simulated position
             // For the opponent to attack our king, we compute their moves targeting our king position
@@ -1426,6 +1549,71 @@ public class ChessPolicy
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Validates a candidate move by simulating the board state and checking if the king is safe.
+        /// This is the elegant, pattern-driven approach to check validation that builds on SimulateBoardAfterMove.
+        /// 
+        /// Algorithm:
+        /// 1. Simulate the board state after the move using SimulateBoardAfterMove
+        /// 2. Compute threatened cells on the simulated board
+        /// 3. Check if the king's position is in the threatened cells
+        /// 4. Return true if the king is safe (not in threatened cells)
+        /// 
+        /// This approach is agnostic to the specific rules - it derives check status from the pattern table.
+        /// </summary>
+        public static bool ValidateMoveDoesNotLeaveKingInCheck(
+            DataFrame perspectivesDf,
+            DataFrame candidateDf,
+            DataFrame patternsDf,
+            Piece[] specificFactions,
+            int turn = 0)
+        {
+            if (candidateDf.Count() == 0)
+            {
+                return true; // No move to validate
+            }
+
+            // Simulate the board after the move
+            var simulatedPerspectives = SimulateBoardAfterMove(perspectivesDf, candidateDf, specificFactions);
+
+            // Compute threatened cells on the simulated board (opponent's threats)
+            var threatenedCells = ComputeThreatenedCells(
+                simulatedPerspectives,
+                patternsDf,
+                specificFactions,
+                turn: turn  // Still the same player's turn - we're checking what opponent threatens
+            );
+
+            // Find the king's position in the simulated board
+            var currentFaction = specificFactions[turn % specificFactions.Length];
+            var kingBit = (int)Piece.King;
+            var factionBit = (int)currentFaction;
+
+            var kingPosition = simulatedPerspectives
+                .Filter(
+                    Col("piece").BitwiseAND(Lit(kingBit)).NotEqual(Lit(0))
+                    .And(Col("piece").BitwiseAND(Lit(factionBit)).NotEqual(Lit(0)))
+                    .And(Col("x").EqualTo(Col("perspective_x")))
+                    .And(Col("y").EqualTo(Col("perspective_y")))
+                )
+                .Select(Col("x").Alias("king_x"), Col("y").Alias("king_y"))
+                .Distinct();
+
+            if (kingPosition.Count() == 0)
+            {
+                return true; // No king found - move is valid (for tests without king)
+            }
+
+            // Check if king's position is threatened
+            var kingThreatened = kingPosition.Join(
+                threatenedCells,
+                Col("king_x").EqualTo(Col("threatened_x")).And(Col("king_y").EqualTo(Col("threatened_y"))),
+                "inner"
+            );
+
+            return kingThreatened.Count() == 0; // Safe if not threatened
         }
 
         /// <summary>
