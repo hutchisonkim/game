@@ -191,8 +191,14 @@ public class ChessPolicy
         }
         private static void DebugShow(DataFrame df, string label)
         {
-            Console.WriteLine($"\n========== {label} ==========");
-            Console.WriteLine($"Row count: {df.Count()}");
+            // Console.WriteLine($"\n========== {label} ==========");
+            // Console.WriteLine($"Row count: {df.Count()}");
+        }
+
+        // More efficient emptiness check than Count(): only materializes a single row.
+        private static bool IsEmpty(DataFrame df)
+        {
+            return !df.Limit(1).Collect().Any();
         }
 
         public static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int turn = 0, Sequence activeSequences = Sequence.None, bool debug = false)
@@ -485,8 +491,8 @@ public class ChessPolicy
 
             if (debug)
             {
-                Console.WriteLine($"Entry patterns count: {entryPatternsDf.Count()}");
-                Console.WriteLine($"Continuation patterns count: {continuationPatternsDf.Count()}");
+                // Console.WriteLine($"Entry patterns count: {entryPatternsDf.Count()}");
+                // Console.WriteLine($"Continuation patterns count: {continuationPatternsDf.Count()}");
             }
 
             // Start by computing entry moves
@@ -507,14 +513,15 @@ public class ChessPolicy
                 debug: debug
             );
 
-            if (debug) Console.WriteLine($"Initial entry moves: {entryMoves.Count()}");
+            // if (debug) Console.WriteLine($"Initial entry moves: {entryMoves.Count()}");
 
             // Collect all valid final moves (continuation moves with Public flag)
             DataFrame? allFinalMoves = null;
 
             // Compute continuation moves from the ORIGINAL perspective with Out flags from entry moves
             // This allows the first square in each direction to be a valid final move
-            if (entryMoves.Count() > 0)
+            // if (entryMoves.Count() > 0)
+            if (!IsEmpty(entryMoves))
             {
                 var outFlagsRows = entryMoves
                     .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"))
@@ -543,9 +550,10 @@ public class ChessPolicy
                         debug: debug
                     );
 
-                    if (debug) Console.WriteLine($"Initial continuation moves: {initialContinuationMoves.Count()}");
+                    // if (debug) Console.WriteLine($"Initial continuation moves: {initialContinuationMoves.Count()}");
 
-                    if (initialContinuationMoves.Count() > 0)
+                    // if (initialContinuationMoves.Count() > 0)
+                    if (!IsEmpty(initialContinuationMoves))
                     {
                         allFinalMoves = initialContinuationMoves;
                     }
@@ -555,9 +563,9 @@ public class ChessPolicy
             // Current frontier of positions to expand from
             var currentEntryMoves = entryMoves;
 
-            for (int depth = 0; depth < maxDepth && currentEntryMoves.Count() > 0; depth++)
+            for (int depth = 0; depth < maxDepth && !IsEmpty(currentEntryMoves); depth++)
             {
-                if (debug) Console.WriteLine($"Depth {depth}: {currentEntryMoves.Count()} entry moves");
+                // if (debug) Console.WriteLine($"Depth {depth}: {currentEntryMoves.Count()} entry moves");
 
                 // Get the Out flags from current entry moves
                 var outFlagsRows = currentEntryMoves
@@ -580,8 +588,8 @@ public class ChessPolicy
                 // The piece "moves" to dst, so we need perspectives from there
                 var nextPerspectives = ComputeNextPerspectivesFromMoves(currentEntryMoves, perspectivesDf);
 
-                if (debug) Console.WriteLine($"Next perspectives: {nextPerspectives.Count()}");
-                if (nextPerspectives.Count() == 0) break;
+                // if (debug) Console.WriteLine($"Next perspectives: {nextPerspectives.Count()}");
+                if (IsEmpty(nextPerspectives)) break;
 
                 // Compute continuation moves (InX | Public) from new perspectives
                 // Use original perspectivesDf for lookup (to see what's at destination squares)
@@ -596,10 +604,10 @@ public class ChessPolicy
                     debug: debug
                 );
 
-                if (debug) Console.WriteLine($"Continuation moves: {continuationMoves.Count()}");
+                // if (debug) Console.WriteLine($"Continuation moves: {continuationMoves.Count()}");
 
                 // Add continuation moves to final results
-                if (continuationMoves.Count() > 0)
+                if (!IsEmpty(continuationMoves))
                 {
                     allFinalMoves = allFinalMoves == null ? continuationMoves : allFinalMoves.Union(continuationMoves);
                 }
@@ -616,7 +624,7 @@ public class ChessPolicy
                     debug: debug
                 );
 
-                if (debug) Console.WriteLine($"Next entry moves: {nextEntryMoves.Count()}");
+                // if (debug) Console.WriteLine($"Next entry moves: {nextEntryMoves.Count()}");
 
                 currentEntryMoves = nextEntryMoves;
             }
@@ -912,8 +920,8 @@ public class ChessPolicy
 
             if (debug)
             {
-                Console.WriteLine($"Original patterns count: {patternsDf.Count()}");
-                Console.WriteLine($"Threat patterns count: {threatPatternsDf.Count()}");
+                // Console.WriteLine($"Original patterns count: {patternsDf.Count()}");
+                // Console.WriteLine($"Threat patterns count: {threatPatternsDf.Count()}");
             }
 
             // STEP 1: Compute direct (non-sliding) threats using ComputeNextCandidates
@@ -934,7 +942,7 @@ public class ChessPolicy
 
             if (debug)
             {
-                Console.WriteLine($"Direct threats count: {threatenedCellsDf.Count()}");
+                // Console.WriteLine($"Direct threats count: {threatenedCellsDf.Count()}");
             }
 
             // STEP 2: Compute sliding piece threats iteratively
@@ -956,7 +964,7 @@ public class ChessPolicy
 
             if (debug)
             {
-                Console.WriteLine($"Total threatened cells count: {threatenedCellsDf.Count()}");
+                // Console.WriteLine($"Total threatened cells count: {threatenedCellsDf.Count()}");
             }
 
             return threatenedCellsDf;
@@ -994,7 +1002,8 @@ public class ChessPolicy
                 .And(Col("sequence").BitwiseAND(Lit(publicFlag)).EqualTo(Lit(0)))
             );
 
-            if (entryPatternsDf.Count() == 0)
+            // if (entryPatternsDf.Count() == 0)
+            if (IsEmpty(entryPatternsDf))
             {
                 // No sliding patterns, return empty threatened cells DataFrame
                 return CreateEmptyThreatenedCellsDf(perspectivesDf);
@@ -1017,9 +1026,9 @@ public class ChessPolicy
                 debug: false  // Reduce noise
             );
 
-            if (debug) Console.WriteLine($"Sliding initial frontier: {currentFrontier.Count()}");
+            // if (debug) Console.WriteLine($"Sliding initial frontier: {currentFrontier.Count()}");
 
-            if (currentFrontier.Limit(1).Count() == 0)
+            if (IsEmpty(currentFrontier))
             {
                 return CreateEmptyThreatenedCellsDf(perspectivesDf);
             }
@@ -1039,12 +1048,12 @@ public class ChessPolicy
             // Iterate to find all threatened cells along sliding paths
             for (int depth = 1; depth < maxDepth; depth++)
             {
-                if (debug) Console.WriteLine($"Sliding depth {depth}: frontier size {emptyFrontier.Count()}");
+                // if (debug) Console.WriteLine($"Sliding depth {depth}: frontier size {emptyFrontier.Count()}");
 
                 // Create new perspectives from empty frontier positions
                 var nextPerspectives = ComputeNextPerspectivesFromMoves(emptyFrontier, perspectivesDf);
 
-                if (nextPerspectives.Limit(1).Count() == 0) break;
+                if (IsEmpty(nextPerspectives)) break;
 
                 // Get the Out flags and Variant flags to continue in the same direction
                 var variantMask = (int)(Sequence.Variant1 | Sequence.Variant2 | Sequence.Variant3 | Sequence.Variant4);
@@ -1073,7 +1082,7 @@ public class ChessPolicy
                     debug: false
                 );
 
-                if (nextMoves.Limit(1).Count() == 0) break;
+                if (IsEmpty(nextMoves)) break;
 
                 // All destination cells are threatened
                 var newThreatened = nextMoves
@@ -1130,7 +1139,7 @@ public class ChessPolicy
 
             if (debug)
             {
-                Console.WriteLine($"Perspectives with threatened bit: {finalDf.Count()}");
+                // Console.WriteLine($"Perspectives with threatened bit: {finalDf.Count()}");
             }
 
             return finalDf;
@@ -1158,8 +1167,7 @@ public class ChessPolicy
             Piece[] specificFactions,
             bool debug = false)
         {
-            // Use Limit(1).Count() for efficient empty check - avoids full DataFrame count
-            if (candidatesDf.Limit(1).Count() == 0)
+            if (IsEmpty(candidatesDf))
             {
                 return perspectivesDf;
             }
@@ -1249,7 +1257,7 @@ public class ChessPolicy
 
             if (debug)
             {
-                Console.WriteLine($"Simulated perspectives count: {resultDf.Count()}");
+                // Console.WriteLine($"Simulated perspectives count: {resultDf.Count()}");
             }
 
             return resultDf;
@@ -1277,7 +1285,8 @@ public class ChessPolicy
             int turn = 0,
             bool debug = false)
         {
-            if (candidatesDf.Count() == 0)
+            // if (candidatesDf.Count() == 0)
+            if (IsEmpty(candidatesDf))
             {
                 return candidatesDf;
             }
@@ -1297,7 +1306,8 @@ public class ChessPolicy
                 .Select(Col("x").Alias("king_x"), Col("y").Alias("king_y"))
                 .Distinct();
 
-            if (kingPerspective.Count() == 0)
+            // if (kingPerspective.Count() == 0)
+            if (IsEmpty(kingPerspective))
             {
                 // No king found - return all candidates (edge case for tests without king)
                 return candidatesDf;
@@ -1310,7 +1320,7 @@ public class ChessPolicy
             if (debug)
             {
                 Console.WriteLine($"Current king position: ({currentKingX}, {currentKingY})");
-                Console.WriteLine($"Total candidates before filtering: {candidatesDf.Count()}");
+                // Console.WriteLine($"Total candidates before filtering: {candidatesDf.Count()}");
             }
 
             // Add king position tracking to each candidate
@@ -1454,7 +1464,8 @@ public class ChessPolicy
             
             // If there are no opponent sliding pieces, no pin detection needed
             // All non-king moves that passed the threat check are valid
-            if (opponentSlidingPieces.Count() == 0)
+            // if (opponentSlidingPieces.Count() == 0)
+            if (IsEmpty(opponentSlidingPieces))
             {
                 validNonKingMoves = nonKingMovesCheck
                     .Select(candidatesWithId.Columns().Select(c => Col(c)).ToArray())
@@ -1549,7 +1560,7 @@ public class ChessPolicy
 
             if (debug)
             {
-                Console.WriteLine($"Safe moves after filtering: {result.Count()}");
+                // Console.WriteLine($"Safe moves after filtering: {result.Count()}");
             }
 
             return result;
@@ -1574,8 +1585,8 @@ public class ChessPolicy
             Piece[] specificFactions,
             int turn = 0)
         {
-            // Use Limit(1).Count() for efficient empty check - avoids full DataFrame count
-            if (candidateDf.Limit(1).Count() == 0)
+            // if (candidateDf.Limit(1).Count() == 0)
+            if (IsEmpty(candidateDf))
             {
                 return true; // No move to validate
             }
@@ -1606,7 +1617,8 @@ public class ChessPolicy
                 .Select(Col("x").Alias("king_x"), Col("y").Alias("king_y"))
                 .Distinct();
 
-            if (kingPosition.Count() == 0)
+            // if (kingPosition.Count() == 0)
+            if (IsEmpty(kingPosition))
             {
                 return true; // No king found - move is valid (for tests without king)
             }
@@ -1618,7 +1630,8 @@ public class ChessPolicy
                 "inner"
             );
 
-            return kingThreatened.Count() == 0; // Safe if not threatened
+            // return kingThreatened.Count() == 0; // Safe if not threatened
+            return IsEmpty(kingThreatened); // Safe if not threatened
         }
 
         /// <summary>

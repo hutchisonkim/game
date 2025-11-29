@@ -34,7 +34,8 @@ class Program
             FileName = GetDotnetPath(),
             Arguments = $"vstest \"{testAssembly}\" " +
                         BuildOptionalFilterArgs(testFilter) +
-                        "--logger \"console;verbosity=detailed\" " + // detailed keeps test-output.log relevant
+                        // "--logger \"console;verbosity=detailed\" " + // detailed keeps test-output.log relevant
+                        "--logger \"console;verbosity=minimal\" " +
                         "--logger \"trx;LogFileName=TestResults.trx\"",
             UseShellExecute = false,
             RedirectStandardOutput = true,
