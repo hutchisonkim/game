@@ -3,7 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
@@ -14,6 +13,11 @@
   <ItemGroup>
     <PackageReference Include="xunit.runner.utility" Version="2.9.3" />
     <PackageReference Include="xunit.runner.console" Version="2.9.3" />
+  </ItemGroup>
+
+  <!-- Ensure xunit.runner.utility assemblies are included in publish output -->
+  <ItemGroup>
+    <Content Include="$(NuGetPackageRoot)xunit.runner.utility/2.9.3/lib/net6.0/*" CopyToPublishDirectory="Always" />
   </ItemGroup>
 
 </Project>
