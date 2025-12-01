@@ -511,7 +511,8 @@ public class ChessPolicy
                 Sequence.None,
                 skipPublicFilter: true,
                 debug: debug
-            );
+            ).WithColumn("is_valid_entry", Lit(true))
+             .WithColumn("move_type", Lit("entry"));
 
             // if (debug) Console.WriteLine($"Initial entry moves: {entryMoves.Count()}");
 
@@ -548,7 +549,8 @@ public class ChessPolicy
                         initialActiveSequence,
                         skipPublicFilter: false,
                         debug: debug
-                    );
+                    ).WithColumn("is_valid_continuation", Lit(true))  // Inherit validity from entry
+                     .WithColumn("move_type", Lit("continuation"));
 
                     // if (debug) Console.WriteLine($"Initial continuation moves: {initialContinuationMoves.Count()}");
 
@@ -601,7 +603,8 @@ public class ChessPolicy
                     activeSequence,
                     skipPublicFilter: false,
                     debug: debug
-                );
+                ).WithColumn("is_valid_continuation", Lit(true))  // Valid if entry was valid
+                 .WithColumn("move_type", Lit("continuation"));
 
                 // if (debug) Console.WriteLine($"Continuation moves: {continuationMoves.Count()}");
 
@@ -621,7 +624,8 @@ public class ChessPolicy
                     activeSequence,
                     skipPublicFilter: true,
                     debug: debug
-                );
+                ).WithColumn("is_valid_entry", Lit(true))  // Valid continuation from previous entry
+                 .WithColumn("move_type", Lit("entry"));
 
                 // if (debug) Console.WriteLine($"Next entry moves: {nextEntryMoves.Count()}");
 
@@ -634,7 +638,15 @@ public class ChessPolicy
                 return entryMoves.Limit(0); // Return empty with same schema
             }
 
-            return allFinalMoves;
+            // Add unified is_valid column and filter
+            var validMoves = allFinalMoves
+                .WithColumn("is_valid",
+                    When(Col("move_type") == "entry", Col("is_valid_entry"))
+                    .Otherwise(Col("is_valid_continuation")))
+                .Filter(Col("is_valid"))
+                .Drop("is_valid_entry", "is_valid_continuation", "move_type", "is_valid");
+
+            return validMoves;
         }
 
         /// <summary>
