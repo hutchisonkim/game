@@ -523,16 +523,16 @@ public class ChessPolicy
             // if (entryMoves.Count() > 0)
             if (!IsEmpty(entryMoves))
             {
-                var outFlagsRows = entryMoves
-                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"))
-                    .Distinct()
-                    .Collect();
+                // Use Max() as approximation for bitwise OR (lazy aggregation)
+                var outFlagsDf = entryMoves
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"));
 
-                int initialOutFlags = 0;
-                foreach (var row in outFlagsRows)
-                {
-                    initialOutFlags |= row.GetAs<int>("out_flags");
-                }
+                var initialOutFlagsRow = outFlagsDf
+                    .Agg(Max(Col("out_flags")).Alias("initial_out_flags"))
+                    .Collect()
+                    .First();
+
+                int initialOutFlags = initialOutFlagsRow.GetAs<int>("initial_out_flags");
 
                 if (initialOutFlags != 0)
                 {
@@ -567,17 +567,16 @@ public class ChessPolicy
             {
                 // if (debug) Console.WriteLine($"Depth {depth}: {currentEntryMoves.Count()} entry moves");
 
-                // Get the Out flags from current entry moves
-                var outFlagsRows = currentEntryMoves
-                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"))
-                    .Distinct()
-                    .Collect();
+                // Get the Out flags from current entry moves using Max() as bitwise OR approximation
+                var outFlagsDf = currentEntryMoves
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"));
 
-                int activeOutFlags = 0;
-                foreach (var row in outFlagsRows)
-                {
-                    activeOutFlags |= row.GetAs<int>("out_flags");
-                }
+                var activeOutFlagsRow = outFlagsDf
+                    .Agg(Max(Col("out_flags")).Alias("active_out_flags"))
+                    .Collect()
+                    .First();
+
+                int activeOutFlags = activeOutFlagsRow.GetAs<int>("active_out_flags");
 
                 if (activeOutFlags == 0) break;
 
