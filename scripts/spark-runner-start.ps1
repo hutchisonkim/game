@@ -72,8 +72,8 @@ try {
         Fail("dotnet build failed. Output:`n$joined")
     }
 
-    Write-Host "Publishing project (self-contained=true)"
-    $pubArgs = @('-f', $Framework, '-r', $runtime, '-c', 'Release', '--self-contained', 'true')
+    Write-Host "Publishing project (self-contained=false for VSTest compatibility)"
+    $pubArgs = @('-f', $Framework, '-r', $runtime, '-c', 'Release', '--self-contained', 'false')
     & dotnet publish @pubArgs | Write-Host
     if ($LASTEXITCODE -ne 0) { Fail("dotnet publish failed") }
 

@@ -19,6 +19,83 @@ namespace Game.Chess.Tests.Integration.Runner
 
             try
             {
+                // Prefer VSTest (net8) with xUnit adapter and trait filtering
+                var adapterDll = Path.Combine(publishDir, "xunit.runner.visualstudio.testadapter.dll");
+                var useVsTest = File.Exists(adapterDll);
+                if (useVsTest)
+                {
+                    var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+                    string dotnetExe = string.IsNullOrWhiteSpace(dotnetRoot)
+                        ? "dotnet"
+                        : Path.Combine(dotnetRoot, "dotnet.exe");
+
+                    // Build TestCaseFilter for xUnit traits. VSTest filter format: (Trait=value)|(Trait=value)
+                    string? testCaseFilter = null;
+                    if (!string.IsNullOrWhiteSpace(filter) && filter.Contains("="))
+                    {
+                        // Expecting Performance=Fast; xUnit exposes traits as properties named by trait name
+                        var kv = filter.Split('=', 2);
+                        if (kv.Length == 2)
+                        {
+                            var name = kv[0].Trim();
+                            var value = kv[1].Trim();
+                            // Correct format for xUnit trait filter: "Performance=Fast"
+                            testCaseFilter = $"{name}={value}";
+                        }
+                    }
+
+                    var trxPath = Path.Combine(publishDir, "spark-vstest.trx");
+                    var vsArgs = new System.Collections.Generic.List<string>();
+                    vsArgs.Add("vstest");
+                    vsArgs.Add('"' + dll + '"');
+                    if (!string.IsNullOrWhiteSpace(testCaseFilter))
+                    {
+                        vsArgs.Add("--TestCaseFilter:" + '"' + testCaseFilter + '"');
+                    }
+                    // Ensure no parallel to avoid Spark worker issues (no arg means sequential)
+                    // Log TRX to inspect failures
+                    vsArgs.Add("--Logger:" + '"' + $"trx;LogFileName={Path.GetFileName(trxPath)}" + '"');
+
+                    var psiVs = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = dotnetExe,
+                        Arguments = string.Join(" ", vsArgs),
+                        WorkingDirectory = publishDir,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                    };
+                    var pVs = System.Diagnostics.Process.Start(psiVs);
+                    if (pVs != null)
+                    {
+                        string outVs = pVs.StandardOutput.ReadToEnd();
+                        string errVs = pVs.StandardError.ReadToEnd();
+                        pVs.WaitForExit();
+                        // Relay logs to both spark-test-output.log and test-output.log
+                        var combined = outVs + Environment.NewLine + errVs;
+                        File.WriteAllText(Path.Combine(publishDir, "spark-test-output.log"), combined);
+                        File.WriteAllText(Path.Combine(publishDir, "test-output.log"), combined);
+
+                        // If TRX exists, parse summary counts
+                        if (File.Exists(trxPath))
+                        {
+                            try
+                            {
+                                var trx = File.ReadAllText(trxPath);
+                                // Simple extraction of totals
+                                int total = ExtractInt(trx, "total=");
+                                int passed = ExtractInt(trx, "passed=");
+                                int failed = ExtractInt(trx, "failed=");
+                                int skipped = ExtractInt(trx, "skipped=");
+                                return $"VSTest Summary: Total: {total}, Passed: {passed}, Failed: {failed}, Skipped: {skipped}";
+                            }
+                            catch { }
+                        }
+                        var lastLineVs = outVs.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+                        return lastLineVs ?? "[Runner] Tests executed via VSTest.";
+                    }
+                }
+
                 var consoleDll = Path.Combine(publishDir, "xunit.console.dll");
                 var consoleExe = Path.Combine(publishDir, "xunit.console.exe");
                 bool useDotnet = File.Exists(consoleDll);
@@ -36,11 +113,21 @@ namespace Game.Chess.Tests.Integration.Runner
                     {
                         args.Add("-trait");
                         args.Add('"' + filter + '"');
+                        // Exclude other performance tiers when Fast is requested
+                        var kv = filter.Split('=', 2);
+                        if (kv.Length == 2 && kv[0].Trim().Equals("Performance", StringComparison.OrdinalIgnoreCase) && kv[1].Trim().Equals("Fast", StringComparison.OrdinalIgnoreCase))
+                        {
+                            args.Add("-notrait"); args.Add('"' + "Performance=Slow" + '"');
+                            args.Add("-notrait"); args.Add('"' + "Performance=Medium" + '"');
+                        }
                     }
                 }
                 args.Add("-nologo");
                 args.Add("-parallel");
                 args.Add("none");
+                // Save detailed results for investigation
+                args.Add("-xml");
+                args.Add('"' + Path.Combine(publishDir, "spark-xunit-results.xml") + '"');
 
                 System.Diagnostics.ProcessStartInfo psi;
                 if (useDotnet)
@@ -77,7 +164,9 @@ namespace Game.Chess.Tests.Integration.Runner
                 string output = proc.StandardOutput.ReadToEnd();
                 string error = proc.StandardError.ReadToEnd();
                 proc.WaitForExit();
-                File.WriteAllText(Path.Combine(publishDir, "spark-test-output.log"), output + Environment.NewLine + error);
+                var combinedConsole = output + Environment.NewLine + error;
+                File.WriteAllText(Path.Combine(publishDir, "spark-test-output.log"), combinedConsole);
+                File.WriteAllText(Path.Combine(publishDir, "test-output.log"), combinedConsole);
                 var lastLine = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
                 return lastLine ?? "[Runner] Tests executed via console runner.";
             }
@@ -85,6 +174,24 @@ namespace Game.Chess.Tests.Integration.Runner
             {
                 return "[Runner] Exception: " + ex.ToString();
             }
+        }
+
+        private static int ExtractInt(string text, string key)
+        {
+            try
+            {
+                var idx = text.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                {
+                    idx += key.Length;
+                    int end = idx;
+                    while (end < text.Length && char.IsDigit(text[end])) end++;
+                    var num = text.Substring(idx, end - idx);
+                    if (int.TryParse(num, out var val)) return val;
+                }
+            }
+            catch { }
+            return 0;
         }
     }
 }

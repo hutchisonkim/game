@@ -92,8 +92,9 @@
         "-NoProfile",
         "-ExecutionPolicy",
         "Bypass",
-        "-Command",
-        "Invoke-RestMethod -Uri \"http://localhost:7009/\" -Method Post -Body \"STOP\" -ErrorAction SilentlyContinue; Get-Process -Name java,spark-submit -ErrorAction SilentlyContinue | Stop-Process -Force"
+        "-File",
+        "${workspaceFolder}/scripts/spark-testctl.ps1",
+        "-Stop"
       ],
       "presentation": {
         "echo": true,

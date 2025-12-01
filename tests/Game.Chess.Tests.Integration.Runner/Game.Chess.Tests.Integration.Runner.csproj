@@ -15,9 +15,6 @@
     <PackageReference Include="xunit.runner.console" Version="2.9.3" />
   </ItemGroup>
 
-  <!-- Ensure xunit.runner.utility assemblies are included in publish output -->
-  <ItemGroup>
-    <Content Include="$(NuGetPackageRoot)xunit.runner.utility/2.9.3/lib/net6.0/*" CopyToPublishDirectory="Always" />
-  </ItemGroup>
+  <!-- xUnit console and utility bits are copied via the start script to avoid publish conflicts -->
 
 </Project>
