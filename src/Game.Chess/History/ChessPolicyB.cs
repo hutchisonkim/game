@@ -511,142 +511,181 @@ public class ChessPolicy
                 Sequence.None,
                 skipPublicFilter: true,
                 debug: debug
-            ).WithColumn("is_valid_entry", Lit(true))
-             .WithColumn("move_type", Lit("entry"));
+            );
 
             // if (debug) Console.WriteLine($"Initial entry moves: {entryMoves.Count()}");
 
-            // Collect all valid final moves (continuation moves with Public flag)
-            DataFrame? allFinalMoves = null;
+            // ============================================================
+            // STEP 1.1: Tag entry moves with depth 0 and sequence key
+            // ============================================================
+            var entryMovesWithDepth = entryMoves
+                .WithColumn("depth", Lit(0))
+                .WithColumn("sequence_key", Concat(
+                    Col("src_x").Cast("string"), Lit("_"),
+                    Col("src_y").Cast("string"), Lit("_"),
+                    Col("sequence").BitwiseAND(Lit(variantMask)).Cast("string")
+                ));
 
-            // Compute continuation moves from the ORIGINAL perspective with Out flags from entry moves
-            // This allows the first square in each direction to be a valid final move
-            // if (entryMoves.Count() > 0)
-            if (!IsEmpty(entryMoves))
+            // ============================================================
+            // STEP 1.2: Generate all depth levels for expansion
+            // ============================================================
+            // Create depths DataFrame by unioning literal values (avoiding SparkSession.Range)
+            var depths = entryMovesWithDepth.Select(Lit(0).Alias("target_depth")).Limit(1);
+            for (int d = 1; d < maxDepth; d++)
             {
-                // Use Max() as approximation for bitwise OR (lazy aggregation)
-                var outFlagsDf = entryMoves
-                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"));
-
-                var initialOutFlagsRow = outFlagsDf
-                    .Agg(Max(Col("out_flags")).Alias("initial_out_flags"))
-                    .Collect()
-                    .First();
-
-                int initialOutFlags = initialOutFlagsRow.GetAs<int>("initial_out_flags");
-
-                if (initialOutFlags != 0)
-                {
-                    var initialActiveSequence = (Sequence)initialOutFlags;
-                    
-                    // Compute continuation moves from original position (first square in each direction)
-                    var initialContinuationMoves = ComputeNextCandidatesInternal(
-                        initialPerspectivesDf,
-                        perspectivesDf,
-                        continuationPatternsDf,
-                        specificFactions,
-                        turn,
-                        initialActiveSequence,
-                        skipPublicFilter: false,
-                        debug: debug
-                    ).WithColumn("is_valid_continuation", Lit(true))  // Inherit validity from entry
-                     .WithColumn("move_type", Lit("continuation"));
-
-                    // if (debug) Console.WriteLine($"Initial continuation moves: {initialContinuationMoves.Count()}");
-
-                    // if (initialContinuationMoves.Count() > 0)
-                    if (!IsEmpty(initialContinuationMoves))
-                    {
-                        allFinalMoves = initialContinuationMoves;
-                    }
-                }
+                depths = depths.Union(entryMovesWithDepth.Select(Lit(d).Alias("target_depth")).Limit(1));
             }
 
-            // Current frontier of positions to expand from
-            var currentEntryMoves = entryMoves;
+            // ============================================================
+            // STEP 1.3: Cross-join to generate all potential entry moves at all depths
+            // ============================================================
+            var allPotentialEntryMoves = entryMovesWithDepth
+                .CrossJoin(depths)
+                .Filter(Col("target_depth") >= Col("depth"))
+                .WithColumn("expansion_depth", Col("target_depth") - Col("depth"))
+                .Coalesce(10);  // Reduce partitions to avoid explosion
 
-            for (int depth = 0; depth < maxDepth && !IsEmpty(currentEntryMoves); depth++)
-            {
-                // if (debug) Console.WriteLine($"Depth {depth}: {currentEntryMoves.Count()} entry moves");
+            // ============================================================
+            // STEP 1.4: Simulate perspective transitions via self-join
+            // ============================================================
+            var perspectiveTransitions = allPotentialEntryMoves.Alias("child")
+                .Join(
+                    allPotentialEntryMoves.Alias("parent"),
+                    (Col("child.src_x") == Col("parent.dst_x")) &
+                    (Col("child.src_y") == Col("parent.dst_y")) &
+                    (Col("child.sequence_key") == Col("parent.sequence_key")) &
+                    (Col("child.target_depth") == Col("parent.target_depth") + 1),
+                    "left_outer"
+                )
+                .Select(
+                    Col("child.*"),
+                    Col("parent.dst_generic_piece").Alias("parent_dst_piece")
+                );
 
-                // Get the Out flags from current entry moves using Max() as bitwise OR approximation
-                var outFlagsDf = currentEntryMoves
-                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"));
+            // ============================================================
+            // STEP 1.5: Add validity propagation via window functions
+            // ============================================================\n            // Use explicit qualification to avoid ambiguity with Window() method
+            var validityWindow = Microsoft.Spark.Sql.Expressions.Window
+                .PartitionBy("sequence_key")
+                .OrderBy("target_depth");
 
-                var activeOutFlagsRow = outFlagsDf
-                    .Agg(Max(Col("out_flags")).Alias("active_out_flags"))
-                    .Collect()
-                    .First();
+            var movesWithValidity = perspectiveTransitions
+                .WithColumn("parent_was_blocked",
+                    Coalesce(
+                        Lag(
+                            Col("dst_generic_piece").BitwiseAND(Lit((int)Piece.Empty)).EqualTo(Lit(0)),
+                            1
+                        ).Over(validityWindow),
+                        Lit(false)
+                    )
+                )
+                .WithColumn("is_valid_entry",
+                    When(Col("target_depth") == 0, Lit(true))
+                    .Otherwise(Not(Col("parent_was_blocked")))
+                );
 
-                int activeOutFlags = activeOutFlagsRow.GetAs<int>("active_out_flags");
+            // ============================================================
+            // STEP 1.6: Compute lazy Out flags aggregation per depth
+            // ============================================================
+            var outFlagsByDepth = movesWithValidity
+                .Filter(Col("is_valid_entry"))
+                .GroupBy("target_depth")
+                .Agg(
+                    Max(Col("sequence").BitwiseAND(Lit(outMask | variantMask))).Alias("active_out_flags")
+                );
 
-                if (activeOutFlags == 0) break;
+            // ============================================================
+            // STEP 1.7: Compute continuation moves with lazy flags
+            // ============================================================
+            // Compute turnFaction for actor filter
+            var turnFaction = specificFactions[turn % specificFactions.Length];
 
-                var activeSequence = (Sequence)activeOutFlags;
-                if (debug) Console.WriteLine($"Active Out flags: {activeOutFlags:X}");
+            // First, get valid entry positions with their Out flags
+            var validEntryPositions = movesWithValidity
+                .Filter(Col("is_valid_entry"))
+                .Join(outFlagsByDepth.Alias("flags"), Col("target_depth") == Col("flags.target_depth"))
+                .WithColumn("perspective_x", Col("dst_x"))
+                .WithColumn("perspective_y", Col("dst_y"))
+                .WithColumn("perspective_piece", Col("dst_piece"))
+                .WithColumn("x", Col("dst_x"))
+                .WithColumn("y", Col("dst_y"))
+                .WithColumn("piece", Col("dst_piece"))
+                .WithColumn("generic_piece", Col("dst_generic_piece"))
+                .WithColumn("active_sequence", Col("flags.active_out_flags").Cast("int"))
+                .Select(
+                    Col("perspective_x"),
+                    Col("perspective_y"),
+                    Col("perspective_piece"),
+                    Col("x"),
+                    Col("y"),
+                    Col("piece"),
+                    Col("generic_piece"),
+                    Col("active_sequence"),
+                    Col("target_depth"),
+                    Col("original_perspective_x"),
+                    Col("original_perspective_y")
+                );
 
-                // Create new perspectives from entry move destinations
-                // The piece "moves" to dst, so we need perspectives from there
-                var nextPerspectives = ComputeNextPerspectivesFromMoves(currentEntryMoves, perspectivesDf);
+            // Compute continuation moves from valid entry positions
+            // Cross-join with continuation patterns filtered by In/Out matching
+            var continuationMoves = validEntryPositions.Alias("pos")
+                .CrossJoin(continuationPatternsDf.Alias("pat"))
+                .Filter(
+                    // Actor filter: must be at perspective position
+                    Col("pos.x").EqualTo(Col("pos.perspective_x")) &
+                    Col("pos.y").EqualTo(Col("pos.perspective_y")) &
+                    Col("pos.piece").BitwiseAND(Lit((int)turnFaction)).NotEqual(Lit(0)) &
+                    // Pattern matching: src conditions
+                    Col("pos.generic_piece").BitwiseAND(Col("pat.src_conditions")).EqualTo(Col("pat.src_conditions")) &
+                    // Pattern's In flags must match entry's Out flags
+                    // Shift is done at the int level since active_sequence is already an int column
+                    (Col("pat.sequence").BitwiseAND(Lit(inMask)).BitwiseAND(
+                        Col("pos.active_sequence").BitwiseOR(Col("pos.active_sequence").Divide(Lit(2)))))
+                    .EqualTo(Col("pat.sequence").BitwiseAND(Lit(inMask)))
+                )
+                .WithColumn("dst_x", Col("pos.x") + Col("pat.dx"))
+                .WithColumn("dst_y", Col("pos.y") + Col("pat.dy"));
 
-                // if (debug) Console.WriteLine($"Next perspectives: {nextPerspectives.Count()}");
-                if (IsEmpty(nextPerspectives)) break;
+            // Join with lookup perspectives to get dst piece info
+            var continuationMovesWithDst = continuationMoves.Alias("move")
+                .Join(
+                    perspectivesDf.Alias("lookup"),
+                    (Col("move.dst_x") == Col("lookup.x")) &
+                    (Col("move.dst_y") == Col("lookup.y")) &
+                    (Col("move.original_perspective_x") == Col("lookup.perspective_x")) &
+                    (Col("move.original_perspective_y") == Col("lookup.perspective_y")),
+                    "inner"
+                )
+                .Select(
+                    Col("move.perspective_x"),
+                    Col("move.perspective_y"),
+                    Col("move.perspective_piece"),
+                    Col("move.x").Alias("src_x"),
+                    Col("move.y").Alias("src_y"),
+                    Col("move.piece").Alias("src_piece"),
+                    Col("move.generic_piece").Alias("src_generic_piece"),
+                    Col("move.dst_x"),
+                    Col("move.dst_y"),
+                    Col("lookup.piece").Alias("dst_piece"),
+                    Col("lookup.generic_piece").Alias("dst_generic_piece"),
+                    Col("move.pat.sequence"),
+                    Col("move.pat.dst_conditions"),
+                    Col("move.original_perspective_x"),
+                    Col("move.original_perspective_y")
+                )
+                .Filter(
+                    // Require ALL bits of dst_conditions
+                    Col("dst_generic_piece").BitwiseAND(Col("dst_conditions"))
+                    .EqualTo(Col("dst_conditions"))
+                )
+                .Filter(Col("sequence").BitwiseAND(Lit(publicFlag)).NotEqual(Lit(0)))
+                .Drop("dst_conditions");
 
-                // Compute continuation moves (InX | Public) from new perspectives
-                // Use original perspectivesDf for lookup (to see what's at destination squares)
-                var continuationMoves = ComputeNextCandidatesInternal(
-                    nextPerspectives,  // actor perspectives (moved pieces)
-                    perspectivesDf,    // lookup perspectives (full board)
-                    continuationPatternsDf,
-                    specificFactions,
-                    turn,
-                    activeSequence,
-                    skipPublicFilter: false,
-                    debug: debug
-                ).WithColumn("is_valid_continuation", Lit(true))  // Valid if entry was valid
-                 .WithColumn("move_type", Lit("continuation"));
-
-                // if (debug) Console.WriteLine($"Continuation moves: {continuationMoves.Count()}");
-
-                // Add continuation moves to final results
-                if (!IsEmpty(continuationMoves))
-                {
-                    allFinalMoves = allFinalMoves == null ? continuationMoves : allFinalMoves.Union(continuationMoves);
-                }
-
-                // For InstantRecursive, also compute more entry moves from the new perspectives
-                var nextEntryMoves = ComputeNextCandidatesInternal(
-                    nextPerspectives,  // actor perspectives (moved pieces)
-                    perspectivesDf,    // lookup perspectives (full board)
-                    entryPatternsDf,
-                    specificFactions,
-                    turn,
-                    activeSequence,
-                    skipPublicFilter: true,
-                    debug: debug
-                ).WithColumn("is_valid_entry", Lit(true))  // Valid continuation from previous entry
-                 .WithColumn("move_type", Lit("entry"));
-
-                // if (debug) Console.WriteLine($"Next entry moves: {nextEntryMoves.Count()}");
-
-                currentEntryMoves = nextEntryMoves;
-            }
-
-            // Return all final moves, or empty DataFrame if none found
-            if (allFinalMoves == null)
-            {
-                return entryMoves.Limit(0); // Return empty with same schema
-            }
-
-            // Add unified is_valid column and filter
-            var validMoves = allFinalMoves
-                .WithColumn("is_valid",
-                    When(Col("move_type") == "entry", Col("is_valid_entry"))
-                    .Otherwise(Col("is_valid_continuation")))
-                .Filter(Col("is_valid"))
-                .Drop("is_valid_entry", "is_valid_continuation", "move_type", "is_valid");
-
-            return validMoves;
+            // ============================================================
+            // STEP 1.8: Single filter for valid continuation moves
+            // ============================================================
+            return continuationMovesWithDst
+                .Drop("original_perspective_x", "original_perspective_y");
         }
 
         /// <summary>
@@ -1068,15 +1107,12 @@ public class ChessPolicy
 
                 // Get the Out flags and Variant flags to continue in the same direction
                 var variantMask = (int)(Sequence.Variant1 | Sequence.Variant2 | Sequence.Variant3 | Sequence.Variant4);
-                var outFlagsDf = emptyFrontier
-                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"));
+                var activeFlagsDF = emptyFrontier
+                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"))
+                    .Agg(Max(Col("out_flags")).Alias("active_out_flags"));
 
-                var activeOutFlagsRow = outFlagsDf
-                    .Agg(Max(Col("out_flags")).Alias("active_out_flags"))
-                    .Collect()
-                    .First();
-
-                int activeOutFlags = activeOutFlagsRow.GetAs<int>("active_out_flags");
+                // Materialize only for zero-check (loop control decision)
+                int activeOutFlags = activeFlagsDF.Collect().First().GetAs<int>("active_out_flags");
                 if (activeOutFlags == 0) break;
 
                 var activeSequence = (Sequence)activeOutFlags;
