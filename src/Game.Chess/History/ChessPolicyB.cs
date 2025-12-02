@@ -529,12 +529,12 @@ public class ChessPolicy
             // ============================================================
             // STEP 1.2: Generate all depth levels for expansion
             // ============================================================
-            // Create depths DataFrame by unioning literal values (avoiding SparkSession.Range)
-            var depths = entryMovesWithDepth.Select(Lit(0).Alias("target_depth")).Limit(1);
-            for (int d = 1; d < maxDepth; d++)
-            {
-                depths = depths.Union(entryMovesWithDepth.Select(Lit(d).Alias("target_depth")).Limit(1));
-            }
+            // Create depths DataFrame using array and explode (lazy, no materialization)
+            var depthArray = Enumerable.Range(0, maxDepth).Select(d => Lit(d)).ToArray();
+            var depths = entryMovesWithDepth
+                .Select(Array(depthArray).Alias("depth_array"))
+                .Select(Explode(Col("depth_array")).Alias("target_depth"))
+                .Distinct();
 
             // ============================================================
             // STEP 1.3: Cross-join to generate all potential entry moves at all depths
