@@ -165,6 +165,34 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void KingMint_WithMintRook_CastlingPatternExists_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+
+        // Act - Check if castling patterns exist in PatternFactory
+        var patternsDf = new PatternFactory(Spark).GetPatterns();
+        int outD = (int)Sequence.OutD;
+        int mintKing = (int)Piece.MintKing;
+        int mintRook = (int)Piece.MintRook;
+        
+        // Get patterns for both pieces
+        var kingCastlePatterns = patternsDf.Filter(
+            $"(src_conditions & {mintKing}) != 0 AND (sequence & {outD}) != 0")
+            .Count();
+        var rookCastlePatterns = patternsDf.Filter(
+            $"(src_conditions & {mintRook}) != 0 AND (sequence & {outD}) != 0")
+            .Count();
+
+        // Assert - Both king and rook have castling patterns
+        Assert.True(kingCastlePatterns > 0, "Expected MintKing to have OutD castling patterns");
+        Assert.True(rookCastlePatterns > 0, "Expected MintRook to have OutD castling patterns");
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
     public void NonMintKing_NoCastlingPatterns()
     {
         // Act - Get OutD patterns for non-mint king
@@ -231,9 +259,64 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void CastlingPatterns_RequireAllyKingOrRookDestination_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+
+        // Act - Get InD patterns (completion patterns for castling)
+        var patternsDf = new PatternFactory(Spark).GetPatterns();
+        int inD = (int)Sequence.InD;
+        int allyKing = (int)Piece.AllyKing;
+        int allyRook = (int)Piece.AllyRook;
+        
+        var allyKingDstPatterns = patternsDf.Filter(
+            $"(sequence & {inD}) != 0 AND (dst_conditions & {allyKing}) = {allyKing}");
+        var allyRookDstPatterns = patternsDf.Filter(
+            $"(sequence & {inD}) != 0 AND (dst_conditions & {allyRook}) = {allyRook}");
+        
+        var kingCount = allyKingDstPatterns.Count();
+        var rookCount = allyRookDstPatterns.Count();
+
+        // Assert - InD patterns exist that require AllyKing or AllyRook as destination
+        Assert.True(kingCount > 0 || rookCount > 0, 
+            "Expected InD patterns to require AllyKing or AllyRook as destination");
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
     public void CastlingPatterns_UseEmptyAndSafe_ForKingMovement()
     {
         // Arrange - EmptyAndSafe = Empty | ~Threatened
+        // King castling patterns should use EmptyAndSafe as destination condition
+        var patternsDf = new PatternFactory(Spark).GetPatterns();
+        int outD = (int)Sequence.OutD;
+        int mintKing = (int)Piece.MintKing;
+        int emptyAndSafe = (int)Piece.EmptyAndSafe;
+        
+        // Act - Get king castling patterns that require EmptyAndSafe destination
+        var kingEmptyAndSafePatterns = patternsDf.Filter(
+            $"(src_conditions & {mintKing}) != 0 AND (sequence & {outD}) != 0 AND (dst_conditions & {emptyAndSafe}) = {emptyAndSafe}");
+        
+        var count = kingEmptyAndSafePatterns.Count();
+
+        // Assert - King castling patterns should require EmptyAndSafe destination
+        Assert.True(count > 0, 
+            "Expected MintKing OutD castling patterns to require EmptyAndSafe as destination condition");
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void CastlingPatterns_UseEmptyAndSafe_ForKingMovement_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+        
+        // EmptyAndSafe = Empty | ~Threatened
         // King castling patterns should use EmptyAndSafe as destination condition
         var patternsDf = new PatternFactory(Spark).GetPatterns();
         int outD = (int)Sequence.OutD;
@@ -280,6 +363,38 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void ThreatenedBit_IntegratedInBuildTimeline_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+        
+        // Setup board with a rook threatening a cell
+        // White MintKing at (4, 0), White MintRook at (0, 0), Black Rook at (3, 7)
+        // Black Rook threatens the entire file 3 (x=3), including the castling path
+        var board = CreateBoardWithPieces(
+            (4, 0, WhiteMintKing),
+            (0, 0, WhiteMintRook),
+            (3, 7, BlackMintRook));
+
+        // Act - Build timeline and check if threatened cells are marked
+        var perspectivesDf = refactoredPolicy.GetPerspectivesWithThreats(board, DefaultFactions, turn: 0);
+        
+        // Verify that threatened bit is set on cell (3, 0) - threatened by Black Rook
+        int threatenedBit = (int)Piece.Threatened;
+        var threatenedCells = perspectivesDf
+            .Filter(Functions.Col("x").EqualTo(3).And(Functions.Col("y").EqualTo(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit(threatenedBit)).NotEqual(Functions.Lit(0)))
+            .Count();
+
+        // Assert - Cell (3, 0) should be marked as threatened
+        Assert.True(threatenedCells > 0, 
+            "Expected cell (3, 0) to be marked as Threatened by Black Rook at (3, 7)");
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
     public void CastlingPath_NotBlockedWhenNotThreatened()
     {
         // Arrange - Setup board for castling with clear path
@@ -291,6 +406,47 @@ public class CastlingTests : ChessTestBase
 
         // Act - Check if castling candidates exist
         var perspectivesDf = Policy.GetPerspectivesWithThreats(board, DefaultFactions, turn: 0);
+        var patternsDf = new PatternFactory(Spark).GetPatterns();
+        
+        // Get OutD candidates for MintKing (castling initiation)
+        int mintKing = (int)Piece.MintKing;
+        int outD = (int)Sequence.OutD;
+        
+        var candidatesDf = TimelineService.ComputeNextCandidates(
+            perspectivesDf, 
+            patternsDf, 
+            DefaultFactions, 
+            turn: 0);
+        
+        // Filter for MintKing OutD patterns
+        var castlingCandidates = candidatesDf
+            .Filter(Functions.Col("src_generic_piece").BitwiseAND(Functions.Lit(mintKing)).NotEqual(Functions.Lit(0)))
+            .Filter(Functions.Col("sequence").BitwiseAND(Functions.Lit(outD)).NotEqual(Functions.Lit(0)))
+            .Count();
+
+        // Assert - Castling should be possible
+        Assert.True(castlingCandidates > 0, 
+            "Expected castling to be possible when path is not threatened");
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void CastlingPath_NotBlockedWhenNotThreatened_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+        
+        // Setup board for castling with clear path
+        // White MintKing at (4, 0), White MintRook at (0, 0)
+        // No enemy pieces threatening the castling path
+        var board = CreateBoardWithPieces(
+            (4, 0, WhiteMintKing),
+            (0, 0, WhiteMintRook));
+
+        // Act - Check if castling candidates exist
+        var perspectivesDf = refactoredPolicy.GetPerspectivesWithThreats(board, DefaultFactions, turn: 0);
         var patternsDf = new PatternFactory(Spark).GetPatterns();
         
         // Get OutD candidates for MintKing (castling initiation)
