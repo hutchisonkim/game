@@ -84,6 +84,26 @@ public class BishopMovementTests
 
     [Fact]
     [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void WhiteBishopWithBlackPawnAdjacent_CanCapture_CaptureExists_Refactored()
+    {
+        // Arrange - White Bishop at (2,2), Black pawn at (3,3) adjacent diagonal
+        var board = BoardHelpers.CreateBoardWithPieces(
+            (2, 2, ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop),
+            (3, 3, ChessPolicy.Piece.Black | ChessPolicy.Piece.Pawn));
+        var refactoredPolicy = new ChessPolicyRefactored(_spark);
+
+        // Act
+        var moves = MoveHelpers.GetMovesForPieceType(_spark, refactoredPolicy, board, ChessPolicy.Piece.Bishop);
+
+        // Assert - Capture move to (3,3) should exist
+        var captureMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 3 && r.GetAs<int>("dst_y") == 3);
+        Assert.NotNull(captureMove);
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
     public void WhiteBishopWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly()
     {
         // Arrange - White Bishop at (2,2), White pawn at (3,3) adjacent diagonal
@@ -93,6 +113,26 @@ public class BishopMovementTests
 
         // Act
         var moves = MoveHelpers.GetMovesForPieceType(_spark, _policy, board, ChessPolicy.Piece.Bishop);
+
+        // Assert - No move should exist to allied piece at (3,3)
+        var invalidMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 3 && r.GetAs<int>("dst_y") == 3);
+        Assert.Null(invalidMove);
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void WhiteBishopWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly_Refactored()
+    {
+        // Arrange - White Bishop at (2,2), White pawn at (3,3) adjacent diagonal
+        var board = BoardHelpers.CreateBoardWithPieces(
+            (2, 2, ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop),
+            (3, 3, ChessPolicy.Piece.White | ChessPolicy.Piece.Pawn));
+        var refactoredPolicy = new ChessPolicyRefactored(_spark);
+
+        // Act
+        var moves = MoveHelpers.GetMovesForPieceType(_spark, refactoredPolicy, board, ChessPolicy.Piece.Bishop);
 
         // Assert - No move should exist to allied piece at (3,3)
         var invalidMove = moves.FirstOrDefault(r => r.GetAs<int>("dst_x") == 3 && r.GetAs<int>("dst_y") == 3);

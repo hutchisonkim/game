@@ -30,6 +30,9 @@ public class SparkFixture : IDisposable
                     .AppName("ChessPolicyIntegrationTests")
                     .Master("local[*]")
                     .Config("spark.sql.shuffle.partitions", "4")
+                    .Config("spark.driver.memory", "4g")
+                    .Config("spark.executor.memory", "2g")
+                    .Config("spark.driver.maxResultSize", "2g")
                     .Config("spark.dotnet.backend.port", backendPort)
                     .Config("spark.dotnet.worker.factory.port", workerPort)
                     .GetOrCreate();
