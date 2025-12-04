@@ -48,6 +48,61 @@ public class PerspectiveTests
     }
 
     [Fact]
+    [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void StandardBoard_GetPerspectives_ContainsSelfAllyFoeFlags_Refactored()
+    {
+        // Arrange
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var refactoredPolicy = new ChessPolicyRefactored(_spark);
+
+        // Act
+        var perspectivesDf = refactoredPolicy.GetPerspectives(board, factions);
+
+        // Assert
+        Assert.Contains("generic_piece", perspectivesDf.Columns());
+        Assert.Contains("perspective_id", perspectivesDf.Columns());
+
+        var genericValues = perspectivesDf.Collect().Select(r => r.GetAs<int>("generic_piece")).ToList();
+        bool anyHasFlags = genericValues.Any(g => 
+            (g & (int)ChessPolicy.Piece.Self) != 0 ||
+            (g & (int)ChessPolicy.Piece.Ally) != 0 ||
+            (g & (int)ChessPolicy.Piece.Foe) != 0);
+        
+        Assert.True(anyHasFlags, "No perspective rows contain Self/Ally/Foe flags in generic_piece");
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void RefactoredPolicy_GetPerspectives_ProducesSameResultAsOriginal()
+    {
+        // Arrange
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var refactoredPolicy = new ChessPolicyRefactored(_spark);
+
+        // Act
+        var originalPerspectives = _policy.GetPerspectives(board, factions);
+        var refactoredPerspectives = refactoredPolicy.GetPerspectives(board, factions);
+
+        // Assert - Both should produce the same number of rows
+        var originalCount = originalPerspectives.Count();
+        var refactoredCount = refactoredPerspectives.Count();
+        Assert.Equal(originalCount, refactoredCount);
+
+        // Assert - Both should have the same schema
+        var originalColumns = originalPerspectives.Columns().OrderBy(c => c).ToArray();
+        var refactoredColumns = refactoredPerspectives.Columns().OrderBy(c => c).ToArray();
+        Assert.Equal(originalColumns, refactoredColumns);
+    }
+
+    [Fact]
     [Trait("Performance", "Slow")]
     public void StandardBoard_GetPerspectives_SetsSelfAllyFoeFlagsCorrectly()
     {

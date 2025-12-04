@@ -2,6 +2,8 @@ using Microsoft.Spark.Sql;
 using Game.Chess.Policy.Foundation;
 using Game.Chess.Policy.Perspectives;
 using Game.Chess.Policy.Simulation;
+using Game.Chess.HistoryB;
+using static Game.Chess.HistoryB.ChessPolicy;
 
 namespace Game.Chess.Policy.Examples;
 

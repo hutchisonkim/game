@@ -1,5 +1,6 @@
 using Microsoft.Spark.Sql;
 using static Microsoft.Spark.Sql.Functions;
+using static Game.Chess.HistoryB.ChessPolicy;
 
 namespace Game.Chess.Policy.Simulation;
 

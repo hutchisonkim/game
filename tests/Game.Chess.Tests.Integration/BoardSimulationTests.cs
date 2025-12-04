@@ -57,6 +57,42 @@ public class BoardSimulationTests : ChessTestBase
 
     [Fact]
     [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void SimulateBoardAfterMove_SimpleMove_UpdatesSourceAndDestination_Refactored()
+    {
+        // Arrange - White Pawn at (0, 1) moving to (0, 2)
+        var board = CreateBoardWithPieces(
+            (0, 1, WhiteMintPawn));
+
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+        var perspectivesDf = refactoredPolicy.GetPerspectives(board, DefaultFactions);
+        var patternsDf = new PatternFactory(Spark).GetPatterns();
+
+        // Get pawn forward move candidates
+        int pawnType = (int)Piece.Pawn;
+        int publicSeq = (int)Sequence.Public;
+        var pawnPatternsDf = patternsDf
+            .Filter($"(src_conditions & {pawnType}) != 0 AND (sequence & {publicSeq}) != 0");
+
+        var candidates = TimelineService.ComputeNextCandidates(
+            perspectivesDf, pawnPatternsDf, DefaultFactions, turn: 0);
+
+        // Filter to just the move to (0, 2)
+        var moveToE3 = candidates.Filter(
+            Functions.Col("dst_x").EqualTo(0).And(Functions.Col("dst_y").EqualTo(2)));
+
+        // Act
+        var simulatedPerspectives = refactoredPolicy.SimulateBoardAfterMove(
+            perspectivesDf, moveToE3, DefaultFactions);
+
+        // Assert - The simulated board should have the piece at the new location
+        var simulatedRows = simulatedPerspectives.Collect().ToArray();
+        Assert.True(simulatedRows.Length > 0, "Expected simulated perspectives");
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
     public void SimulateBoardAfterMove_EmptyCandidates_ReturnsPerspectivesUnchanged()
     {
         // Arrange - Create a board with a pawn

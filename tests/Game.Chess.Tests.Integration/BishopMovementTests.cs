@@ -42,6 +42,31 @@ public class BishopMovementTests
 
     [Fact]
     [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void EmptyBoard_BishopInCenter_CanMoveToAdjacentDiagonals_Refactored()
+    {
+        // Arrange - Bishop in center of empty board
+        var board = BoardHelpers.CreateEmptyBoardWithPiece(4, 4, 
+            ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop);
+        var refactoredPolicy = new ChessPolicyRefactored(_spark);
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+
+        // Act - Get perspectives and compute moves using refactored policy
+        var perspectivesDf = refactoredPolicy.GetPerspectives(board, factions);
+        int bishopType = (int)ChessPolicy.Piece.Bishop;
+        int publicSeq = (int)ChessPolicy.Sequence.Public;
+        var patternsDf = new ChessPolicy.PatternFactory(_spark).GetPatterns()
+            .Filter($"(src_conditions & {bishopType}) != 0 AND (sequence & {publicSeq}) != 0");
+        var candidates = ChessPolicy.TimelineService.ComputeNextCandidates(perspectivesDf, patternsDf, factions);
+        var moves = candidates.Collect().ToArray();
+
+        // Assert - At minimum, bishop can move to 4 adjacent diagonal squares
+        Assert.True(moves.Length >= 4, $"Expected at least 4 bishop moves, got {moves.Length}");
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
     public void WhiteBishopWithBlackPawnAdjacent_CanCapture_CaptureExists()
     {
         // Arrange - White Bishop at (2,2), Black pawn at (3,3) adjacent diagonal

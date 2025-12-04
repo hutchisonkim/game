@@ -51,6 +51,34 @@ public class ThreatenedCellsTests : ChessTestBase
 
     [Fact]
     [Trait("Performance", "Fast")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void GetPerspectivesWithThreats_BlackRookAtCorner_MarksThreatenedCells()
+    {
+        // Arrange - Black Rook at (0, 0) threatens all squares in row 0 and column 0
+        var board = CreateBoardWithPieces(
+            (0, 0, BlackMintRook));
+
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+
+        // Act - Get perspectives with threatened bit set
+        // turn=0 means it's White's turn, so Black's threats are computed
+        var perspectivesWithThreats = refactoredPolicy.GetPerspectivesWithThreats(
+            board, 
+            DefaultFactions, 
+            turn: 0);
+
+        // Assert - Some cells should have the Threatened bit set
+        var threatenedRows = perspectivesWithThreats
+            .Filter($"(generic_piece & {(int)Piece.Threatened}) != 0")
+            .Collect()
+            .ToArray();
+
+        Assert.True(threatenedRows.Length > 0, "Expected at least one cell to have the Threatened bit set");
+    }
+
+    [Fact]
+    [Trait("Performance", "Fast")]
     public void ComputeThreatenedCells_BlackKnightInCenter_Threatens8Squares()
     {
         // Arrange - Black Knight at (4, 4) threatens 8 L-shaped squares
