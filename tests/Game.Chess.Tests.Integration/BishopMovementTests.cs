@@ -27,7 +27,6 @@ public class BishopMovementTests
 
     [Fact]
     [Trait("Performance", "Fast")]
-    [Trait("Debug", "True")]
     public void EmptyBoard_BishopInCenter_CanMoveToAdjacentDiagonals()
     {
         // Arrange - Bishop in center of empty board

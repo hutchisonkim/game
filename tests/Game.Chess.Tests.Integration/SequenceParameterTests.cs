@@ -195,7 +195,6 @@ public class SequenceParameterTests : ChessTestBase
     #region Sequence Activation Tests
 
     [Fact]
-    [Trait("Debug", "True")]
     [Trait("Performance", "Fast")]
     [Trait("PieceType", "Bishop")]
     public void BishopWithNoActiveSequence_ComputeNextCandidates_ReturnsPublicPatterns()
