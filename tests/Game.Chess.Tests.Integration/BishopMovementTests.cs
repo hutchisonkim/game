@@ -42,7 +42,7 @@ public class BishopMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
     public void EmptyBoard_BishopInCenter_CanMoveToAdjacentDiagonals_Refactored()
@@ -85,7 +85,7 @@ public class BishopMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteBishopWithBlackPawnAdjacent_CanCapture_CaptureExists_Refactored()
     {
@@ -122,7 +122,7 @@ public class BishopMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteBishopWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly_Refactored()
     {

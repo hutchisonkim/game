@@ -104,7 +104,7 @@ public class InfrastructureTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
     public void BasicDataFrame_CreateAndCount_Returns3Rows_Refactored()
@@ -136,7 +136,7 @@ public class InfrastructureTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void DefaultBoard_Initialize_CreatesStandardChessStartPosition_Refactored()
     {
@@ -176,7 +176,7 @@ public class InfrastructureTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void DefaultBoard_Dimensions_Are8x8_Refactored()
     {

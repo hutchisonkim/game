@@ -57,7 +57,7 @@ public class BoardSimulationTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
     public void SimulateBoardAfterMove_SimpleMove_UpdatesSourceAndDestination_Refactored()
@@ -118,7 +118,7 @@ public class BoardSimulationTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void SimulateBoardAfterMove_EmptyCandidates_ReturnsPerspectivesUnchanged_Refactored()
     {
@@ -177,7 +177,7 @@ public class BoardSimulationTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void ValidateMoveDoesNotLeaveKingInCheck_KingSafeMove_ReturnsTrue_Refactored()
     {
@@ -236,7 +236,7 @@ public class BoardSimulationTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void ValidateMoveDoesNotLeaveKingInCheck_EmptyCandidate_ReturnsTrue_Refactored()
     {
@@ -284,7 +284,7 @@ public class BoardSimulationTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void BuildTimeline_WithSimulation_GeneratesMultipleTimesteps_Refactored()
     {

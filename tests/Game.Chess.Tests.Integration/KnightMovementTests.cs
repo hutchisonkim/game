@@ -43,9 +43,9 @@ public class KnightMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    [Trait("Phase", "2A")]
     public void EmptyBoard_KnightInCenter_Has8Moves_Refactored()
     {
         // Arrange - Knight in center of empty 8x8 board at (4, 4)
@@ -78,7 +78,7 @@ public class KnightMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void EmptyBoard_KnightAtCorner_Has2Moves_Refactored()
     {
@@ -112,7 +112,7 @@ public class KnightMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void EmptyBoard_KnightAtEdge_Has4Moves_Refactored()
     {
@@ -148,7 +148,7 @@ public class KnightMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteKnightWithBlackPieceAtLShape_CanCapture_Refactored()
     {
@@ -187,7 +187,7 @@ public class KnightMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteKnightWithWhitePieceAtLShape_CannotCaptureAlly_Refactored()
     {
@@ -228,7 +228,7 @@ public class KnightMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void Knight_CanJumpOverPieces_Refactored()
     {
@@ -271,7 +271,7 @@ public class KnightMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void Knight_MovesToAllLShapePositions_Refactored()
     {

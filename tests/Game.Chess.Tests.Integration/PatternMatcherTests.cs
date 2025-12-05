@@ -22,7 +22,7 @@ namespace Game.Chess.Tests.Integration;
 [Collection("Spark collection")]
 [Trait("Category", "Basic")]
 [Trait("Feature", "PatternMatching")]
-[Trait("Debug", "True")]
+
 [Trait("Phase", "2A")]
 public class PatternMatcherTests
 {

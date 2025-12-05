@@ -35,7 +35,7 @@ public class EnPassantTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void PawnPatterns_EnPassantCapture_ExistsForBothDirections_Refactored()
     {
@@ -70,7 +70,7 @@ public class EnPassantTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void PawnPatterns_EnPassantContinuation_Exists_Refactored()
     {
@@ -118,7 +118,7 @@ public class EnPassantTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
     public void WhitePawn_WithPassingBlackPawnAdjacent_HasEnPassantPattern_Refactored()
@@ -172,7 +172,7 @@ public class EnPassantTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhitePawn_WithNonPassingBlackPawnAdjacent_NoEnPassant_Refactored()
     {

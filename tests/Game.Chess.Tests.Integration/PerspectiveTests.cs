@@ -49,7 +49,7 @@ public class PerspectiveTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
     public void StandardBoard_GetPerspectives_ContainsSelfAllyFoeFlags_Refactored()
@@ -78,7 +78,7 @@ public class PerspectiveTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void RefactoredPolicy_GetPerspectives_ProducesSameResultAsOriginal()
     {
@@ -104,7 +104,7 @@ public class PerspectiveTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     public void StandardBoard_GetPerspectives_SetsSelfAllyFoeFlagsCorrectly()
     {
         // Arrange
@@ -150,7 +150,7 @@ public class PerspectiveTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     [Trait("Category", "Slow")]
     public void StandardBoard_BuildTimeline_GeneratesMultipleTimesteps()
     {
@@ -174,9 +174,9 @@ public class PerspectiveTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     [Trait("Category", "Slow")]
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void StandardBoard_GetPerspectives_SetsSelfAllyFoeFlagsCorrectly_Refactored()
     {
@@ -224,9 +224,9 @@ public class PerspectiveTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     [Trait("Category", "Slow")]
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void StandardBoard_BuildTimeline_GeneratesMultipleTimesteps_Refactored()
     {

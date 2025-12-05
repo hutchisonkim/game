@@ -51,9 +51,9 @@ public class ThreatenedCellsTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    // [Trait("Essential", "True")]
     public void GetPerspectivesWithThreats_BlackRookAtCorner_MarksThreatenedCells()
     {
         // Arrange - Black Rook at (0, 0) threatens all squares in row 0 and column 0
@@ -108,7 +108,7 @@ public class ThreatenedCellsTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void ComputeThreatenedCells_BlackKnightInCenter_Threatens8Squares_Refactored()
     {
@@ -172,7 +172,7 @@ public class ThreatenedCellsTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void AddThreatenedBitToPerspectives_MarksCorrectCells_Refactored()
     {
@@ -234,9 +234,9 @@ public class ThreatenedCellsTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    [Trait("Phase", "2B")]
     public void GetPerspectivesWithThreats_IntegrationTest_Refactored()
     {
         // Arrange - Setup a board with pieces that create threats

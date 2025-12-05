@@ -15,7 +15,7 @@ namespace Game.Chess.Tests.Integration;
 [Collection("Spark collection")]
 [Trait("Category", "Basic")]
 [Trait("Feature", "Threats")]
-[Trait("Debug", "True")]
+
 [Trait("Phase", "2B")]
 public class ThreatEngineTests
 {

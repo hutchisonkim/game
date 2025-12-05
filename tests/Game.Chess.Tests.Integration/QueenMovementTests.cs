@@ -42,9 +42,9 @@ public class QueenMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    [Trait("Phase", "2A")]
     public void EmptyBoard_QueenInCenter_CanMoveToAdjacent8Directions_Refactored()
     {
         // Arrange - Queen in center of empty board
@@ -79,7 +79,7 @@ public class QueenMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteQueenWithBlackPawnAdjacent_CanCapture_CaptureExists_Refactored()
     {
@@ -117,7 +117,7 @@ public class QueenMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteQueenWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly_Refactored()
     {

@@ -42,7 +42,7 @@ public class KingMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
     public void EmptyBoard_KingInCenter_Has8Moves_Refactored()
@@ -77,7 +77,7 @@ public class KingMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void EmptyBoard_KingAtCorner_Has3Moves_Refactored()
     {
@@ -116,7 +116,7 @@ public class KingMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteKingWithBlackPawnAdjacent_CanCapture_Has8MovesIncludingCapture_Refactored()
     {
@@ -160,7 +160,7 @@ public class KingMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteKingWithWhitePawnAdjacent_CannotMoveOntoAlly_Has7Moves_Refactored()
     {

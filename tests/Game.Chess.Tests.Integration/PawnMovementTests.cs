@@ -44,7 +44,7 @@ public class PawnMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
     public void WhitePawn_AtStartPosition_CanMoveForwardOneSquare_Refactored()
@@ -82,7 +82,7 @@ public class PawnMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhitePawn_WithBlackPawnDiagonally_CanCapture_Refactored()
     {
@@ -120,7 +120,7 @@ public class PawnMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhitePawn_CannotMoveForwardIntoEnemy_Refactored()
     {
@@ -158,7 +158,7 @@ public class PawnMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhitePawn_CannotCaptureFriendlyPiece_Refactored()
     {
@@ -199,7 +199,7 @@ public class PawnMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhitePawn_CanCaptureBothDiagonals_Refactored()
     {

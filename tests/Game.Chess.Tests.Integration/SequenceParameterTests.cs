@@ -55,7 +55,7 @@ public class SequenceParameterTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Essential", "True")]
+    [Trait("Phase", "2C")]
     public void SequenceConversion_OutShiftedRight_EqualsCorrespondingIn()
     {
         // Verify that Out >> 1 = In for all pairs (validates bit position design)

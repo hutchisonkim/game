@@ -16,7 +16,7 @@ namespace Game.Chess.Tests.Integration;
 [Collection("Spark collection")]
 [Trait("Category", "Basic")]
 [Trait("Feature", "Sequences")]
-[Trait("Debug", "True")]
+
 [Trait("Phase", "2C")]
 public class SequenceEngineTests
 {

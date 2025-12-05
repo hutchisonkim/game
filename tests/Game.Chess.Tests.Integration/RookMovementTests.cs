@@ -42,9 +42,9 @@ public class RookMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    [Trait("Phase", "2A")]
     public void EmptyBoard_RookInCenter_CanMoveToAdjacentSquares_Refactored()
     {
         // Arrange - Rook in center of empty board
@@ -79,7 +79,7 @@ public class RookMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteRookWithBlackPawnAdjacent_CanCapture_CaptureExists_Refactored()
     {
@@ -117,7 +117,7 @@ public class RookMovementTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteRookWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly_Refactored()
     {
@@ -137,7 +137,7 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     [Trait("Feature", "Sequence")]
     public void EmptyBoard_RookInCenter_CanReach14Squares()
     {
@@ -154,9 +154,9 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     [Trait("Feature", "Sequence")]
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void EmptyBoard_RookInCenter_CanReach14Squares_Refactored()
     {
@@ -175,7 +175,7 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     [Trait("Feature", "Sequence")]
     public void WhiteRookWithDistantBlackPawn_CanCaptureDistant_CaptureExists()
     {
@@ -194,9 +194,9 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     [Trait("Feature", "Sequence")]
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void WhiteRookWithDistantBlackPawn_CanCaptureDistant_CaptureExists_Refactored()
     {
@@ -217,7 +217,7 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     [Trait("Feature", "Sequence")]
     public void EmptyBoard_RookAtCorner_CanMoveToAdjacentViaSequencing()
     {
@@ -235,9 +235,9 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Slow")]
+    
     [Trait("Feature", "Sequence")]
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void EmptyBoard_RookAtCorner_CanMoveToAdjacentViaSequencing_Refactored()
     {

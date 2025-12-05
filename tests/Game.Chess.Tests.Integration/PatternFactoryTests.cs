@@ -128,7 +128,7 @@ public class PatternFactoryTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
     public void PatternFactory_GetPatterns_ReturnsNonEmptyDataFrame_Refactored()
@@ -151,7 +151,7 @@ public class PatternFactoryTests
     [InlineData(ChessPolicy.Piece.Knight, 1, 2, "Knight L-shape moves (reversed)")]
     
     [Trait("PieceType", "Knight")]
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void PatternFactory_KnightPatterns_HaveCorrectDeltas_Refactored(
         ChessPolicy.Piece pieceType,
@@ -174,7 +174,7 @@ public class PatternFactoryTests
     [Fact]
     
     [Trait("PieceType", "Pawn")]
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void PatternFactory_PawnCapturePatterns_ExistForDiagonalMoves_Refactored()
     {
@@ -197,7 +197,7 @@ public class PatternFactoryTests
     [InlineData(ChessPolicy.Piece.Bishop, 4, "Bishop moves in 4 directions (diagonal)")]
     [InlineData(ChessPolicy.Piece.Queen, 8, "Queen moves in 8 directions")]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void PatternFactory_SlidingPiecePatterns_HaveMinimumDirections_Refactored(
         ChessPolicy.Piece pieceType,
@@ -224,7 +224,7 @@ public class PatternFactoryTests
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void PieceFactory_GetPieces_Returns64SquaresWithCorrectSchema_Refactored()
     {

@@ -35,7 +35,7 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void CastlingPatterns_MintKing_ExistsWithOutD_Refactored()
     {
@@ -69,7 +69,7 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void CastlingPatterns_MintRook_ExistsWithOutD_Refactored()
     {
@@ -105,7 +105,7 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void CastlingPatterns_Variant1And2_CoverBothSides_Refactored()
     {
@@ -165,7 +165,7 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
     public void KingMint_WithMintRook_CastlingPatternExists_Refactored()
@@ -213,7 +213,7 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void NonMintKing_NoCastlingPatterns_Refactored()
     {
@@ -260,7 +260,7 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void CastlingPatterns_RequireAllyKingOrRookDestination_Refactored()
     {
@@ -310,7 +310,7 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void CastlingPatterns_UseEmptyAndSafe_ForKingMovement_Refactored()
     {
@@ -364,7 +364,7 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void ThreatenedBit_IntegratedInBuildTimeline_Refactored()
     {
@@ -432,7 +432,7 @@ public class CastlingTests : ChessTestBase
 
     [Fact]
     
-    [Trait("Debug", "True")]
+    
     [Trait("Refactored", "True")]
     public void CastlingPath_NotBlockedWhenNotThreatened_Refactored()
     {
