@@ -7,12 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Game.Chess.Tests.Integration\Game.Chess.Tests.Integration.csproj" />
-  </ItemGroup>
-  
-  <ItemGroup>
     <PackageReference Include="xunit.runner.utility" Version="2.9.3" />
     <PackageReference Include="xunit.runner.console" Version="2.9.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Spark" Version="2.3.0" />
   </ItemGroup>
 
   <!-- xUnit console and utility bits are copied via the start script to avoid publish conflicts -->

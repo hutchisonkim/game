@@ -11,11 +11,26 @@ namespace Game.Chess.Tests.Integration.Runner
         // Returns a concise text summary.
         public static string RunTests(string publishDir, string filter)
         {
-            string dll = Path.Combine(publishDir, "Game.Chess.Tests.Integration.dll");
-            if (!File.Exists(dll))
+            // Resolve test DLL location
+            string testDll = ResolveTestDll();
+            if (!File.Exists(testDll))
             {
-                return $"[Runner] Test DLL not found: {dll}";
+                return $"[Runner] Test DLL not found: {testDll}";
             }
+
+            // Copy test DLL and its dependencies to publish dir so they can be loaded
+            // This allows the runner to stay running while rebuilding the test project
+            try
+            {
+                CopyTestAssemblies(testDll, publishDir);
+            }
+            catch (Exception ex)
+            {
+                return $"[Runner] Failed to copy test assemblies: {ex.Message}";
+            }
+
+            // Update testDll path to the copied version in publish dir
+            testDll = Path.Combine(publishDir, Path.GetFileName(testDll));
 
             try
             {
@@ -47,7 +62,7 @@ namespace Game.Chess.Tests.Integration.Runner
                     var trxPath = Path.Combine(publishDir, "spark-vstest.trx");
                     var vsArgs = new System.Collections.Generic.List<string>();
                     vsArgs.Add("vstest");
-                    vsArgs.Add('"' + dll + '"');
+                    vsArgs.Add('"' + testDll + '"');
                     if (!string.IsNullOrWhiteSpace(testCaseFilter))
                     {
                         vsArgs.Add("--TestCaseFilter:" + '"' + testCaseFilter + '"');
@@ -105,7 +120,7 @@ namespace Game.Chess.Tests.Integration.Runner
                 }
 
                 var args = new System.Collections.Generic.List<string>();
-                args.Add('"' + dll + '"');
+                args.Add('"' + testDll + '"');
                 if (!string.IsNullOrWhiteSpace(filter))
                 {
                     // Support Performance=Fast trait filter
@@ -192,6 +207,81 @@ namespace Game.Chess.Tests.Integration.Runner
             }
             catch { }
             return 0;
+        }
+
+        private static void CopyTestAssemblies(string testDllPath, string targetDir)
+        {
+            // Copy test DLL and dependencies from its build directory to the runner's publish directory
+            var sourceDir = Path.GetDirectoryName(testDllPath);
+            if (string.IsNullOrEmpty(sourceDir)) return;
+
+            try
+            {
+                // Copy all DLLs and supporting files from test bin directory to publish directory
+                foreach (var file in Directory.EnumerateFiles(sourceDir, "*.dll", SearchOption.TopDirectoryOnly))
+                {
+                    var fileName = Path.GetFileName(file);
+                    var destPath = Path.Combine(targetDir, fileName);
+                    File.Copy(file, destPath, overwrite: true);
+                }
+
+                // Also copy .deps.json and .runtimeconfig.json if they exist
+                foreach (var file in Directory.EnumerateFiles(sourceDir, "Game.Chess.Tests.Integration.*", SearchOption.TopDirectoryOnly))
+                {
+                    var ext = Path.GetExtension(file);
+                    if (ext == ".json")
+                    {
+                        var fileName = Path.GetFileName(file);
+                        var destPath = Path.Combine(targetDir, fileName);
+                        File.Copy(file, destPath, overwrite: true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TestExecutor] Warning: Failed to copy some test assemblies: {ex.Message}");
+                // Don't fail completely - maybe enough files were copied
+            }
+        }
+
+        private static string ResolveTestDll()
+        {
+            // Try to find the test DLL in its own build output directory
+            // This allows independent iteration without locking issues
+            
+            // Common build output paths
+            var candidates = new[]
+            {
+                // Release builds (most common)
+                @"tests\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
+                @"tests\Game.Chess.Tests.Integration\bin\Debug\net8.0\Game.Chess.Tests.Integration.dll",
+                // Relative to solution root
+                @"..\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
+                @"..\Game.Chess.Tests.Integration\bin\Debug\net8.0\Game.Chess.Tests.Integration.dll",
+            };
+
+            // Start from current directory or solution root
+            var startPath = Directory.GetCurrentDirectory();
+            while (!string.IsNullOrEmpty(startPath))
+            {
+                foreach (var candidate in candidates)
+                {
+                    var fullPath = Path.Combine(startPath, candidate);
+                    if (File.Exists(fullPath))
+                    {
+                        Console.WriteLine($"[TestExecutor] Found test DLL: {fullPath}");
+                        return fullPath;
+                    }
+                }
+
+                // Move up one directory
+                var parent = Path.GetDirectoryName(startPath);
+                if (parent == startPath) break; // Reached root
+                startPath = parent;
+            }
+
+            // Fallback to just the filename in current directory (will fail with clear message if not found)
+            return "Game.Chess.Tests.Integration.dll";
         }
     }
 }
