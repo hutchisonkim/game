@@ -3,6 +3,8 @@ using static Microsoft.Spark.Sql.Functions;
 using Game.Chess.Policy.Foundation;
 using Game.Chess.Policy.Perspectives;
 using Game.Chess.Policy.Simulation;
+using Game.Chess.Policy.Validation;
+using Game.Chess.Policy.Timeline;
 using static Game.Chess.HistoryB.ChessPolicy;
 
 namespace Game.Chess.HistoryB;
@@ -11,11 +13,16 @@ namespace Game.Chess.HistoryB;
 /// Refactored chess policy using clean layered architecture.
 /// This class serves as a thin facade over the specialized engines.
 /// 
-/// Architecture layers:
+/// Architecture layers (9 total):
 /// 1. Foundation - BoardStateProvider, PatternRepository
 /// 2. Perspectives - PerspectiveEngine
 /// 3. Simulation - SimulationEngine
-/// 4. (Legacy) - TimelineService for full backward compatibility
+/// 4. Patterns - PatternMatcher (Phase 2A)
+/// 5. Threats - ThreatEngine (Phase 2B)
+/// 6. Sequences - SequenceEngine (Phase 2C)
+/// 7. Candidates - CandidateGenerator (Phase 3)
+/// 8. Validation - LegalityEngine (Phase 5)
+/// 9. Timeline - TimelineEngine (Phase 6, orchestrator)
 /// </summary>
 public class ChessPolicyRefactored
 {
@@ -88,5 +95,30 @@ public class ChessPolicyRefactored
     public DataFrame SimulateBoardAfterMove(DataFrame perspectivesDf, DataFrame candidatesDf, Piece[] specificFactions)
     {
         return _simulationEngine.SimulateBoardAfterMove(perspectivesDf, candidatesDf, specificFactions);
+    }
+
+    /// <summary>
+    /// Filters candidate moves to only those that leave the king safe.
+    /// This is the legality validation layer - Phase 5 of the refactoring.
+    /// 
+    /// Handles:
+    /// - King safety: can't move to threatened squares
+    /// - Pin detection: can't move a pinned piece away from the pinning line
+    /// - Discovered checks: can't move a piece that blocks an attack on the king
+    /// </summary>
+    public DataFrame FilterLegalMoves(
+        DataFrame candidatesDf,
+        DataFrame perspectivesDf,
+        Piece[] specificFactions,
+        int turn = 0)
+    {
+        var patternsDf = _patternRepository.GetPatterns();
+        return LegalityEngine.FilterMovesLeavingKingInCheck(
+            candidatesDf,
+            perspectivesDf,
+            patternsDf,
+            specificFactions,
+            turn: turn
+        );
     }
 }
