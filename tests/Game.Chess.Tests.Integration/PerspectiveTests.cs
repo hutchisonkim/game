@@ -171,4 +171,81 @@ public class PerspectiveTests
         Assert.Contains(0, timesteps);
         Assert.Contains(1, timesteps);
     }
+
+    [Fact]
+    [Trait("Performance", "Slow")]
+    [Trait("Category", "Slow")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void StandardBoard_GetPerspectives_SetsSelfAllyFoeFlagsCorrectly_Refactored()
+    {
+        // Arrange
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var refactoredPolicy = new ChessPolicyRefactored(_spark);
+
+        // Act
+        var perspectivesDf = refactoredPolicy.GetPerspectives(board, factions);
+
+        // Assert Self flag - Same cell perspective (white pawn at 0,1 looking at itself)
+        var sameCellRows = perspectivesDf
+            .Filter("x = 0 AND y = 1 AND perspective_x = 0 AND perspective_y = 1")
+            .Collect();
+
+        Assert.True(sameCellRows.Any(), "Expected at least one perspective row for the same cell (0,1)");
+        bool anySelf = sameCellRows
+            .Select(r => r.GetAs<int>("generic_piece"))
+            .Any(g => (g & (int)ChessPolicy.Piece.Self) != 0);
+        Assert.True(anySelf, "Expected same-cell perspective to include the Self flag");
+
+        // Assert Ally flag - White pawn at (1,1) from perspective of white pawn at (0,1)
+        var allyRows = perspectivesDf
+            .Filter("x = 1 AND y = 1 AND perspective_x = 0 AND perspective_y = 1")
+            .Collect();
+
+        Assert.True(allyRows.Any(), "Expected at least one perspective row for an allied piece");
+        bool anyAlly = allyRows
+            .Select(r => r.GetAs<int>("generic_piece"))
+            .Any(g => (g & (int)ChessPolicy.Piece.Ally) != 0);
+        Assert.True(anyAlly, "Expected allied piece to include the Ally flag");
+
+        // Assert Foe flag - Black pawn at (0,6) from perspective of white pawn at (0,1)
+        var foeRows = perspectivesDf
+            .Filter("x = 0 AND y = 6 AND perspective_x = 0 AND perspective_y = 1")
+            .Collect();
+
+        Assert.True(foeRows.Any(), "Expected at least one perspective row for a foe piece");
+        bool anyFoe = foeRows
+            .Select(r => r.GetAs<int>("generic_piece"))
+            .Any(g => (g & (int)ChessPolicy.Piece.Foe) != 0);
+        Assert.True(anyFoe, "Expected enemy piece to include the Foe flag");
+    }
+
+    [Fact]
+    [Trait("Performance", "Slow")]
+    [Trait("Category", "Slow")]
+    [Trait("Debug", "True")]
+    [Trait("Refactored", "True")]
+    public void StandardBoard_BuildTimeline_GeneratesMultipleTimesteps_Refactored()
+    {
+        // Arrange
+        var board = ChessPolicy.Board.Default;
+        board.Initialize();
+        var factions = new[] { ChessPolicy.Piece.White, ChessPolicy.Piece.Black };
+        var refactoredPolicy = new ChessPolicyRefactored(_spark);
+        var perspectivesDf = refactoredPolicy.GetPerspectives(board, factions);
+        var patternsDf = new ChessPolicy.PatternFactory(_spark).GetPatterns();
+
+        // Act
+        var timelineDf = ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, factions, maxDepth: 2);
+
+        // Assert
+        Assert.Contains("timestep", timelineDf.Columns());
+        var timesteps = timelineDf.Select("timestep").Distinct().Collect().Select(r => r.Get(0)).ToList();
+        
+        // For maxDepth=2, we expect timesteps 0 and 1
+        Assert.Contains(0, timesteps);
+        Assert.Contains(1, timesteps);
+    }
 }
