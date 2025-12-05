@@ -58,7 +58,7 @@ public class PatternMatcherTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void MatchAtomicPatterns_StandardBoard_ReturnsValidMovesForAllPieces()
     {
         // Arrange: Standard starting board
@@ -86,7 +86,7 @@ public class PatternMatcherTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void MatchAtomicPatterns_KnightInCenter_ReturnsEightMoves()
     {
         // Arrange: Empty board with white knight at center
@@ -125,7 +125,7 @@ public class PatternMatcherTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void MatchAtomicPatterns_SourceConditions_FiltersByPieceType()
     {
         // Arrange: Standard board
@@ -156,7 +156,7 @@ public class PatternMatcherTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void MatchAtomicPatterns_DestinationConditions_AllResultsSatisfyDstConditions()
     {
         // Arrange: Standard board
@@ -187,7 +187,7 @@ public class PatternMatcherTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void MatchAtomicPatterns_TurnBasedFactionFilter_OnlyWhiteMovesOnWhiteTurn()
     {
         // Arrange: Standard board
@@ -228,7 +228,7 @@ public class PatternMatcherTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void MatchAtomicPatterns_OutOfBoundsFiltering_NoMovesOutsideBoard()
     {
         // Arrange: Board with king at corner
@@ -264,7 +264,7 @@ public class PatternMatcherTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void MatchAtomicPatterns_BishopDiagonals_AllMovesAreOnDiagonals()
     {
         // Arrange: Empty board with white bishop at center
@@ -304,7 +304,7 @@ public class PatternMatcherTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void MatchAtomicPatterns_RookOrthogonals_AllMovesAreOnRowsOrColumns()
     {
         // Arrange: Empty board with white rook at center
@@ -344,7 +344,7 @@ public class PatternMatcherTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void MatchAtomicPatterns_SequenceFiltering_OnlyPublicPatternsWithoutSequences()
     {
         // Arrange: Standard board

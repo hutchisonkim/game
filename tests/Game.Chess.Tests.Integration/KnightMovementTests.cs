@@ -27,7 +27,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void EmptyBoard_KnightInCenter_Has8Moves()
     {
         // Arrange - Knight in center of empty 8x8 board at (4, 4)
@@ -42,7 +42,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -62,7 +62,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void EmptyBoard_KnightAtCorner_Has2Moves()
     {
         // Arrange - Knight at corner (0, 0)
@@ -77,7 +77,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void EmptyBoard_KnightAtCorner_Has2Moves_Refactored()
@@ -96,7 +96,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void EmptyBoard_KnightAtEdge_Has4Moves()
     {
         // Arrange - Knight at edge (0, 4)
@@ -111,7 +111,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void EmptyBoard_KnightAtEdge_Has4Moves_Refactored()
@@ -130,7 +130,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteKnightWithBlackPieceAtLShape_CanCapture()
     {
         // Arrange - White Knight at (4, 4), Black pawn at (6, 5) L-shape position
@@ -147,7 +147,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteKnightWithBlackPieceAtLShape_CanCapture_Refactored()
@@ -168,7 +168,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteKnightWithWhitePieceAtLShape_CannotCaptureAlly()
     {
         // Arrange - White Knight at (4, 4), White pawn at (6, 5) L-shape position
@@ -186,7 +186,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteKnightWithWhitePieceAtLShape_CannotCaptureAlly_Refactored()
@@ -208,7 +208,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void Knight_CanJumpOverPieces()
     {
         // Arrange - Knight at (4, 4), surrounded by pieces but can still jump
@@ -227,7 +227,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void Knight_CanJumpOverPieces_Refactored()
@@ -250,7 +250,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void Knight_MovesToAllLShapePositions()
     {
         // Arrange - Knight at (4, 4)
@@ -270,7 +270,7 @@ public class KnightMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void Knight_MovesToAllLShapePositions_Refactored()

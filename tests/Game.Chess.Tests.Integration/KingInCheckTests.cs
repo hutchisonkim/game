@@ -23,7 +23,6 @@ public class KingInCheckTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
     public void FilterMovesLeavingKingInCheck_KingNotInDanger_AllMovesRemain()
     {
         // Arrange - White King at (4, 0) with no threats
@@ -61,7 +60,7 @@ public class KingInCheckTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void FilterMovesLeavingKingInCheck_KingUnderAttackByRook_MustBlockOrMove()
     {
         // Arrange - White King at (4, 0), Black Rook at (4, 7) threatens the king along file 4
@@ -116,7 +115,7 @@ public class KingInCheckTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void FilterMovesLeavingKingInCheck_KingCanMoveToSafety_SafeMovesAvailable()
     {
         // Arrange - White King at (4, 4) center, Black Knight at (2, 3) threatens (4, 4)
@@ -166,7 +165,7 @@ public class KingInCheckTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ComputeLegalMoves_IntegrationTest_FiltersIllegalMoves()
     {
         // Arrange - Simple setup with king and threatening piece
@@ -219,7 +218,7 @@ public class KingInCheckTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void FilterMovesLeavingKingInCheck_PinnedPiece_CannotMoveAwayFromPin()
     {
         // Arrange - White King at (0, 0), White Rook at (0, 3), Black Rook at (0, 7)
@@ -269,7 +268,7 @@ public class KingInCheckTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void FilterMovesLeavingKingInCheck_EmptyCandidates_ReturnsEmpty()
     {
         // Arrange - Create an empty candidates DataFrame
@@ -297,7 +296,7 @@ public class KingInCheckTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void FilterMovesLeavingKingInCheck_NoKingOnBoard_AllMovesRemain()
     {
         // Arrange - No king on board (edge case for partial board tests)

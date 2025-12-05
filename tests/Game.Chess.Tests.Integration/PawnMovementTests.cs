@@ -27,7 +27,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhitePawn_AtStartPosition_CanMoveForwardOneSquare()
     {
         // Arrange - White pawn at starting position (0, 1)
@@ -43,7 +43,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -64,7 +64,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhitePawn_WithBlackPawnDiagonally_CanCapture()
     {
         // Arrange - White pawn at (3, 3), Black pawn at (4, 4)
@@ -81,7 +81,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhitePawn_WithBlackPawnDiagonally_CanCapture_Refactored()
@@ -102,7 +102,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhitePawn_CannotMoveForwardIntoEnemy()
     {
         // Arrange - White pawn at (3, 3), Black pawn blocking at (3, 4)
@@ -119,7 +119,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhitePawn_CannotMoveForwardIntoEnemy_Refactored()
@@ -140,7 +140,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhitePawn_CannotCaptureFriendlyPiece()
     {
         // Arrange - White pawn at (3, 3), White pawn at (4, 4)
@@ -157,7 +157,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhitePawn_CannotCaptureFriendlyPiece_Refactored()
@@ -178,7 +178,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhitePawn_CanCaptureBothDiagonals()
     {
         // Arrange - White pawn at (3, 3), Black pawns at (2, 4) and (4, 4)
@@ -198,7 +198,7 @@ public class PawnMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhitePawn_CanCaptureBothDiagonals_Refactored()

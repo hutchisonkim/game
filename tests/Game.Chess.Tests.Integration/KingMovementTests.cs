@@ -26,7 +26,7 @@ public class KingMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void EmptyBoard_KingInCenter_Has8Moves()
     {
         // Arrange - King in center of empty 8x8 board
@@ -41,7 +41,7 @@ public class KingMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -61,7 +61,7 @@ public class KingMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void EmptyBoard_KingAtCorner_Has3Moves()
     {
         // Arrange - King at corner (0,0)
@@ -76,7 +76,7 @@ public class KingMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void EmptyBoard_KingAtCorner_Has3Moves_Refactored()
@@ -95,7 +95,7 @@ public class KingMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteKingWithBlackPawnAdjacent_CanCapture_Has8MovesIncludingCapture()
     {
         // Arrange - White King at (4,4), Black pawn at (5,5)
@@ -115,7 +115,7 @@ public class KingMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteKingWithBlackPawnAdjacent_CanCapture_Has8MovesIncludingCapture_Refactored()
@@ -139,7 +139,7 @@ public class KingMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteKingWithWhitePawnAdjacent_CannotMoveOntoAlly_Has7Moves()
     {
         // Arrange - White King at (4,4), White pawn at (5,5) blocking one square
@@ -159,7 +159,7 @@ public class KingMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteKingWithWhitePawnAdjacent_CannotMoveOntoAlly_Has7Moves_Refactored()

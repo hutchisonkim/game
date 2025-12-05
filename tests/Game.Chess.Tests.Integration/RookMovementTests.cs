@@ -26,7 +26,7 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void EmptyBoard_RookInCenter_CanMoveToAdjacentSquares()
     {
         // Arrange - Rook in center of empty board
@@ -41,7 +41,7 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -61,7 +61,7 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteRookWithBlackPawnAdjacent_CanCapture_CaptureExists()
     {
         // Arrange - White Rook at (0,0), Black pawn at (1,0) adjacent
@@ -78,7 +78,7 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteRookWithBlackPawnAdjacent_CanCapture_CaptureExists_Refactored()
@@ -99,7 +99,7 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteRookWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly()
     {
         // Arrange - White Rook at (0,0), White pawn at (0,1) adjacent
@@ -116,7 +116,7 @@ public class RookMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteRookWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly_Refactored()

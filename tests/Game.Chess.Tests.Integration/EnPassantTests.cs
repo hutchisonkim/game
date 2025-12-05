@@ -23,7 +23,7 @@ public class EnPassantTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void PawnPatterns_EnPassantCapture_ExistsForBothDirections()
     {
         // Act - Get en passant capture patterns (OutE)
@@ -34,7 +34,7 @@ public class EnPassantTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void PawnPatterns_EnPassantCapture_ExistsForBothDirections_Refactored()
@@ -58,7 +58,7 @@ public class EnPassantTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void PawnPatterns_EnPassantContinuation_Exists()
     {
         // Act - Get en passant continuation patterns (InE)
@@ -69,7 +69,7 @@ public class EnPassantTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void PawnPatterns_EnPassantContinuation_Exists_Refactored()
@@ -92,7 +92,7 @@ public class EnPassantTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhitePawn_WithPassingBlackPawnAdjacent_HasEnPassantPattern()
     {
         // Arrange - White pawn at (4, 4), Black passing pawn at (5, 4)
@@ -117,7 +117,7 @@ public class EnPassantTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -147,7 +147,7 @@ public class EnPassantTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhitePawn_WithNonPassingBlackPawnAdjacent_NoEnPassant()
     {
         // Arrange - White pawn at (4, 4), Black pawn at (5, 4) WITHOUT Passing flag
@@ -171,7 +171,7 @@ public class EnPassantTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhitePawn_WithNonPassingBlackPawnAdjacent_NoEnPassant_Refactored()

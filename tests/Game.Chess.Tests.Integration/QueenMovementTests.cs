@@ -26,7 +26,7 @@ public class QueenMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void EmptyBoard_QueenInCenter_CanMoveToAdjacent8Directions()
     {
         // Arrange - Queen in center of empty board
@@ -41,7 +41,7 @@ public class QueenMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -61,7 +61,7 @@ public class QueenMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteQueenWithBlackPawnAdjacent_CanCapture_CaptureExists()
     {
         // Arrange - White Queen at (0,0), Black pawn at (0,1) adjacent
@@ -78,7 +78,7 @@ public class QueenMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteQueenWithBlackPawnAdjacent_CanCapture_CaptureExists_Refactored()
@@ -99,7 +99,7 @@ public class QueenMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteQueenWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly()
     {
         // Arrange - White Queen at (0,0), White pawn at (1,1) adjacent diagonal
@@ -116,7 +116,7 @@ public class QueenMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteQueenWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly_Refactored()

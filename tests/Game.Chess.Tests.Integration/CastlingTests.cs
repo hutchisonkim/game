@@ -23,7 +23,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void CastlingPatterns_MintKing_ExistsWithOutD()
     {
         // Act - Get castling patterns for MintKing with OutD
@@ -34,7 +34,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void CastlingPatterns_MintKing_ExistsWithOutD_Refactored()
@@ -57,7 +57,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void CastlingPatterns_MintRook_ExistsWithOutD()
     {
         // Act - Get castling patterns for MintRook with OutD
@@ -68,7 +68,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void CastlingPatterns_MintRook_ExistsWithOutD_Refactored()
@@ -91,7 +91,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void CastlingPatterns_Variant1And2_CoverBothSides()
     {
         // Act - Get both variants
@@ -104,7 +104,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void CastlingPatterns_Variant1And2_CoverBothSides_Refactored()
@@ -135,7 +135,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void KingMint_WithMintRook_CastlingPatternExists()
     {
         // Arrange - White MintKing at (4, 0), White MintRook at (0, 0)
@@ -164,7 +164,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -193,7 +193,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void NonMintKing_NoCastlingPatterns()
     {
         // Act - Get OutD patterns for non-mint king
@@ -212,7 +212,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void NonMintKing_NoCastlingPatterns_Refactored()
@@ -236,7 +236,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void CastlingPatterns_RequireAllyKingOrRookDestination()
     {
         // Act - Get InD patterns (completion patterns for castling)
@@ -259,7 +259,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void CastlingPatterns_RequireAllyKingOrRookDestination_Refactored()
@@ -287,7 +287,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void CastlingPatterns_UseEmptyAndSafe_ForKingMovement()
     {
         // Arrange - EmptyAndSafe = Empty | ~Threatened
@@ -309,7 +309,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void CastlingPatterns_UseEmptyAndSafe_ForKingMovement_Refactored()
@@ -336,7 +336,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ThreatenedBit_IntegratedInBuildTimeline()
     {
         // Arrange - Setup board with a rook threatening a cell
@@ -363,7 +363,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void ThreatenedBit_IntegratedInBuildTimeline_Refactored()
@@ -395,7 +395,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void CastlingPath_NotBlockedWhenNotThreatened()
     {
         // Arrange - Setup board for castling with clear path
@@ -431,7 +431,7 @@ public class CastlingTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void CastlingPath_NotBlockedWhenNotThreatened_Refactored()

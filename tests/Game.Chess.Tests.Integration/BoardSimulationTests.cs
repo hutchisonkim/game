@@ -23,7 +23,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void SimulateBoardAfterMove_SimpleMove_UpdatesSourceAndDestination()
     {
         // Arrange - White Pawn at (0, 1) moving to (0, 2)
@@ -56,7 +56,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -93,7 +93,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void SimulateBoardAfterMove_EmptyCandidates_ReturnsPerspectivesUnchanged()
     {
         // Arrange - Create a board with a pawn
@@ -117,7 +117,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void SimulateBoardAfterMove_EmptyCandidates_ReturnsPerspectivesUnchanged_Refactored()
@@ -144,7 +144,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ValidateMoveDoesNotLeaveKingInCheck_KingSafeMove_ReturnsTrue()
     {
         // Arrange - White King at (4, 0) with no threats
@@ -176,7 +176,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void ValidateMoveDoesNotLeaveKingInCheck_KingSafeMove_ReturnsTrue_Refactored()
@@ -211,7 +211,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ValidateMoveDoesNotLeaveKingInCheck_EmptyCandidate_ReturnsTrue()
     {
         // Arrange
@@ -235,7 +235,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void ValidateMoveDoesNotLeaveKingInCheck_EmptyCandidate_ReturnsTrue_Refactored()
@@ -262,7 +262,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void BuildTimeline_WithSimulation_GeneratesMultipleTimesteps()
     {
         // Arrange - Simple board setup
@@ -283,7 +283,7 @@ public class BoardSimulationTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void BuildTimeline_WithSimulation_GeneratesMultipleTimesteps_Refactored()

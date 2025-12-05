@@ -26,7 +26,7 @@ public class BishopMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void EmptyBoard_BishopInCenter_CanMoveToAdjacentDiagonals()
     {
         // Arrange - Bishop in center of empty board
@@ -41,7 +41,7 @@ public class BishopMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -67,7 +67,7 @@ public class BishopMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteBishopWithBlackPawnAdjacent_CanCapture_CaptureExists()
     {
         // Arrange - White Bishop at (2,2), Black pawn at (3,3) adjacent diagonal
@@ -84,7 +84,7 @@ public class BishopMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteBishopWithBlackPawnAdjacent_CanCapture_CaptureExists_Refactored()
@@ -104,7 +104,7 @@ public class BishopMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void WhiteBishopWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly()
     {
         // Arrange - White Bishop at (2,2), White pawn at (3,3) adjacent diagonal
@@ -121,7 +121,7 @@ public class BishopMovementTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void WhiteBishopWithWhitePawnAdjacent_CannotMoveOntoAlly_NoMoveToAlly_Refactored()

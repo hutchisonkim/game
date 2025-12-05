@@ -23,7 +23,7 @@ public class PerspectiveTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void StandardBoard_GetPerspectives_ContainsSelfAllyFoeFlags()
     {
         // Arrange
@@ -48,7 +48,7 @@ public class PerspectiveTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -77,7 +77,7 @@ public class PerspectiveTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void RefactoredPolicy_GetPerspectives_ProducesSameResultAsOriginal()

@@ -47,7 +47,7 @@ public class SequenceEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ExpandSequencedMoves_EmptyBoardRook_ReturnsMultipleSteps()
     {
         // Arrange: White rook at (0, 0) on otherwise empty board
@@ -77,7 +77,7 @@ public class SequenceEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ExpandSequencedMoves_RookBlocked_StopsAtBlockingPiece()
     {
         // Arrange: White rook at (0, 0), black pawn at (0, 3)
@@ -108,7 +108,7 @@ public class SequenceEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ExpandSequencedMoves_BishopOnDiagonal_ReturnsConsistentDirection()
     {
         // Arrange: White bishop at (0, 0) on empty board
@@ -145,7 +145,7 @@ public class SequenceEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ExpandSequencedMoves_NoSlidingPieces_ReturnsEmpty()
     {
         // Arrange: Empty board with only knights (no sliding pieces)
@@ -173,7 +173,7 @@ public class SequenceEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ExpandSequencedMoves_QueenCombined_HasDiagonalAndOrthogonal()
     {
         // Arrange: White queen at (3, 3) on empty board

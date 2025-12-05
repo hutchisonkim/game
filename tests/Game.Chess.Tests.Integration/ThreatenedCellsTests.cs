@@ -24,7 +24,7 @@ public class ThreatenedCellsTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ComputeThreatenedCells_BlackRookAtCorner_ThreatensRowAndColumn()
     {
         // Arrange - Black Rook at (0, 0) threatens all squares in row 0 and column 0
@@ -50,7 +50,7 @@ public class ThreatenedCellsTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -79,7 +79,7 @@ public class ThreatenedCellsTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ComputeThreatenedCells_BlackKnightInCenter_Threatens8Squares()
     {
         // Arrange - Black Knight at (4, 4) threatens 8 L-shaped squares
@@ -107,7 +107,7 @@ public class ThreatenedCellsTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void ComputeThreatenedCells_BlackKnightInCenter_Threatens8Squares_Refactored()
@@ -135,7 +135,7 @@ public class ThreatenedCellsTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void AddThreatenedBitToPerspectives_MarksCorrectCells()
     {
         // Arrange - Simple setup: Black Rook at (7, 7) threatening cells along row and column
@@ -171,7 +171,7 @@ public class ThreatenedCellsTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void AddThreatenedBitToPerspectives_MarksCorrectCells_Refactored()
@@ -210,7 +210,7 @@ public class ThreatenedCellsTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void GetPerspectivesWithThreats_IntegrationTest()
     {
         // Arrange - Setup a board with pieces that create threats
@@ -233,7 +233,7 @@ public class ThreatenedCellsTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]

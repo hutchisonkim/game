@@ -116,11 +116,9 @@ public static class SequenceEngine
                 Col("src_piece"),
                 Col("src_generic_piece"),
                 Col("sequence").BitwiseAND(Lit(variantMask)).Alias("direction_key"),
-                Col("original_perspective_x").IsNull()
-                    .When(Col("src_x"))
+                When(Col("original_perspective_x").IsNull(), Col("src_x"))
                     .Otherwise(Col("original_perspective_x")).Alias("original_perspective_x"),
-                Col("original_perspective_y").IsNull()
-                    .When(Col("src_y"))
+                When(Col("original_perspective_y").IsNull(), Col("src_y"))
                     .Otherwise(Col("original_perspective_y")).Alias("original_perspective_y")
             );
 

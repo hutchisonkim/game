@@ -24,7 +24,7 @@ public class SequenceParameterTests : ChessTestBase
     #region Sequence Flag Validation Tests
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Essential", "True")]
     public void SequenceMasks_InMaskAndOutMask_CoverAllInAndOutFlags()
     {
@@ -54,7 +54,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Essential", "True")]
     public void SequenceConversion_OutShiftedRight_EqualsCorrespondingIn()
     {
@@ -71,7 +71,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ConvertOutFlagsToInFlags_SingleFlag_ConvertsCorrectly()
     {
         // Arrange
@@ -86,7 +86,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ConvertOutFlagsToInFlags_MultipleFlags_ConvertsAll()
     {
         // Arrange - Multiple Out flags
@@ -105,7 +105,7 @@ public class SequenceParameterTests : ChessTestBase
     #region Pattern Structure Tests
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Bishop")]
     public void BishopPatterns_HaveCorrectSequenceFlags()
     {
@@ -119,7 +119,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Rook")]
     public void RookPatterns_HaveCorrectSequenceFlags()
     {
@@ -133,7 +133,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Queen")]
     public void QueenPatterns_HaveCorrectSequenceFlags()
     {
@@ -155,7 +155,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Pawn")]
     public void PawnPatterns_HaveCorrectSequenceFlags()
     {
@@ -169,7 +169,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Rook")]
     public void RookPatterns_EntryPatterns_HaveOutIAndInstantRecursive()
     {
@@ -181,7 +181,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Rook")]
     public void RookPatterns_ContinuationPatterns_HaveInIAndPublic()
     {
@@ -197,7 +197,7 @@ public class SequenceParameterTests : ChessTestBase
     #region Sequence Activation Tests
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Bishop")]
     public void BishopWithNoActiveSequence_ComputeNextCandidates_ReturnsPublicPatterns()
     {
@@ -212,7 +212,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Bishop")]
     public void BishopWithActiveOutF_ComputeNextCandidates_EnablesInFPatterns()
     {
@@ -227,7 +227,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Bishop")]
     public void BishopWithWrongActiveSequence_ComputeNextCandidates_DoesNotEnableInFPatterns()
     {
@@ -242,7 +242,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Rook")]
     public void RookWithActiveOutI_ComputeNextCandidates_EnablesInIPatterns()
     {
@@ -257,7 +257,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ComputeNextCandidates_ResultDataFrame_PreservesSequenceColumn()
     {
         // Arrange - Rook in center
@@ -272,7 +272,7 @@ public class SequenceParameterTests : ChessTestBase
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("PieceType", "Bishop")]
     public void BishopPatterns_VariantFiltering_EachVariantHasPatterns()
     {

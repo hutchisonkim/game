@@ -46,7 +46,7 @@ public class ThreatEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ComputeThreatenedCells_RookInCorner_ThreatensRowAndColumn()
     {
         // Arrange: White rook at (0, 0) on empty board
@@ -77,7 +77,7 @@ public class ThreatEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ComputeThreatenedCells_KnightInCenter_ThreatensEightSquares()
     {
         // Arrange: White knight at (4, 4) on empty board
@@ -101,7 +101,7 @@ public class ThreatEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ComputeThreatenedCells_KingInCenter_ThreatensEightAdjacent()
     {
         // Arrange: White king at (4, 4) on empty board
@@ -125,7 +125,7 @@ public class ThreatEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void AddThreatenedBitToPerspectives_WithThreatenedCells_MarksCorrectly()
     {
         // Arrange: Empty board with white rook at (3, 3)
@@ -154,7 +154,7 @@ public class ThreatEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ComputeThreatenedCells_BishopOnDiagonal_ThreatensAlongDiagonals()
     {
         // Arrange: White bishop at (3, 3) on empty board
@@ -187,7 +187,7 @@ public class ThreatEngineTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void ComputeThreatenedCells_MultipleAttackers_CombinesThreats()
     {
         // Arrange: White king at (0, 0) and white rook at (7, 7)

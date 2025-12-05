@@ -21,7 +21,7 @@ public class InfrastructureTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void BasicDataFrame_CreateAndCount_Returns3Rows()
     {
         // Arrange
@@ -50,7 +50,7 @@ public class InfrastructureTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void DefaultBoard_Initialize_CreatesStandardChessStartPosition()
     {
         // Arrange
@@ -88,7 +88,7 @@ public class InfrastructureTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     public void DefaultBoard_Dimensions_Are8x8()
     {
         // Arrange
@@ -103,7 +103,7 @@ public class InfrastructureTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
@@ -135,7 +135,7 @@ public class InfrastructureTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void DefaultBoard_Initialize_CreatesStandardChessStartPosition_Refactored()
@@ -175,7 +175,7 @@ public class InfrastructureTests
     }
 
     [Fact]
-    [Trait("Performance", "Fast")]
+    
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
     public void DefaultBoard_Dimensions_Are8x8_Refactored()
