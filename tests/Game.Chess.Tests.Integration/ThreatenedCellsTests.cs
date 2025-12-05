@@ -236,6 +236,7 @@ public class ThreatenedCellsTests : ChessTestBase
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void GetPerspectivesWithThreats_IntegrationTest_Refactored()
     {
         // Arrange - Setup a board with pieces that create threats
