@@ -67,8 +67,9 @@ try {
     Write-Host "Building project: $ProjectPath"
     $buildExit = & dotnet build -f $Framework -r $runtime 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Error $buildExit
-        Fail("dotnet build failed")
+        # $buildExit is a collection of output lines; Write-Error expects a string or ErrorRecord.
+        $joined = $buildExit -join "`n"
+        Fail("dotnet build failed. Output:`n$joined")
     }
 
     Write-Host "Publishing project (self-contained)"
