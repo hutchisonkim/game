@@ -107,7 +107,7 @@ public class LegalityEngineTests : ChessTestBase
         {
             int srcGenericPiece = move.GetAs<int>("src_generic_piece");
             int isKing = srcGenericPiece & (int)Piece.King;
-            Assert.NotEqual(0, isKing, "When in check, non-king moves should be filtered out");
+            Assert.NotEqual(0, isKing);
         }
     }
 

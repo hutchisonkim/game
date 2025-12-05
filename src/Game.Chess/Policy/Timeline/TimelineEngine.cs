@@ -88,7 +88,9 @@ public static class TimelineEngine
             }
 
             // Get perspectives from previous timestep
-            var currentPerspectives = timelineDf.Filter(Col("timestep") == (depth - 1));
+            var currentPerspectives = timelineDf
+                .Filter(Col("timestep") == (depth - 1))
+                .Drop("timestep");  // Drop timestep before passing to CandidateGenerator
 
             // Get candidate moves using CandidateGenerator
             var candidatesDf = CandidateGenerator.GetMoves(

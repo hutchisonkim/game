@@ -86,6 +86,7 @@ public static class SequenceEngine
             Col("perspective_x"),
             Col("perspective_y"),
             Col("perspective_piece"),
+            Col("perspective_id"),
             Col("src_x"),
             Col("src_y"),
             Col("src_piece"),
@@ -95,6 +96,7 @@ public static class SequenceEngine
             Col("dst_piece"),
             Col("dst_generic_piece"),
             Col("sequence"),
+            Col("dst_effects"),
             Col("src_x").Alias("frontier_x"),
             Col("src_y").Alias("frontier_y"),
             Col("sequence").BitwiseAND(Lit(variantMask)).Alias("direction_key")
@@ -111,10 +113,13 @@ public static class SequenceEngine
                 Col("perspective_x"),
                 Col("perspective_y"),
                 Col("perspective_piece"),
+                Col("perspective_id"),
                 Col("dst_piece"),
                 Col("dst_generic_piece"),
                 Col("src_piece"),
                 Col("src_generic_piece"),
+                Col("sequence"),
+                Col("dst_effects"),
                 Col("sequence").BitwiseAND(Lit(variantMask)).Alias("direction_key"),
                 When(Col("original_perspective_x").IsNull(), Col("src_x"))
                     .Otherwise(Col("original_perspective_x")).Alias("original_perspective_x"),
@@ -145,6 +150,7 @@ public static class SequenceEngine
                 Col("perspective_x"),
                 Col("perspective_y"),
                 Col("perspective_piece"),
+                Col("perspective_id"),
                 Col("src_x"),
                 Col("src_y"),
                 Col("src_piece"),
@@ -154,6 +160,7 @@ public static class SequenceEngine
                 Col("dst_piece"),
                 Col("dst_generic_piece"),
                 Col("sequence"),
+                Col("dst_effects"),
                 Col("frontier_x"),
                 Col("frontier_y"),
                 Col("direction_key")
@@ -172,17 +179,37 @@ public static class SequenceEngine
                     Col("perspective_x"),
                     Col("perspective_y"),
                     Col("perspective_piece"),
+                    Col("perspective_id"),
                     Col("dst_piece"),
                     Col("dst_generic_piece"),
                     Col("src_piece"),
                     Col("src_generic_piece"),
+                    Col("sequence"),
+                    Col("dst_effects"),
                     Col("direction_key"),
                     Col("original_perspective_x"),
                     Col("original_perspective_y")
                 );
         }
 
-        return allSequencedMoves;
+        // Normalize schema to match PatternMatcher output
+        // Must explicitly select columns to ensure schema matches atomic moves
+        return allSequencedMoves
+            .Select(
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_piece"),
+                Col("perspective_id"),
+                Col("src_x"),
+                Col("src_y"),
+                Col("src_piece"),
+                Col("src_generic_piece"),
+                Col("dst_x"),
+                Col("dst_y"),
+                Col("dst_generic_piece"),
+                Col("sequence"),
+                Col("dst_effects")
+            );
     }
 
     // =============== INTERNAL IMPLEMENTATION ===============
@@ -226,7 +253,7 @@ public static class SequenceEngine
             )
             .WithColumn("dst_x", Col("x") + Col("pat.delta_x"))
             .WithColumn("dst_y", Col("y") + Col("pat.delta_y"))
-            .Drop("pat.*");
+            .Drop("pat.src_conditions", "pat.dst_conditions", "pat.delta_x", "pat.delta_y", "pat.sequence", "pat.dst_effects");
 
         // Lookup destination pieces
         var lookupDf = perspectivesDf
@@ -254,7 +281,7 @@ public static class SequenceEngine
                 Col("lookup_generic_piece").BitwiseAND(Col("pat.dst_conditions"))
                     .EqualTo(Col("pat.dst_conditions"))
             )
-            .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y", "pat.*")
+            .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y", "pat.src_conditions", "pat.dst_conditions", "pat.delta_x", "pat.delta_y", "pat.sequence", "pat.dst_effects")
             .WithColumnRenamed("lookup_piece", "dst_piece")
             .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");
 
@@ -262,6 +289,7 @@ public static class SequenceEngine
             Col("perspective_x"),
             Col("perspective_y"),
             Col("perspective_piece"),
+            Col("perspective_id"),
             Col("src_x"),
             Col("src_y"),
             Col("src_piece"),
@@ -271,6 +299,7 @@ public static class SequenceEngine
             Col("dst_piece"),
             Col("dst_generic_piece"),
             Col("sequence"),
+            Col("dst_effects"),
             Col("src_x").Alias("frontier_x"),
             Col("src_y").Alias("frontier_y"),
             Col("direction_key")
@@ -281,23 +310,22 @@ public static class SequenceEngine
 
     private static DataFrame CreateEmptyMovesDf(DataFrame perspectivesDf)
     {
+        // Must match the schema that ExpandSequencedMoves returns after drops
         return perspectivesDf.Limit(0)
             .Select(
                 Lit(0).Alias("perspective_x"),
                 Lit(0).Alias("perspective_y"),
                 Lit(0).Alias("perspective_piece"),
+                Lit("").Alias("perspective_id"),
                 Lit(0).Alias("src_x"),
                 Lit(0).Alias("src_y"),
                 Lit(0).Alias("src_piece"),
                 Lit(0).Alias("src_generic_piece"),
                 Lit(0).Alias("dst_x"),
                 Lit(0).Alias("dst_y"),
-                Lit(0).Alias("dst_piece"),
                 Lit(0).Alias("dst_generic_piece"),
                 Lit(0).Alias("sequence"),
-                Lit(0).Alias("frontier_x"),
-                Lit(0).Alias("frontier_y"),
-                Lit(0).Alias("direction_key")
+                Lit(0).Alias("dst_effects")
             )
             .Limit(0);
     }

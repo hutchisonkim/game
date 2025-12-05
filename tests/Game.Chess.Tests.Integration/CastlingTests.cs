@@ -470,4 +470,142 @@ public class CastlingTests : ChessTestBase
         Assert.True(castlingCandidates > 0, 
             "Expected castling to be possible when path is not threatened");
     }
+
+    /// <summary>
+    /// Essential Test 1: Verify BuildTimeline(depth=1) returns castling moves
+    /// when starting position has Mint king & rook with clear path.
+    /// </summary>
+    [Fact]
+    [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
+    public void CastlingIntegration_MovesGenerateViaRefactoredPipeline_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+        
+        // Setup board: White king on e1 (4,0) Mint, white rook on h1 (7,0) Mint
+        // Black pieces positioned so kingside castling is valid (no threats on f1, g1)
+        // Add black pieces on opposite side to avoid affecting white castling
+        var board = CreateBoardWithPieces(
+            (4, 0, WhiteMintKing),   // e1
+            (7, 0, WhiteMintRook),   // h1
+            (4, 7, BlackMintKing),   // e8 - far from white castling path
+            (0, 7, BlackMintRook));  // a8 - far from white castling path
+
+        // Act - Call BuildTimeline with depth=1
+        var timelineDf = refactoredPolicy.BuildTimeline(board, DefaultFactions, maxDepth: 1);
+        
+        // Filter for depth 1 (timestep=1) perspectives
+        var depth1 = timelineDf.Filter(Functions.Col("timestep").EqualTo(Functions.Lit(1)));
+        
+        // Look for castled king position: white king should be at (6, 0) after kingside castling
+        var castedKingPositions = depth1
+            .Filter(Functions.Col("x").EqualTo(Functions.Lit(6)))
+            .Filter(Functions.Col("y").EqualTo(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.King)).NotEqual(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.White)).NotEqual(Functions.Lit(0)))
+            .Count();
+        
+        // Look for castled rook position: white rook should be at (5, 0) after kingside castling
+        var castedRookPositions = depth1
+            .Filter(Functions.Col("x").EqualTo(Functions.Lit(5)))
+            .Filter(Functions.Col("y").EqualTo(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.Rook)).NotEqual(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.White)).NotEqual(Functions.Lit(0)))
+            .Count();
+
+        // Assert - Both castled positions should exist
+        Assert.True(castedKingPositions > 0, 
+            "Expected castling to generate white king at position (6,0) - castled kingside position");
+        Assert.True(castedRookPositions > 0, 
+            "Expected castling to generate white rook at position (5,0) - castled kingside position");
+    }
+
+    /// <summary>
+    /// Essential Test 2: Verify castling moves are rejected when intermediate
+    /// king path squares are threatened.
+    /// </summary>
+    [Fact]
+    [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
+    public void CastlingLegality_RejectsPathThreat_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+        
+        // Setup board: White king e1 (4,0) Mint, white rook h1 (7,0) Mint
+        // Black bishop on c4 (2,3) attacking f1 diagonal (threatens f1 for kingside castling)
+        var board = CreateBoardWithPieces(
+            (4, 0, WhiteMintKing),   // e1
+            (7, 0, WhiteMintRook),   // h1
+            (2, 3, BlackMintBishop), // c4 - attacks diagonal including f1
+            (4, 7, BlackMintKing));  // e8
+
+        // Act - Call BuildTimeline with depth=1
+        var timelineDf = refactoredPolicy.BuildTimeline(board, DefaultFactions, maxDepth: 1);
+        
+        // Filter for depth 1 (timestep=1) perspectives
+        var depth1 = timelineDf.Filter(Functions.Col("timestep").EqualTo(Functions.Lit(1)));
+        
+        // Look for castled king position: white king at (6, 0) should NOT exist
+        var castedKingPositions = depth1
+            .Filter(Functions.Col("x").EqualTo(Functions.Lit(6)))
+            .Filter(Functions.Col("y").EqualTo(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.King)).NotEqual(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.White)).NotEqual(Functions.Lit(0)))
+            .Count();
+
+        // Assert - Kingside castling should be rejected (f1 threatened by bishop)
+        Assert.Equal(0, castedKingPositions);
+    }
+
+    /// <summary>
+    /// Essential Test 3: Verify castling works in multi-depth timeline and
+    /// Mint flag removal prevents castling at depth 2+.
+    /// </summary>
+    [Fact]
+    [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
+    public void CastlingMultiDepth_MintFlagRemovalPreventsDepth2Castling_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+        
+        // Setup board: White king e1 (4,0) Mint, white rook h1 (7,0) Mint
+        // Black pieces positioned so castling is valid at depth 1
+        var board = CreateBoardWithPieces(
+            (4, 0, WhiteMintKing),   // e1
+            (7, 0, WhiteMintRook),   // h1
+            (4, 7, BlackMintKing),   // e8
+            (0, 7, BlackMintRook));  // a8
+
+        // Act - Call BuildTimeline with depth=3
+        var timelineDf = refactoredPolicy.BuildTimeline(board, DefaultFactions, maxDepth: 3);
+        
+        // Check depth 1: Castled king position should exist
+        var depth1 = timelineDf.Filter(Functions.Col("timestep").EqualTo(Functions.Lit(1)));
+        var depth1CastedKing = depth1
+            .Filter(Functions.Col("x").EqualTo(Functions.Lit(6)))
+            .Filter(Functions.Col("y").EqualTo(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.King)).NotEqual(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.White)).NotEqual(Functions.Lit(0)))
+            .Count();
+        
+        // Check depth 2: After first move, king loses Mint flag
+        // So at depth 2, no new castling positions should appear from depth 1 positions
+        // (This tests Mint flag removal)
+        var depth2 = timelineDf.Filter(Functions.Col("timestep").EqualTo(Functions.Lit(2)));
+        
+        // Check if any white king still has Mint flag at depth 2
+        var depth2MintKing = depth2
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.King)).NotEqual(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.White)).NotEqual(Functions.Lit(0)))
+            .Filter(Functions.Col("generic_piece").BitwiseAND(Functions.Lit((int)Piece.Mint)).NotEqual(Functions.Lit(0)))
+            .Count();
+
+        // Assert
+        Assert.True(depth1CastedKing > 0, 
+            "Expected castling to work at depth 1");
+        Assert.Equal(0, depth2MintKing);
+    }
 }

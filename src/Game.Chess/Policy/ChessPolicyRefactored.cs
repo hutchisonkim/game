@@ -79,14 +79,14 @@ public class ChessPolicyRefactored
 
     /// <summary>
     /// Builds the timeline of moves for the board up to maxDepth.
-    /// Currently delegates to the legacy TimelineService for full backward compatibility.
+    /// Uses the refactored TimelineEngine with full CandidateGenerator integration.
     /// </summary>
     public DataFrame BuildTimeline(Board board, Piece[] specificFactions, int maxDepth = 3)
     {
         var perspectivesDf = GetPerspectives(board, specificFactions);
         var patternsDf = _patternRepository.GetPatterns();
 
-        return ChessPolicy.TimelineService.BuildTimeline(perspectivesDf, patternsDf, specificFactions, maxDepth);
+        return TimelineEngine.BuildTimeline(perspectivesDf, patternsDf, specificFactions, maxDepth);
     }
 
     /// <summary>

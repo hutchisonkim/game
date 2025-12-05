@@ -156,7 +156,7 @@ Add Castling move generation and validation by integrating SequenceEngine → Ca
 **Question:** How to ensure test results are visible after task execution?
 
 **Details:**
-- Build and publish integration test project
+- Build and publish integration test project (`dotnet clean -c Release 2>&1 | Where-Object { $_ -match "Cleaning|error" }; dotnet build -c Release 2>&1 | Where-Object { $_ -match "error|succeeded|FAILED" }`)
 - Run `Spark: Start (if needed) + Test (Essential)` task
 - **Wait 20 seconds after task ends** before checking logs (task completes before test results finish writing)
 - Task output ends before tests actually complete
@@ -165,6 +165,7 @@ Add Castling move generation and validation by integrating SequenceEngine → Ca
 - Add brief delay in test execution script or display progress indicator
 - Or monitor Spark runner logs for test completion marker
 - Manually wait 20s before checking output if timing unclear
+- Check output at `tests\Game.Chess.Tests.Integration.Runner\bin\Release\net8.0\win-x64\publish\test-output.log`
 - Run `Cleanup` task if the runner gets stuck
 
 ---
