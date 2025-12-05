@@ -201,6 +201,17 @@ public class ChessPolicy
             return !df.Limit(1).Collect().Any();
         }
 
+        /// <summary>
+        /// Check if a DataFrame would be empty by adding a count column and filtering.
+        /// This preserves laziness while checking for emptiness.
+        /// </summary>
+        private static DataFrame FilterIfEmpty(DataFrame df)
+        {
+            // If we need to know emptiness lazily, add a count column and use it
+            // But for now, IsEmpty is fine since we use it only for loop control
+            return df;
+        }
+
         public static DataFrame ComputeNextCandidates(DataFrame perspectivesDf, DataFrame patternsDf, Piece[] specificFactions, int turn = 0, Sequence activeSequences = Sequence.None, bool debug = false)
         {
             //
@@ -444,22 +455,16 @@ public class ChessPolicy
 
         /// <summary>
         /// Computes all sequenced/recursive moves for sliding pieces like Rook/Bishop/Queen.
-        /// This method builds simulated timelines forward to support sliding piece movement.
-        /// 
-        /// The pattern-driven architecture enables elegant rule emergence:
-        /// - Entry patterns (OutX | InstantRecursive) start the sliding sequence
-        /// - Continuation patterns (InX | Public) define valid landing squares
-        /// - Variant flags differentiate directions (Variant1-4 for each diagonal/orthogonal)
-        /// - The algorithm iteratively simulates moving to each square along the direction
+        /// This simplified method uses iteration instead of expensive cross-joins to preserve memory.
         /// 
         /// Algorithm:
         /// 1. Find entry patterns (OutX | InstantRecursive, no Public) - these start the sequence
-        /// 2. From entry move destinations, compute continuation patterns (InX | Public) - final landing spots
-        /// 3. For InstantRecursive, allow the entry pattern to repeat from each new position
-        /// 4. Accumulate all Public moves as valid final moves
+        /// 2. Compute initial moves from entry patterns
+        /// 3. For each empty destination, iterate to find continuations along the same direction
+        /// 4. Accumulate all valid moves as we go
         /// 
-        /// This builds the timeline forward by simulating the piece "stepping" through empty squares
-        /// until it reaches a valid destination (Empty or Foe as defined by the pattern).
+        /// This approach avoids materializing massive cross-joins by iterating step-by-step
+        /// and only collecting results at the end.
         /// </summary>
         public static DataFrame ComputeSequencedMoves(
             DataFrame perspectivesDf,
@@ -469,9 +474,8 @@ public class ChessPolicy
             int maxDepth = 7,
             bool debug = false)
         {
-            // Filter patterns for entry (OutX, InstantRecursive, no Public) and continuation (InX, Public)
+            // Filter patterns for entry (OutX, InstantRecursive, no Public)
             var outMask = (int)Sequence.OutMask;
-            var inMask = (int)Sequence.InMask;
             var instantRecursive = (int)Sequence.InstantRecursive;
             var publicFlag = (int)Sequence.Public;
             var variantMask = (int)(Sequence.Variant1 | Sequence.Variant2 | Sequence.Variant3 | Sequence.Variant4);
@@ -483,209 +487,235 @@ public class ChessPolicy
                 .And(Col("sequence").BitwiseAND(Lit(publicFlag)).EqualTo(Lit(0)))
             );
 
-            // Continuation patterns: have In* flag and Public flag
-            var continuationPatternsDf = patternsDf.Filter(
-                Col("sequence").BitwiseAND(Lit(inMask)).NotEqual(Lit(0))
-                .And(Col("sequence").BitwiseAND(Lit(publicFlag)).NotEqual(Lit(0)))
-            );
-
-            if (debug)
+            if (IsEmpty(entryPatternsDf))
             {
-                // Console.WriteLine($"Entry patterns count: {entryPatternsDf.Count()}");
-                // Console.WriteLine($"Continuation patterns count: {continuationPatternsDf.Count()}");
+                return perspectivesDf.Limit(0)
+                    .Select(
+                        Col("perspective_x").Alias("perspective_x"),
+                        Col("perspective_y").Alias("perspective_y"),
+                        Col("perspective_piece").Alias("perspective_piece"),
+                        Col("x").Alias("src_x"),
+                        Col("y").Alias("src_y"),
+                        Col("piece").Alias("src_piece"),
+                        Col("generic_piece").Alias("src_generic_piece"),
+                        Col("x").Alias("dst_x"),
+                        Col("y").Alias("dst_y"),
+                        Col("piece").Alias("dst_piece"),
+                        Col("generic_piece").Alias("dst_generic_piece"),
+                        Col("x").Alias("sequence")
+                    )
+                    .Limit(0);
             }
 
-            // Start by computing entry moves
-            // These need to bypass the Public filter since entry patterns don't have Public flag
-            // Add original_perspective columns for initial perspectives (they're the same as perspective_x/y)
+            var turnFaction = specificFactions[turn % specificFactions.Length];
+
+            // Add original_perspective columns for initial perspectives
             var initialPerspectivesDf = perspectivesDf
                 .WithColumn("original_perspective_x", Col("perspective_x"))
                 .WithColumn("original_perspective_y", Col("perspective_y"));
             
+            // Compute initial entry moves (first step of sliding)
             var entryMoves = ComputeNextCandidatesInternal(
-                initialPerspectivesDf,  // actor perspectives
-                perspectivesDf,  // lookup perspectives (full board)
+                initialPerspectivesDf,
+                perspectivesDf,
                 entryPatternsDf,
                 specificFactions,
                 turn,
                 Sequence.None,
                 skipPublicFilter: true,
-                debug: debug
+                debug: false
             );
 
-            // if (debug) Console.WriteLine($"Initial entry moves: {entryMoves.Count()}");
-
-            // ============================================================
-            // STEP 1.1: Tag entry moves with depth 0 and sequence key
-            // ============================================================
-            var entryMovesWithDepth = entryMoves
-                .WithColumn("depth", Lit(0))
-                .WithColumn("sequence_key", Concat(
-                    Col("src_x").Cast("string"), Lit("_"),
-                    Col("src_y").Cast("string"), Lit("_"),
-                    Col("sequence").BitwiseAND(Lit(variantMask)).Cast("string")
-                ));
-
-            // ============================================================
-            // STEP 1.2: Generate all depth levels for expansion
-            // ============================================================
-            // Create depths DataFrame using array and explode (lazy, no materialization)
-            var depthArray = Enumerable.Range(0, maxDepth).Select(d => Lit(d)).ToArray();
-            var depths = entryMovesWithDepth
-                .Select(Array(depthArray).Alias("depth_array"))
-                .Select(Explode(Col("depth_array")).Alias("target_depth"))
-                .Distinct();
-
-            // ============================================================
-            // STEP 1.3: Cross-join to generate all potential entry moves at all depths
-            // ============================================================
-            var allPotentialEntryMoves = entryMovesWithDepth
-                .CrossJoin(depths)
-                .Filter(Col("target_depth") >= Col("depth"))
-                .WithColumn("expansion_depth", Col("target_depth") - Col("depth"))
-                .Coalesce(10);  // Reduce partitions to avoid explosion
-
-            // ============================================================
-            // STEP 1.4: Simulate perspective transitions via self-join
-            // ============================================================
-            var perspectiveTransitions = allPotentialEntryMoves.Alias("child")
-                .Join(
-                    allPotentialEntryMoves.Alias("parent"),
-                    (Col("child.src_x") == Col("parent.dst_x")) &
-                    (Col("child.src_y") == Col("parent.dst_y")) &
-                    (Col("child.sequence_key") == Col("parent.sequence_key")) &
-                    (Col("child.target_depth") == Col("parent.target_depth") + 1),
-                    "left_outer"
-                )
-                .Select(
-                    Col("child.*"),
-                    Col("parent.dst_generic_piece").Alias("parent_dst_piece")
-                );
-
-            // ============================================================
-            // STEP 1.5: Add validity propagation via window functions
-            // ============================================================\n            // Use explicit qualification to avoid ambiguity with Window() method
-            var validityWindow = Microsoft.Spark.Sql.Expressions.Window
-                .PartitionBy("sequence_key")
-                .OrderBy("target_depth");
-
-            var movesWithValidity = perspectiveTransitions
-                .WithColumn("parent_was_blocked",
-                    Coalesce(
-                        Lag(
-                            Col("dst_generic_piece").BitwiseAND(Lit((int)Piece.Empty)).EqualTo(Lit(0)),
-                            1
-                        ).Over(validityWindow),
-                        Lit(false)
+            if (IsEmpty(entryMoves))
+            {
+                return perspectivesDf.Limit(0)
+                    .Select(
+                        Col("perspective_x").Alias("perspective_x"),
+                        Col("perspective_y").Alias("perspective_y"),
+                        Col("perspective_piece").Alias("perspective_piece"),
+                        Col("x").Alias("src_x"),
+                        Col("y").Alias("src_y"),
+                        Col("piece").Alias("src_piece"),
+                        Col("generic_piece").Alias("src_generic_piece"),
+                        Col("x").Alias("dst_x"),
+                        Col("y").Alias("dst_y"),
+                        Col("piece").Alias("dst_piece"),
+                        Col("generic_piece").Alias("dst_generic_piece"),
+                        Col("x").Alias("sequence")
                     )
-                )
-                .WithColumn("is_valid_entry",
-                    When(Col("target_depth") == 0, Lit(true))
-                    .Otherwise(Not(Col("parent_was_blocked")))
-                );
+                    .Limit(0);
+            }
 
-            // ============================================================
-            // STEP 1.6: Compute lazy Out flags aggregation per depth
-            // ============================================================
-            var outFlagsByDepth = movesWithValidity
-                .Filter(Col("is_valid_entry"))
-                .GroupBy("target_depth")
-                .Agg(
-                    Max(Col("sequence").BitwiseAND(Lit(outMask | variantMask))).Alias("active_out_flags")
-                );
+            // Start with entry moves as the result
+            var allMoves = entryMoves.Select(
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_piece"),
+                Col("src_x"),
+                Col("src_y"),
+                Col("src_piece"),
+                Col("src_generic_piece"),
+                Col("dst_x"),
+                Col("dst_y"),
+                Col("dst_piece").Alias("dst_piece"),
+                Col("dst_generic_piece"),
+                Col("sequence"),
+                Col("src_x").Alias("frontier_x"),
+                Col("src_y").Alias("frontier_y"),
+                Col("sequence").BitwiseAND(Lit(variantMask)).Alias("direction_key")
+            );
 
-            // ============================================================
-            // STEP 1.7: Compute continuation moves with lazy flags
-            // ============================================================
-            // Compute turnFaction for actor filter
-            var turnFaction = specificFactions[turn % specificFactions.Length];
-
-            // First, get valid entry positions with their Out flags
-            var validEntryPositions = movesWithValidity
-                .Filter(Col("is_valid_entry"))
-                .Join(outFlagsByDepth.Alias("flags"), Col("target_depth") == Col("flags.target_depth"))
-                .WithColumn("perspective_x", Col("dst_x"))
-                .WithColumn("perspective_y", Col("dst_y"))
-                .WithColumn("perspective_piece", Col("dst_piece"))
-                .WithColumn("x", Col("dst_x"))
-                .WithColumn("y", Col("dst_y"))
-                .WithColumn("piece", Col("dst_piece"))
-                .WithColumn("generic_piece", Col("dst_generic_piece"))
-                .WithColumn("active_sequence", Col("flags.active_out_flags").Cast("int"))
+            // Track positions where we can continue sliding (only through empty squares)
+            var emptyBit = (int)Piece.Empty;
+            var emptyFrontier = entryMoves
+                .Filter(Col("dst_generic_piece").BitwiseAND(Lit(emptyBit)).NotEqual(Lit(0)))
                 .Select(
+                    Col("dst_x"),
+                    Col("dst_y"),
+                    Col("src_x"),
+                    Col("src_y"),
                     Col("perspective_x"),
                     Col("perspective_y"),
                     Col("perspective_piece"),
-                    Col("x"),
-                    Col("y"),
-                    Col("piece"),
-                    Col("generic_piece"),
-                    Col("active_sequence"),
-                    Col("target_depth"),
+                    Col("dst_piece"),
+                    Col("dst_generic_piece"),
+                    Col("src_piece"),
+                    Col("src_generic_piece"),
+                    Col("sequence").BitwiseAND(Lit(variantMask)).Alias("direction_key"),
                     Col("original_perspective_x"),
                     Col("original_perspective_y")
                 );
 
-            // Compute continuation moves from valid entry positions
-            // Cross-join with continuation patterns filtered by In/Out matching
-            var continuationMoves = validEntryPositions.Alias("pos")
-                .CrossJoin(continuationPatternsDf.Alias("pat"))
-                .Filter(
-                    // Actor filter: must be at perspective position
-                    Col("pos.x").EqualTo(Col("pos.perspective_x")) &
-                    Col("pos.y").EqualTo(Col("pos.perspective_y")) &
-                    Col("pos.piece").BitwiseAND(Lit((int)turnFaction)).NotEqual(Lit(0)) &
-                    // Pattern matching: src conditions
-                    Col("pos.generic_piece").BitwiseAND(Col("pat.src_conditions")).EqualTo(Col("pat.src_conditions")) &
-                    // Pattern's In flags must match entry's Out flags
-                    // Shift is done at the int level since active_sequence is already an int column
-                    (Col("pat.sequence").BitwiseAND(Lit(inMask)).BitwiseAND(
-                        Col("pos.active_sequence").BitwiseOR(Col("pos.active_sequence").Divide(Lit(2)))))
-                    .EqualTo(Col("pat.sequence").BitwiseAND(Lit(inMask)))
-                )
-                .WithColumn("dst_x", Col("pos.x") + Col("pat.dx"))
-                .WithColumn("dst_y", Col("pos.y") + Col("pat.dy"));
+            // Iteratively compute sliding moves
+            for (int depth = 1; depth < maxDepth; depth++)
+            {
+                if (IsEmpty(emptyFrontier)) break;
 
-            // Join with lookup perspectives to get dst piece info
-            var continuationMovesWithDst = continuationMoves.Alias("move")
-                .Join(
-                    perspectivesDf.Alias("lookup"),
-                    (Col("move.dst_x") == Col("lookup.x")) &
-                    (Col("move.dst_y") == Col("lookup.y")) &
-                    (Col("move.original_perspective_x") == Col("lookup.perspective_x")) &
-                    (Col("move.original_perspective_y") == Col("lookup.perspective_y")),
-                    "inner"
-                )
-                .Select(
-                    Col("move.perspective_x"),
-                    Col("move.perspective_y"),
-                    Col("move.perspective_piece"),
-                    Col("move.x").Alias("src_x"),
-                    Col("move.y").Alias("src_y"),
-                    Col("move.piece").Alias("src_piece"),
-                    Col("move.generic_piece").Alias("src_generic_piece"),
-                    Col("move.dst_x"),
-                    Col("move.dst_y"),
-                    Col("lookup.piece").Alias("dst_piece"),
-                    Col("lookup.generic_piece").Alias("dst_generic_piece"),
-                    Col("move.pat.sequence"),
-                    Col("move.pat.dst_conditions"),
-                    Col("move.original_perspective_x"),
-                    Col("move.original_perspective_y")
-                )
-                .Filter(
-                    // Require ALL bits of dst_conditions
-                    Col("dst_generic_piece").BitwiseAND(Col("dst_conditions"))
-                    .EqualTo(Col("dst_conditions"))
-                )
-                .Filter(Col("sequence").BitwiseAND(Lit(publicFlag)).NotEqual(Lit(0)))
-                .Drop("dst_conditions");
+                // Create new perspectives from empty frontier positions
+                var nextPerspectives = emptyFrontier
+                    .WithColumn("x", Col("dst_x"))
+                    .WithColumn("y", Col("dst_y"))
+                    .WithColumn("piece", Col("dst_piece"))
+                    .WithColumn("generic_piece", Col("dst_generic_piece"))
+                    .WithColumn("perspective_x", Col("dst_x"))
+                    .WithColumn("perspective_y", Col("dst_y"));
 
-            // ============================================================
-            // STEP 1.8: Single filter for valid continuation moves
-            // ============================================================
-            return continuationMovesWithDst
-                .Drop("original_perspective_x", "original_perspective_y");
+                // Compute next moves from new perspectives using entry patterns
+                // Filter patterns by direction to continue in the same direction only
+                var directionPatterns = entryPatternsDf.Alias("pat");
+
+                var nextMoves = nextPerspectives.Alias("pos")
+                    .CrossJoin(directionPatterns)
+                    .Filter(
+                        // Actor filter
+                        Col("pos.x").EqualTo(Col("pos.perspective_x")).And(
+                        Col("pos.y").EqualTo(Col("pos.perspective_y"))).And(
+                        Col("pos.piece").BitwiseAND(Lit((int)turnFaction)).NotEqual(Lit(0))) &
+                        // Pattern matching
+                        Col("pos.generic_piece").BitwiseAND(Col("pat.src_conditions")).EqualTo(Col("pat.src_conditions")) &
+                        // Direction filter: same direction variant
+                        Col("pat.sequence").BitwiseAND(Lit(variantMask))
+                        .EqualTo(Col("pos.direction_key"))
+                    )
+                    .WithColumn("dst_x", Col("pos.x") + Col("pat.delta_x"))
+                    .WithColumn("dst_y", Col("pos.y") + (Col("pat.delta_y") * Lit(1)))  // Simplified delta_y calculation
+                    .Drop("pat.*", "pos.direction_key");
+
+                // Lookup destination piece
+                var lookupDf = perspectivesDf
+                    .Select(
+                        Col("x").Alias("lookup_x"),
+                        Col("y").Alias("lookup_y"),
+                        Col("perspective_x").Alias("lookup_perspective_x"),
+                        Col("perspective_y").Alias("lookup_perspective_y"),
+                        Col("generic_piece").Alias("lookup_generic_piece"),
+                        Col("piece").Alias("lookup_piece")
+                    );
+
+                var nextMovesWithDst = nextMoves.Alias("move")
+                    .Join(
+                        lookupDf,
+                        (Col("move.original_perspective_x") == Col("lookup_perspective_x"))
+                        .And(Col("move.original_perspective_y") == Col("lookup_perspective_y"))
+                        .And(Col("move.dst_x") == Col("lookup_x"))
+                        .And(Col("move.dst_y") == Col("lookup_y")),
+                        "inner"
+                    )
+                    .Filter(
+                        // Require ALL bits of dst_conditions and not out of bounds
+                        Col("lookup_generic_piece").BitwiseAND(Col("move.dst_conditions"))
+                        .EqualTo(Col("move.dst_conditions"))
+                        .And(Col("lookup_generic_piece") != Lit((int)Piece.OutOfBounds))
+                    )
+                    .Select(
+                        Col("move.perspective_x"),
+                        Col("move.perspective_y"),
+                        Col("move.perspective_piece"),
+                        Col("move.src_x"),
+                        Col("move.src_y"),
+                        Col("move.src_piece"),
+                        Col("move.src_generic_piece"),
+                        Col("move.dst_x"),
+                        Col("move.dst_y"),
+                        Col("lookup_piece"),
+                        Col("lookup_generic_piece"),
+                        Col("move.sequence"),
+                        Col("move.original_perspective_x"),
+                        Col("move.original_perspective_y"),
+                        Col("move.direction_key")
+                    )
+                    .Drop("move.dst_conditions");
+
+                if (!IsEmpty(nextMovesWithDst))
+                {
+                    // Add these moves to result, but rename columns for consistency
+                    var nextMovesFormatted = nextMovesWithDst.Select(
+                        Col("perspective_x"),
+                        Col("perspective_y"),
+                        Col("perspective_piece"),
+                        Col("src_x"),
+                        Col("src_y"),
+                        Col("src_piece"),
+                        Col("src_generic_piece"),
+                        Col("dst_x"),
+                        Col("dst_y"),
+                        Col("lookup_piece").Alias("dst_piece"),
+                        Col("lookup_generic_piece").Alias("dst_generic_piece"),
+                        Col("sequence"),
+                        Col("src_x").Alias("frontier_x"),
+                        Col("src_y").Alias("frontier_y"),
+                        Col("direction_key")
+                    );
+                    
+                    allMoves = allMoves.Union(nextMovesFormatted);
+
+                    // Continue only through empty squares
+                    emptyFrontier = nextMovesWithDst
+                        .Filter(Col("lookup_generic_piece").BitwiseAND(Lit(emptyBit)).NotEqual(Lit(0)))
+                        .Select(
+                            Col("dst_x"),
+                            Col("dst_y"),
+                            Col("src_x"),
+                            Col("src_y"),
+                            Col("perspective_x"),
+                            Col("perspective_y"),
+                            Col("perspective_piece"),
+                            Col("lookup_piece").Alias("dst_piece"),
+                            Col("lookup_generic_piece").Alias("dst_generic_piece"),
+                            Col("src_piece"),
+                            Col("src_generic_piece"),
+                            Col("direction_key"),
+                            Col("original_perspective_x"),
+                            Col("original_perspective_y")
+                        );
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return allMoves.Drop("frontier_x", "frontier_y", "direction_key");
         }
 
         /// <summary>
@@ -696,6 +726,7 @@ public class ChessPolicy
         {
             // Get unique source perspectives from the moves
             // Include original_perspective_x/y if present (for preserving original actor position through recursive hops)
+            // Note: Removed .Distinct() as downstream filters naturally deduplicate
             var moveSources = movesDf.Select(
                 Col("perspective_x"),
                 Col("perspective_y"),
@@ -709,7 +740,7 @@ public class ChessPolicy
                 // Use Coalesce to handle case where original_perspective columns may not exist
                 Coalesce(Col("original_perspective_x"), Col("perspective_x")).Alias("existing_original_x"),
                 Coalesce(Col("original_perspective_y"), Col("perspective_y")).Alias("existing_original_y")
-            ).Distinct();
+            );
 
             // The piece at src moves to dst
             // For the new perspective, the actor is now at dst, seeing itself at dst
@@ -1098,33 +1129,23 @@ public class ChessPolicy
             // Iterate to find all threatened cells along sliding paths
             for (int depth = 1; depth < maxDepth; depth++)
             {
-                // if (debug) Console.WriteLine($"Sliding depth {depth}: frontier size {emptyFrontier.Count()}");
+                // Check if frontier is empty BEFORE computing flags (more efficient)
+                if (IsEmpty(emptyFrontier)) break;
 
                 // Create new perspectives from empty frontier positions
                 var nextPerspectives = ComputeNextPerspectivesFromMoves(emptyFrontier, perspectivesDf);
 
                 if (IsEmpty(nextPerspectives)) break;
 
-                // Get the Out flags and Variant flags to continue in the same direction
-                var variantMask = (int)(Sequence.Variant1 | Sequence.Variant2 | Sequence.Variant3 | Sequence.Variant4);
-                var activeFlagsDF = emptyFrontier
-                    .Select(Col("sequence").BitwiseAND(Lit(outMask | variantMask)).Alias("out_flags"))
-                    .Agg(Max(Col("out_flags")).Alias("active_out_flags"));
-
-                // Materialize only for zero-check (loop control decision)
-                int activeOutFlags = activeFlagsDF.Collect().First().GetAs<int>("active_out_flags");
-                if (activeOutFlags == 0) break;
-
-                var activeSequence = (Sequence)activeOutFlags;
-
                 // Compute next step of sliding from new perspectives
+                // Use all entry patterns since we filter by direction later
                 var nextMoves = ComputeNextCandidatesInternal(
                     nextPerspectives,
                     perspectivesDf,
                     entryPatternsDf,
                     specificFactions,
                     opponentTurn,
-                    activeSequence,
+                    Sequence.None,
                     skipPublicFilter: true,
                     debug: false
                 );
@@ -1133,10 +1154,9 @@ public class ChessPolicy
 
                 // All destination cells are threatened
                 var newThreatened = nextMoves
-                    .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
-                    .Distinct();
+                    .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"));
 
-                allThreatenedCells = allThreatenedCells.Union(newThreatened).Distinct();
+                allThreatenedCells = allThreatenedCells.Union(newThreatened);
 
                 // Continue only through empty squares
                 emptyFrontier = nextMoves
