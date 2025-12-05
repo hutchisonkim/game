@@ -167,6 +167,7 @@ public class CastlingTests : ChessTestBase
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void KingMint_WithMintRook_CastlingPatternExists_Refactored()
     {
         // Arrange - Use refactored policy

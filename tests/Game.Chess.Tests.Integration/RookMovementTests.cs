@@ -44,6 +44,7 @@ public class RookMovementTests
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void EmptyBoard_RookInCenter_CanMoveToAdjacentSquares_Refactored()
     {
         // Arrange - Rook in center of empty board

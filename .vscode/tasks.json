@@ -118,6 +118,39 @@
       }
     },
     {
+      "label": "Spark: Start (if needed) + Test (Essential)",
+      "type": "shell",
+      "command": "pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/spark-start-and-test-essential.ps1"
+      ],
+      "options": {
+        "env": {
+          "DOTNETBACKEND_PORT": "5000",
+          "DOTNET_WORKER_SPARK_VERSION": "3.5.3",
+          "PYTHON_WORKER_FACTORY_PORT": "5001",
+          "HADOOP_HOME": "C:\\hadoop\\cdarlint\\winutils\\hadoop-3.3.6"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
       "label": "Spark: Stop Runner",
       "type": "shell",
       "command": "pwsh.exe",

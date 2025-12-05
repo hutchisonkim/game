@@ -45,6 +45,7 @@ public class KnightMovementTests
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void EmptyBoard_KnightInCenter_Has8Moves_Refactored()
     {
         // Arrange - Knight in center of empty 8x8 board at (4, 4)

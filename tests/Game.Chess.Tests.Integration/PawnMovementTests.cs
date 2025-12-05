@@ -46,6 +46,7 @@ public class PawnMovementTests
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void WhitePawn_AtStartPosition_CanMoveForwardOneSquare_Refactored()
     {
         // Arrange - White pawn at starting position (0, 1)

@@ -120,6 +120,7 @@ public class EnPassantTests : ChessTestBase
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void WhitePawn_WithPassingBlackPawnAdjacent_HasEnPassantPattern_Refactored()
     {
         // Arrange - White pawn at (4, 4), Black passing pawn at (5, 4)

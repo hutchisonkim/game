@@ -59,6 +59,7 @@ public class BoardSimulationTests : ChessTestBase
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void SimulateBoardAfterMove_SimpleMove_UpdatesSourceAndDestination_Refactored()
     {
         // Arrange - White Pawn at (0, 1) moving to (0, 2)

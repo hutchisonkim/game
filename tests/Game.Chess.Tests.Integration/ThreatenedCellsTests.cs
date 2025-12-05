@@ -53,6 +53,7 @@ public class ThreatenedCellsTests : ChessTestBase
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void GetPerspectivesWithThreats_BlackRookAtCorner_MarksThreatenedCells()
     {
         // Arrange - Black Rook at (0, 0) threatens all squares in row 0 and column 0

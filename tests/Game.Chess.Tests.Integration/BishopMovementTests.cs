@@ -44,6 +44,7 @@ public class BishopMovementTests
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void EmptyBoard_BishopInCenter_CanMoveToAdjacentDiagonals_Refactored()
     {
         // Arrange - Bishop in center of empty board

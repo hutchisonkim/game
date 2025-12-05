@@ -25,6 +25,7 @@ public class SequenceParameterTests : ChessTestBase
 
     [Fact]
     [Trait("Performance", "Fast")]
+    [Trait("Essential", "True")]
     public void SequenceMasks_InMaskAndOutMask_CoverAllInAndOutFlags()
     {
         // Assert InMask covers all In* flags
@@ -54,6 +55,7 @@ public class SequenceParameterTests : ChessTestBase
 
     [Fact]
     [Trait("Performance", "Fast")]
+    [Trait("Essential", "True")]
     public void SequenceConversion_OutShiftedRight_EqualsCorrespondingIn()
     {
         // Verify that Out >> 1 = In for all pairs (validates bit position design)

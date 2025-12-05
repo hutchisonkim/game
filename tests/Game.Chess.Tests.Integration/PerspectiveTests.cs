@@ -51,6 +51,7 @@ public class PerspectiveTests
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void StandardBoard_GetPerspectives_ContainsSelfAllyFoeFlags_Refactored()
     {
         // Arrange

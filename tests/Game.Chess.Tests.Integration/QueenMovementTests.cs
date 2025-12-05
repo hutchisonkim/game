@@ -44,6 +44,7 @@ public class QueenMovementTests
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void EmptyBoard_QueenInCenter_CanMoveToAdjacent8Directions_Refactored()
     {
         // Arrange - Queen in center of empty board

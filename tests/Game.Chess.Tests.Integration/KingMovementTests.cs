@@ -44,6 +44,7 @@ public class KingMovementTests
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void EmptyBoard_KingInCenter_Has8Moves_Refactored()
     {
         // Arrange - King in center of empty 8x8 board

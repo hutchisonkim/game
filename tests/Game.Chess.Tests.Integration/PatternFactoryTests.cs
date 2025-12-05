@@ -130,6 +130,7 @@ public class PatternFactoryTests
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void PatternFactory_GetPatterns_ReturnsNonEmptyDataFrame_Refactored()
     {
         // Act - PatternFactory is shared, but use via refactored policy

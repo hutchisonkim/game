@@ -106,6 +106,7 @@ public class InfrastructureTests
     [Trait("Performance", "Fast")]
     [Trait("Debug", "True")]
     [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
     public void BasicDataFrame_CreateAndCount_Returns3Rows_Refactored()
     {
         // Arrange - Test works with any implementation
