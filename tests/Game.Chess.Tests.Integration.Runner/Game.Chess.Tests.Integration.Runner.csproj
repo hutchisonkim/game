@@ -15,6 +15,4 @@
     <PackageReference Include="Microsoft.Spark" Version="2.3.0" />
   </ItemGroup>
 
-  <!-- xUnit console and utility bits are copied via the start script to avoid publish conflicts -->
-
 </Project>

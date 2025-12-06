@@ -59,7 +59,43 @@ foreach ($proc in $dotnetProcs) {
 
     # Kill the dotnet process
     Write-Host " - Killing dotnet.exe (PID $($proc.ProcessId))" -ForegroundColor Red
-    Stop-Process -Id $proc.ProcessId -Force
+    # Build a list of this process and all descendant child processes so we terminate the whole tree
+    $toTerminate = @()
+    $queue = @($proc.ProcessId)
+    while ($queue.Count -gt 0) {
+        $cur = $queue[0]
+        if ($queue.Count -gt 1) { $queue = $queue[1..($queue.Count - 1)] } else { $queue = @() }
+        if ($toTerminate -notcontains $cur) { $toTerminate += $cur }
+        $children = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ParentProcessId -eq $cur }
+        foreach ($c in $children) {
+            if ($toTerminate -notcontains $c.ProcessId) { $queue += $c.ProcessId }
+        }
+    }
+
+    foreach ($processId in $toTerminate) {
+        try {
+            Stop-Process -Id $processId -Force -ErrorAction Stop
+            Write-Host " - Stopped PID $processId" -ForegroundColor Green
+        }
+        catch {
+            Write-Warning " - Stop-Process failed for PID $processId`: $($_.Exception.Message). Trying taskkill..."
+            try {
+                Start-Process -FilePath "taskkill" -ArgumentList "/PID $processId /F /T" -NoNewWindow -Wait -ErrorAction Stop
+                Write-Host " - taskkill succeeded for PID $processId" -ForegroundColor Green
+            }
+            catch {
+                Write-Warning " - taskkill also failed for PID $processId`: $($_.Exception.Message). Trying WMI Terminate..."
+                try {
+                    $wp = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
+                    if ($wp) { Invoke-CimMethod -InputObject $wp -MethodName Terminate -ErrorAction SilentlyContinue | Out-Null; Write-Host " - WMI Terminate invoked for PID $processId" -ForegroundColor Yellow }
+                    else { Write-Warning " - Process $processId not found via WMI." }
+                }
+                catch {
+                    Write-Warning " - Failed to terminate PID $processId via WMI: $($_.Exception.Message)"
+                }
+            }
+        }
+    }
 }
 
 Write-Host ""

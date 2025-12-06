@@ -106,8 +106,6 @@ public static class PatternMatcher
     {
         // ===== STEP 0: Deduplicate patterns =====
         var uniquePatternsDf = patternsDf.DropDuplicates();
-        if (debug) DebugShow(patternsDf, "Input patternsDf");
-        if (debug) DebugShow(uniquePatternsDf, "patternsDf (deduped)");
 
         // ===== STEP 1: Build ACTOR perspectives =====
         // Filter to pieces at their own perspective position (where x == perspective_x AND y == perspective_y)
@@ -120,7 +118,6 @@ public static class PatternMatcher
                 )
             );
 
-        if (debug) DebugShow(actorPerspectives, "actorPerspectives (before faction filter)");
 
         // Apply turn-based faction filter
         var turnFaction = specificFactions[turn % specificFactions.Length];
@@ -129,7 +126,6 @@ public static class PatternMatcher
                 Col("piece").BitwiseAND(Lit((int)turnFaction)).NotEqual(Lit(0))
             );
 
-        if (debug) DebugShow(actorPerspectives, $"actorPerspectives (after faction filter for {turnFaction})");
 
         // ===== STEP 2: Cross-join actor pieces with patterns =====
         var dfA = actorPerspectives
@@ -139,7 +135,6 @@ public static class PatternMatcher
             .WithColumnRenamed("y", "src_y")
             .CrossJoin(uniquePatternsDf);
 
-        if (debug) DebugShow(dfA, "After CrossJoin (dfA)");
 
         // ===== STEP 3: Apply source condition filtering =====
         // Require ALL bits of src_conditions to be present in src_generic_piece
@@ -148,7 +143,6 @@ public static class PatternMatcher
             .EqualTo(Col("src_conditions"))
         );
 
-        if (debug) DebugShow(dfB, "After filtering src_conditions (dfB)");
 
         // ===== STEP 4: Apply sequence filtering =====
         // When activeSequences is None, just filter by Public flag (backward compatible)
@@ -190,24 +184,54 @@ public static class PatternMatcher
             );
         }
 
-        if (debug) DebugShow(dfC, "After sequence filter (dfC)");
 
         // ===== STEP 5: Compute dst_x, dst_y =====
         // Build per-faction alternating signs: +1, -1, +1, -1 ...
         var deltaYSignCol = Lit(1); // start with default
         for (int i = specificFactions.Length - 1; i >= 0; i--)
         {
-            var condition = Col("perspective_piece").BitwiseAND(Lit((int)specificFactions[i])).NotEqual(Lit(0));
+            // Use src_piece (actor piece) for faction sign; perspective_piece may be absent in some pipelines
+            var condition = Col("src_piece").BitwiseAND(Lit((int)specificFactions[i])).NotEqual(Lit(0));
             var value = Lit(i % 2 == 0 ? 1 : -1);
             deltaYSignCol = When(condition, value).Otherwise(deltaYSignCol);
         }
 
+        // Ensure source coordinate columns exist; fall back to perspective or raw coordinates if missing.
+        var hasSrcX = dfC.Columns().Contains("src_x");
+        var hasSrcY = dfC.Columns().Contains("src_y");
+
+        if (!hasSrcX)
+        {
+            if (dfC.Columns().Contains("x"))
+            {
+                dfC = dfC.WithColumn("src_x", Col("x"));
+            }
+            else if (dfC.Columns().Contains("perspective_x"))
+            {
+                dfC = dfC.WithColumn("src_x", Col("perspective_x"));
+            }
+        }
+
+        if (!hasSrcY)
+        {
+            if (dfC.Columns().Contains("y"))
+            {
+                dfC = dfC.WithColumn("src_y", Col("y"));
+            }
+            else if (dfC.Columns().Contains("perspective_y"))
+            {
+                dfC = dfC.WithColumn("src_y", Col("perspective_y"));
+            }
+        }
+
+        var srcXCol = Col("src_x");
+        var srcYCol = Col("src_y");
+
         var dfD = dfC
             .WithColumn("delta_y_sign", deltaYSignCol)
-            .WithColumn("dst_x", Col("src_x") + Col("delta_x"))
-            .WithColumn("dst_y", Col("src_y") + (Col("delta_y") * Col("delta_y_sign")));
+            .WithColumn("dst_x", srcXCol + Col("delta_x"))
+            .WithColumn("dst_y", srcYCol + (Col("delta_y") * Col("delta_y_sign")));
 
-        if (debug) DebugShow(dfD, "After computing dst_x/dst_y (dfD)");
 
         dfD = dfD.Drop("delta_x", "delta_y", "delta_y_sign");
 
@@ -223,7 +247,6 @@ public static class PatternMatcher
                 Col("generic_piece").Alias("lookup_generic_piece")
             );
 
-        if (debug) DebugShow(lookupDf, "Lookup DF (actor-based)");
 
         // ===== STEP 7: Join src perspective to dst square =====
         // Use SAME perspective_x/perspective_y to ensure consistency
@@ -236,25 +259,19 @@ public static class PatternMatcher
             "left_outer"
         );
 
-        if (debug) DebugShow(dfF, "After left join (dfF)");
 
         // ===== STEP 8: Fill missing generic piece as OutOfBounds =====
         var dfG = dfF.Na().Fill((int)ChessPolicy.Piece.OutOfBounds, new[] { "lookup_generic_piece" });
-        if (debug) DebugShow(dfG, "After Na.Fill (dfG)");
 
         // ===== STEP 9: Remove moves landing out-of-bounds =====
         var dfH = dfG.Filter(
             Col("lookup_generic_piece") != Lit((int)ChessPolicy.Piece.OutOfBounds)
         );
 
-        if (debug) DebugShow(dfH, "After filtering OutOfBounds (dfH)");
-
         // ===== STEP 10: Rename dst_generic_piece =====
         var dfI = dfH
             .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y")
             .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");
-
-        if (debug) DebugShow(dfI, "After renaming dst_generic_piece (dfI)");
 
         // ===== STEP 11: Apply destination condition filtering =====
         // Require ALL bits of dst_conditions to be present in dst_generic_piece
@@ -263,22 +280,9 @@ public static class PatternMatcher
             .EqualTo(Col("dst_conditions"))
         );
 
-        if (debug) DebugShow(dfJ, "After filtering dst_conditions (dfJ)");
-
         // ===== STEP 12: Final cleanup =====
         var finalDf = dfJ.Drop("src_conditions", "dst_conditions");
 
-        if (debug) DebugShow(finalDf, "FINAL ATOMIC PATTERNS");
-
         return finalDf;
-    }
-
-    // =============== DEBUG UTILITIES ===============
-
-    private static void DebugShow(DataFrame df, string label)
-    {
-        System.Console.WriteLine($"\n========== {label} ==========");
-        System.Console.WriteLine($"Rows: {df.Count()}");
-        System.Console.WriteLine($"Columns: {string.Join(", ", df.Columns())}");
     }
 }

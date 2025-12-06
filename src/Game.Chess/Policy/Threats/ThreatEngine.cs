@@ -260,7 +260,11 @@ public static class ThreatEngine
                 "inner"
             );
 
+        // Preserve positional columns so downstream pattern matching can compute dst_x/dst_y.
+        // We expose x/y alongside perspective_x/y to satisfy PatternMatcher expectations.
         return nextPerspectives.Select(
+            Col("x"),
+            Col("y"),
             Col("perspective_x"),
             Col("perspective_y"),
             Col("piece"),

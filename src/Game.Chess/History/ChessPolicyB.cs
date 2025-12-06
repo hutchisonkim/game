@@ -189,11 +189,6 @@ public class ChessPolicy
 
             return timelineDf;
         }
-        private static void DebugShow(DataFrame df, string label)
-        {
-            // Console.WriteLine($"\n========== {label} ==========");
-            // Console.WriteLine($"Row count: {df.Count()}");
-        }
 
         // More efficient emptiness check than Count(): only materializes a single row.
         private static bool IsEmpty(DataFrame df)
@@ -218,8 +213,6 @@ public class ChessPolicy
             // 0. Deduplicate patterns
             //
             var uniquePatternsDf = patternsDf.DropDuplicates();
-            if(debug) DebugShow(patternsDf, "patternsDf");
-            if(debug) DebugShow(uniquePatternsDf, "patternsDf (deduped)");
 
             //
             // 1. Build ACTOR perspectives: (x,y) == (perspective_x, perspective_y)
@@ -233,7 +226,6 @@ public class ChessPolicy
                     )
                 );
 
-            if(debug) DebugShow(actorPerspectives, "actorPerspectives");
 
             //TODO: using the turn argument, find the current faction whose turn it is (modulo specificFactions.length).
             // then when getting actor perspectives, filter to only that faction.
@@ -253,7 +245,6 @@ public class ChessPolicy
                 .WithColumnRenamed("y", "src_y")
                 .CrossJoin(uniquePatternsDf);
 
-            if(debug) DebugShow(dfA, "After CrossJoin (dfA)");
 
             //
             // 3. Require ALL bits of src_conditions
@@ -263,7 +254,6 @@ public class ChessPolicy
                 .EqualTo(Col("src_conditions"))
             );
 
-            if(debug) DebugShow(dfB, "After filtering src_conditions (dfB)");
 
             //
             // 4. Sequence filter - support pattern sequencing
@@ -309,7 +299,6 @@ public class ChessPolicy
                 );
             }
 
-            if(debug) DebugShow(dfC, "After sequence filter (dfC)");
 
             //
             // 5. Compute dst_x, dst_y
@@ -346,7 +335,6 @@ public class ChessPolicy
                 .Drop("delta_x", "delta_y", "delta_y_sign");
 
 
-            if(debug) DebugShow(dfD, "After computing dst_x/dst_y (dfD)");
 
             //
             // 6. Lookup DF: only perspectives *from actors*.
@@ -362,7 +350,6 @@ public class ChessPolicy
                     Col("generic_piece").Alias("lookup_generic_piece")
                 );
 
-            if(debug) DebugShow(lookupDf, "Lookup DF (actor-based)");
 
             //
             // 7. Join src perspective to dst square using SAME perspective_x/perspective_y
@@ -376,14 +363,11 @@ public class ChessPolicy
                 "left_outer"
             );
 
-            if(debug) DebugShow(dfF, "After left join (dfF)");
 
             //
             // 8. Fill missing generic piece as OutOfBounds
             //
             var dfG = dfF.Na().Fill((int)Piece.OutOfBounds, new[] { "lookup_generic_piece" });
-            if(debug) DebugShow(dfG, "After Na.Fill (dfG)");
-            if(debug) dfG.Show();
 
             //
             // 9. Remove moves landing out-of-bounds
@@ -392,7 +376,6 @@ public class ChessPolicy
                 Col("lookup_generic_piece") != Lit((int)Piece.OutOfBounds)
             );
 
-            if(debug) DebugShow(dfH, "After filtering OutOfBounds (dfH)");
 
             //
             // 10. Rename dst_generic_piece
@@ -401,8 +384,6 @@ public class ChessPolicy
                 .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y")
                 .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");
 
-            if(debug) DebugShow(dfI, "After renaming dst_generic_piece (dfI)");
-            if(debug) dfI.Show();
 
             //
             // 11. Require ALL bits from dst_conditions
@@ -412,15 +393,12 @@ public class ChessPolicy
                 .EqualTo(Col("dst_conditions"))
             );
 
-            if(debug) DebugShow(dfJ, "After filtering dst_conditions (dfJ)");
 
             //
             // 12. Final cleanup
             //
             var finalDf = dfJ.Drop("src_conditions", "dst_conditions");
 
-            if(debug) DebugShow(finalDf, "FINAL CANDIDATES");
-            if(debug) finalDf.Show();
 
             return finalDf;
         }

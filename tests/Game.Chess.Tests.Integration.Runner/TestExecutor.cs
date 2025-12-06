@@ -19,7 +19,6 @@ namespace Game.Chess.Tests.Integration.Runner
             }
 
             // Copy test DLL and its dependencies to publish dir so they can be loaded
-            // This allows the runner to stay running while rebuilding the test project
             try
             {
                 CopyTestAssemblies(testDll, publishDir);
@@ -29,46 +28,32 @@ namespace Game.Chess.Tests.Integration.Runner
                 return $"[Runner] Failed to copy test assemblies: {ex.Message}";
             }
 
-            // Update testDll path to the copied version in publish dir
             testDll = Path.Combine(publishDir, Path.GetFileName(testDll));
 
             try
             {
-                // Prefer VSTest (net8) with xUnit adapter and trait filtering
                 var adapterDll = Path.Combine(publishDir, "xunit.runner.visualstudio.testadapter.dll");
                 var useVsTest = File.Exists(adapterDll);
                 if (useVsTest)
                 {
                     var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-                    string dotnetExe = string.IsNullOrWhiteSpace(dotnetRoot)
-                        ? "dotnet"
-                        : Path.Combine(dotnetRoot, "dotnet.exe");
+                    string dotnetExe = string.IsNullOrWhiteSpace(dotnetRoot) ? "dotnet" : Path.Combine(dotnetRoot, "dotnet.exe");
 
-                    // Build TestCaseFilter for xUnit traits. VSTest filter format: (Trait=value)|(Trait=value)
                     string? testCaseFilter = null;
                     if (!string.IsNullOrWhiteSpace(filter) && filter.Contains("="))
                     {
-                        // Expecting Performance=Fast; xUnit exposes traits as properties named by trait name
                         var kv = filter.Split('=', 2);
                         if (kv.Length == 2)
                         {
                             var name = kv[0].Trim();
                             var value = kv[1].Trim();
-                            // Correct format for xUnit trait filter: "Performance=Fast"
                             testCaseFilter = $"{name}={value}";
                         }
                     }
 
                     var trxPath = Path.Combine(publishDir, "spark-vstest.trx");
-                    var vsArgs = new System.Collections.Generic.List<string>();
-                    vsArgs.Add("vstest");
-                    vsArgs.Add('"' + testDll + '"');
-                    if (!string.IsNullOrWhiteSpace(testCaseFilter))
-                    {
-                        vsArgs.Add("--TestCaseFilter:" + '"' + testCaseFilter + '"');
-                    }
-                    // Ensure no parallel to avoid Spark worker issues (no arg means sequential)
-                    // Log TRX to inspect failures
+                    var vsArgs = new System.Collections.Generic.List<string> { "vstest", '"' + testDll + '"' };
+                    if (!string.IsNullOrWhiteSpace(testCaseFilter)) vsArgs.Add("--TestCaseFilter:" + '"' + testCaseFilter + '"');
                     vsArgs.Add("--Logger:" + '"' + $"trx;LogFileName={Path.GetFileName(trxPath)}" + '"');
 
                     var psiVs = new System.Diagnostics.ProcessStartInfo
@@ -80,24 +65,133 @@ namespace Game.Chess.Tests.Integration.Runner
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                     };
+
+                    // Try discovery + per-test runs
+                    try
+                    {
+                        var assemblyPath = testDll;
+                        var timedOut = 0; var passed = 0; var failed = 0; var skipped = 0; var total = 0;
+                        var asm = Assembly.LoadFrom(assemblyPath);
+                        var tests = new System.Collections.Generic.List<string>();
+
+                        foreach (var t in asm.GetTypes())
+                        foreach (var m in t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
+                        {
+                            var attrs = m.CustomAttributes;
+                            if (!attrs.Any(a => a.AttributeType.Name == "FactAttribute" || a.AttributeType.Name == "TheoryAttribute")) continue;
+
+                            var include = true;
+                            if (!string.IsNullOrWhiteSpace(filter) && filter.Contains("="))
+                            {
+                                include = false;
+                                var kv = filter.Split('=', 2);
+                                if (kv.Length == 2)
+                                {
+                                    var name = kv[0].Trim();
+                                    var value = kv[1].Trim();
+                                    foreach (var ca in attrs)
+                                    {
+                                        if (ca.AttributeType.Name == "TraitAttribute")
+                                        {
+                                            try
+                                            {
+                                                if (ca.ConstructorArguments != null && ca.ConstructorArguments.Count >= 2)
+                                                {
+                                                    var an = ca.ConstructorArguments[0].Value?.ToString();
+                                                    var av = ca.ConstructorArguments[1].Value?.ToString();
+                                                    if (string.Equals(an, name, StringComparison.OrdinalIgnoreCase) && string.Equals(av, value, StringComparison.OrdinalIgnoreCase)) { include = true; break; }
+                                                }
+                                            }
+                                            catch { }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (include) tests.Add(t.FullName + "." + m.Name);
+                        }
+
+                        if (tests.Count > 0)
+                        {
+                            const int perTestTimeoutMs = 20_000;
+                            var outLog = new System.Text.StringBuilder();
+                            foreach (var fullyQualified in tests)
+                            {
+                                total++;
+                                var singleArgs = new System.Collections.Generic.List<string> { "vstest", '"' + assemblyPath + '"', "--TestCaseFilter:" + '"' + $"FullyQualifiedName={fullyQualified}" + '"' };
+                                var psiSingle = new System.Diagnostics.ProcessStartInfo
+                                {
+                                    FileName = dotnetExe,
+                                    Arguments = string.Join(" ", singleArgs),
+                                    WorkingDirectory = publishDir,
+                                    UseShellExecute = false,
+                                    RedirectStandardOutput = true,
+                                    RedirectStandardError = true,
+                                };
+
+                                var p = System.Diagnostics.Process.Start(psiSingle);
+                                if (p == null) { failed++; outLog.AppendLine($"[Runner] Failed to start process for {fullyQualified}"); continue; }
+
+                                var exited = p.WaitForExit(perTestTimeoutMs);
+                                string sout = string.Empty, serr = string.Empty;
+                                try { sout = p.StandardOutput.ReadToEnd(); serr = p.StandardError.ReadToEnd(); } catch { }
+
+                                if (!exited)
+                                {
+                                    try { p.Kill(true); } catch { }
+                                    timedOut++;
+                                    outLog.AppendLine($"[Runner] Timed out: {fullyQualified}");
+
+                                    // Skip remaining tests to avoid waiting further
+                                    var remaining = tests.Count - total;
+                                    if (remaining > 0)
+                                    {
+                                        skipped += remaining;
+                                        total += remaining; // count skipped towards total
+                                        outLog.AppendLine($"[Runner] Skipping {remaining} remaining tests after timeout.");
+                                    }
+
+                                    outLog.AppendLine(sout); outLog.AppendLine(serr);
+                                    File.AppendAllText(Path.Combine(publishDir, "spark-test-output.log"), outLog.ToString());
+                                    File.AppendAllText(Path.Combine(publishDir, "test-output.log"), outLog.ToString());
+                                    outLog.Clear();
+                                    break;
+                                }
+                                else
+                                {
+                                    if (p.ExitCode == 0) { passed++; outLog.AppendLine($"[Runner] Passed: {fullyQualified}"); }
+                                    else { failed++; outLog.AppendLine($"[Runner] Failed: {fullyQualified}"); }
+                                }
+
+                                outLog.AppendLine(sout); outLog.AppendLine(serr);
+                                File.AppendAllText(Path.Combine(publishDir, "spark-test-output.log"), outLog.ToString());
+                                File.AppendAllText(Path.Combine(publishDir, "test-output.log"), outLog.ToString());
+                                outLog.Clear();
+                            }
+
+                            return $"VSTest Per-Test Summary: Total: {total}, Passed: {passed}, Failed: {failed}, TimedOut: {timedOut}, Skipped: {skipped}";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        File.AppendAllText(Path.Combine(publishDir, "test-output.log"), "[Runner] Per-test run failed, falling back. " + ex + Environment.NewLine);
+                    }
+
                     var pVs = System.Diagnostics.Process.Start(psiVs);
                     if (pVs != null)
                     {
                         string outVs = pVs.StandardOutput.ReadToEnd();
                         string errVs = pVs.StandardError.ReadToEnd();
                         pVs.WaitForExit();
-                        // Relay logs to both spark-test-output.log and test-output.log
                         var combined = outVs + Environment.NewLine + errVs;
                         File.WriteAllText(Path.Combine(publishDir, "spark-test-output.log"), combined);
                         File.WriteAllText(Path.Combine(publishDir, "test-output.log"), combined);
 
-                        // If TRX exists, parse summary counts
                         if (File.Exists(trxPath))
                         {
                             try
                             {
                                 var trx = File.ReadAllText(trxPath);
-                                // Simple extraction of totals
                                 int total = ExtractInt(trx, "total=");
                                 int passed = ExtractInt(trx, "passed=");
                                 int failed = ExtractInt(trx, "failed=");
@@ -119,38 +213,24 @@ namespace Game.Chess.Tests.Integration.Runner
                     return "[Runner] xUnit console runner not found in publish directory.";
                 }
 
-                var args = new System.Collections.Generic.List<string>();
-                args.Add('"' + testDll + '"');
-                if (!string.IsNullOrWhiteSpace(filter))
+                var args = new System.Collections.Generic.List<string> { '"' + testDll + '"' };
+                if (!string.IsNullOrWhiteSpace(filter) && filter.Contains("="))
                 {
-                    // Support Performance=Fast trait filter
-                    if (filter.Contains("="))
+                    args.Add("-trait"); args.Add('"' + filter + '"');
+                    var kv = filter.Split('=', 2);
+                    if (kv.Length == 2 && kv[0].Trim().Equals("Performance", StringComparison.OrdinalIgnoreCase) && kv[1].Trim().Equals("Fast", StringComparison.OrdinalIgnoreCase))
                     {
-                        args.Add("-trait");
-                        args.Add('"' + filter + '"');
-                        // Exclude other performance tiers when Fast is requested
-                        var kv = filter.Split('=', 2);
-                        if (kv.Length == 2 && kv[0].Trim().Equals("Performance", StringComparison.OrdinalIgnoreCase) && kv[1].Trim().Equals("Fast", StringComparison.OrdinalIgnoreCase))
-                        {
-                            args.Add("-notrait"); args.Add('"' + "Performance=Slow" + '"');
-                            args.Add("-notrait"); args.Add('"' + "Performance=Medium" + '"');
-                        }
+                        args.Add("-notrait"); args.Add('"' + "Performance=Slow" + '"'); args.Add("-notrait"); args.Add('"' + "Performance=Medium" + '"');
                     }
                 }
-                args.Add("-nologo");
-                args.Add("-parallel");
-                args.Add("none");
-                // Save detailed results for investigation
-                args.Add("-xml");
-                args.Add('"' + Path.Combine(publishDir, "spark-xunit-results.xml") + '"');
+
+                args.Add("-nologo"); args.Add("-parallel"); args.Add("none"); args.Add("-xml"); args.Add('"' + Path.Combine(publishDir, "spark-xunit-results.xml") + '"');
 
                 System.Diagnostics.ProcessStartInfo psi;
                 if (useDotnet)
                 {
                     var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-                    string dotnetExe = string.IsNullOrWhiteSpace(dotnetRoot)
-                        ? "dotnet"
-                        : Path.Combine(dotnetRoot, "dotnet.exe");
+                    string dotnetExe = string.IsNullOrWhiteSpace(dotnetRoot) ? "dotnet" : Path.Combine(dotnetRoot, "dotnet.exe");
                     psi = new System.Diagnostics.ProcessStartInfo
                     {
                         FileName = dotnetExe,
@@ -211,13 +291,11 @@ namespace Game.Chess.Tests.Integration.Runner
 
         private static void CopyTestAssemblies(string testDllPath, string targetDir)
         {
-            // Copy test DLL and dependencies from its build directory to the runner's publish directory
             var sourceDir = Path.GetDirectoryName(testDllPath);
             if (string.IsNullOrEmpty(sourceDir)) return;
 
             try
             {
-                // Copy all DLLs and supporting files from test bin directory to publish directory
                 foreach (var file in Directory.EnumerateFiles(sourceDir, "*.dll", SearchOption.TopDirectoryOnly))
                 {
                     var fileName = Path.GetFileName(file);
@@ -225,7 +303,6 @@ namespace Game.Chess.Tests.Integration.Runner
                     File.Copy(file, destPath, overwrite: true);
                 }
 
-                // Also copy .deps.json and .runtimeconfig.json if they exist
                 foreach (var file in Directory.EnumerateFiles(sourceDir, "Game.Chess.Tests.Integration.*", SearchOption.TopDirectoryOnly))
                 {
                     var ext = Path.GetExtension(file);
@@ -240,27 +317,19 @@ namespace Game.Chess.Tests.Integration.Runner
             catch (Exception ex)
             {
                 Console.WriteLine($"[TestExecutor] Warning: Failed to copy some test assemblies: {ex.Message}");
-                // Don't fail completely - maybe enough files were copied
             }
         }
 
         private static string ResolveTestDll()
         {
-            // Try to find the test DLL in its own build output directory
-            // This allows independent iteration without locking issues
-            
-            // Common build output paths
             var candidates = new[]
             {
-                // Release builds (most common)
                 @"tests\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
                 @"tests\Game.Chess.Tests.Integration\bin\Debug\net8.0\Game.Chess.Tests.Integration.dll",
-                // Relative to solution root
                 @"..\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
                 @"..\Game.Chess.Tests.Integration\bin\Debug\net8.0\Game.Chess.Tests.Integration.dll",
             };
 
-            // Start from current directory or solution root
             var startPath = Directory.GetCurrentDirectory();
             while (!string.IsNullOrEmpty(startPath))
             {
@@ -274,13 +343,11 @@ namespace Game.Chess.Tests.Integration.Runner
                     }
                 }
 
-                // Move up one directory
                 var parent = Path.GetDirectoryName(startPath);
-                if (parent == startPath) break; // Reached root
+                if (parent == startPath) break;
                 startPath = parent;
             }
 
-            // Fallback to just the filename in current directory (will fail with clear message if not found)
             return "Game.Chess.Tests.Integration.dll";
         }
     }
