@@ -164,19 +164,11 @@ try {
             $argsList += @('--filter', $TestFilter)
         }
 
-        # Launch spark-submit but dumping log into spark-test-output.log
-        $sparkLogPath = Join-Path $publishDir "spark-test-output.log"
-        if (Test-Path $sparkLogPath) {
-            Clear-Content -Path $sparkLogPath
-        }
-        else {
-            New-Item -ItemType File -Path $sparkLogPath | Out-Null
-        }
-
-        $testLogPath = Join-Path $publishDir "test-output.log"
-        if (Test-Path $testLogPath) {
-            Clear-Content -Path $testLogPath
-        }
+        # Launch spark-submit but dump logs into timestamped files under test-logs/
+        $logDir = Join-Path $publishDir "test-logs"
+        if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+        $timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd_HHmmss')
+        $sparkLogPath = Join-Path $logDir "spark-test-output-$timestamp.log"
 
         # Run spark-submit in foreground so the script exits when it completes
         Write-Host "Invoking spark-submit: $sparkSubmit"

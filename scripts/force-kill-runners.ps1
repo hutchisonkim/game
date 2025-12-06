@@ -32,8 +32,8 @@ if (-not $dotnetProcs -or $dotnetProcs.Count -eq 0) {
 }
 
 Write-Warning "About to kill ALL detected dotnet.exe processes (this will stop other dotnet apps)."
-Write-Host "Press Ctrl-C to cancel within 3 seconds..." -ForegroundColor Yellow
-Start-Sleep -Seconds 3
+Write-Host "Press Ctrl-C to cancel within 1 second(s)..." -ForegroundColor Yellow
+Start-Sleep -Seconds 1
 
 foreach ($proc in $dotnetProcs) {
 

@@ -94,7 +94,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        "$stopJob = Start-Job -ScriptBlock { pwsh scripts/spark-testctl.ps1 -Stop }; if (-not (Wait-Job -Job $stopJob -Timeout 10)) { Stop-Job -Job $stopJob; Write-Warning 'Stop command timed out after 10s, proceeding with aggressive cleanup...' } else { $stopJob | Receive-Job }; Start-Sleep -Seconds 2; Write-Host 'Calling force-kill-runners...'; pwsh scripts/force-kill-runners.ps1; Start-Sleep -Seconds 2; Get-Process java -ErrorAction SilentlyContinue | ForEach-Object { taskkill /PID $_.Id /F }; Start-Sleep -Seconds 2; Write-Host 'Cleanup complete'"
+        "$stopJob = Start-Job -ScriptBlock { pwsh scripts/spark-testctl.ps1 -Stop }; if (-not (Wait-Job -Job $stopJob -Timeout 10)) { Stop-Job -Job $stopJob; Write-Warning 'Stop command timed out after 10s, proceeding with aggressive cleanup...' } else { $stopJob | Receive-Job }; Start-Sleep -Seconds 2; Write-Host 'Calling force-kill-runners...'; pwsh scripts/force-kill-runners.ps1; Start-Sleep -Seconds 1; Get-Process java -ErrorAction SilentlyContinue | ForEach-Object { taskkill /PID $_.Id /F }; Start-Sleep -Seconds 1; Write-Host 'Cleanup complete'"
       ],
       "presentation": {
         "echo": true,

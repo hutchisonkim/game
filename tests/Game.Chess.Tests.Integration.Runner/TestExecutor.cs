@@ -30,6 +30,12 @@ namespace Game.Chess.Tests.Integration.Runner
 
             testDll = Path.Combine(publishDir, Path.GetFileName(testDll));
 
+            // Use a unique log file per run inside a dedicated subfolder
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var logDir = Path.Combine(publishDir, "test-logs");
+            Directory.CreateDirectory(logDir);
+            var logPath = Path.Combine(logDir, $"test-output-{timestamp}.log");
+
             try
             {
                 var adapterDll = Path.Combine(publishDir, "xunit.runner.visualstudio.testadapter.dll");
@@ -115,6 +121,7 @@ namespace Game.Chess.Tests.Integration.Runner
                         {
                             const int perTestTimeoutMs = 20_000;
                             var outLog = new System.Text.StringBuilder();
+                            var stopwatch = System.Diagnostics.Stopwatch.StartNew(); // Start measuring duration
                             foreach (var fullyQualified in tests)
                             {
                                 total++;
@@ -134,11 +141,18 @@ namespace Game.Chess.Tests.Integration.Runner
 
                                 var exited = p.WaitForExit(perTestTimeoutMs);
                                 string sout = string.Empty, serr = string.Empty;
-                                try { sout = p.StandardOutput.ReadToEnd(); serr = p.StandardError.ReadToEnd(); } catch { }
-
+                                
                                 if (!exited)
                                 {
-                                    try { p.Kill(true); } catch { }
+                                    // Process didn't exit in time - kill it forcefully
+                                    try 
+                                    { 
+                                        p.Kill(true); 
+                                        // Give it a moment to die, then try to read output
+                                        System.Threading.Thread.Sleep(500);
+                                    } 
+                                    catch { }
+                                    
                                     timedOut++;
                                     outLog.AppendLine($"[Runner] Timed out: {fullyQualified}");
 
@@ -151,57 +165,35 @@ namespace Game.Chess.Tests.Integration.Runner
                                         outLog.AppendLine($"[Runner] Skipping {remaining} remaining tests after timeout.");
                                     }
 
+                                    try { sout = p.StandardOutput.ReadToEnd(); serr = p.StandardError.ReadToEnd(); } catch { }
                                     outLog.AppendLine(sout); outLog.AppendLine(serr);
-                                    File.AppendAllText(Path.Combine(publishDir, "spark-test-output.log"), outLog.ToString());
-                                    File.AppendAllText(Path.Combine(publishDir, "test-output.log"), outLog.ToString());
+                                    File.AppendAllText(logPath, outLog.ToString());
                                     outLog.Clear();
-                                    break;
+                                    
+                                    // Return immediately with results instead of falling back to VSTest,
+                                    // which would re-run all tests
+                                    return $"VSTest Per-Test Summary: Total: {total}, Passed: {passed}, Failed: {failed}, TimedOut: {timedOut}, Skipped: {skipped}";
                                 }
-                                else
-                                {
-                                    if (p.ExitCode == 0) { passed++; outLog.AppendLine($"[Runner] Passed: {fullyQualified}"); }
-                                    else { failed++; outLog.AppendLine($"[Runner] Failed: {fullyQualified}"); }
-                                }
+                                
+                                // Process exited normally - read its output
+                                try { sout = p.StandardOutput.ReadToEnd(); serr = p.StandardError.ReadToEnd(); } catch { }
+
+                                if (p.ExitCode == 0) { passed++; outLog.AppendLine($"[Runner] Passed: {fullyQualified}"); }
+                                else { failed++; outLog.AppendLine($"[Runner] Failed: {fullyQualified}"); }
 
                                 outLog.AppendLine(sout); outLog.AppendLine(serr);
-                                File.AppendAllText(Path.Combine(publishDir, "spark-test-output.log"), outLog.ToString());
-                                File.AppendAllText(Path.Combine(publishDir, "test-output.log"), outLog.ToString());
+                                File.AppendAllText(logPath, outLog.ToString());
                                 outLog.Clear();
                             }
-
-                            return $"VSTest Per-Test Summary: Total: {total}, Passed: {passed}, Failed: {failed}, TimedOut: {timedOut}, Skipped: {skipped}";
+                            stopwatch.Stop(); // Stop measuring duration
+                            var durationTotalMs = stopwatch.ElapsedMilliseconds; // Calculate total duration
+                            return $"VSTest Per-Test Summary: Total: {total}, Passed: {passed}, Failed: {failed}, TimedOut: {timedOut}, Skipped: {skipped} Duration: {durationTotalMs}ms";
                         }
                     }
                     catch (Exception ex)
                     {
-                        File.AppendAllText(Path.Combine(publishDir, "test-output.log"), "[Runner] Per-test run failed, falling back. " + ex + Environment.NewLine);
-                    }
-
-                    var pVs = System.Diagnostics.Process.Start(psiVs);
-                    if (pVs != null)
-                    {
-                        string outVs = pVs.StandardOutput.ReadToEnd();
-                        string errVs = pVs.StandardError.ReadToEnd();
-                        pVs.WaitForExit();
-                        var combined = outVs + Environment.NewLine + errVs;
-                        File.WriteAllText(Path.Combine(publishDir, "spark-test-output.log"), combined);
-                        File.WriteAllText(Path.Combine(publishDir, "test-output.log"), combined);
-
-                        if (File.Exists(trxPath))
-                        {
-                            try
-                            {
-                                var trx = File.ReadAllText(trxPath);
-                                int total = ExtractInt(trx, "total=");
-                                int passed = ExtractInt(trx, "passed=");
-                                int failed = ExtractInt(trx, "failed=");
-                                int skipped = ExtractInt(trx, "skipped=");
-                                return $"VSTest Summary: Total: {total}, Passed: {passed}, Failed: {failed}, Skipped: {skipped}";
-                            }
-                            catch { }
-                        }
-                        var lastLineVs = outVs.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
-                        return lastLineVs ?? "[Runner] Tests executed via VSTest.";
+                        File.AppendAllText(logPath, "[Runner] Per-test run failed. " + ex + Environment.NewLine);
+                        return "[Runner] Per-test runner failed; no fallback executed.";
                     }
                 }
 
@@ -260,8 +252,7 @@ namespace Game.Chess.Tests.Integration.Runner
                 string error = proc.StandardError.ReadToEnd();
                 proc.WaitForExit();
                 var combinedConsole = output + Environment.NewLine + error;
-                File.WriteAllText(Path.Combine(publishDir, "spark-test-output.log"), combinedConsole);
-                File.WriteAllText(Path.Combine(publishDir, "test-output.log"), combinedConsole);
+                File.WriteAllText(logPath, combinedConsole);
                 var lastLine = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
                 return lastLine ?? "[Runner] Tests executed via console runner.";
             }

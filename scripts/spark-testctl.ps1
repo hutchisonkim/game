@@ -39,19 +39,6 @@ if ($Stop) {
     exit 0
 }
 
-# Build solution before running tests
-Write-Host "[spark-testctl] Building solution..."
-Push-Location c:/___work/game
-try {
-    dotnet build -c Release
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Build failed with exit code $LASTEXITCODE"
-        exit 1
-    }
-}
-finally {
-    Pop-Location
-}
 
 # Default: RUN, optionally with filter text
 $body = if ([string]::IsNullOrWhiteSpace($Filter)) { "RUN" } else { "RUN $Filter" }

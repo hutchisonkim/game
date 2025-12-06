@@ -185,8 +185,11 @@ try {
             './Game.Chess.Tests.Integration.Runner'
         )
 
-        $sparkLogPath = Join-Path $publishDir 'spark-runner-output.log'
-        if (Test-Path $sparkLogPath) { Clear-Content -Path $sparkLogPath } else { New-Item -ItemType File -Path $sparkLogPath | Out-Null }
+        $logDir = Join-Path $publishDir 'test-logs'
+        if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+        $timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd_HHmmss')
+        $sparkLogPath = Join-Path $logDir "spark-runner-output-$timestamp.log"
+        New-Item -ItemType File -Path $sparkLogPath -Force | Out-Null
 
         Write-Host "Invoking spark-submit (detached) to start runner: $sparkSubmit"
         $proc = Start-Process -FilePath $sparkSubmit -ArgumentList ($argsList -join ' ') -WindowStyle Hidden -PassThru
