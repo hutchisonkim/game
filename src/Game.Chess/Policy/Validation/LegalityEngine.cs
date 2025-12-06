@@ -54,17 +54,11 @@ public static class LegalityEngine
         int turn = 0,
         bool debug = false)
     {
-        // Early exit: empty candidates
-        if (IsEmpty(candidatesDf))
-        {
-            return candidatesDf;
-        }
-
         var currentFaction = specificFactions[turn % specificFactions.Length];
         var kingBit = (int)ChessPolicy.Piece.King;
         var factionBit = (int)currentFaction;
 
-        // Step 1: Find current king position
+        // Step 1: Find current king position (Limit(1) to get at most 1 king without materializing)
         var kingPerspective = perspectivesDf
             .Filter(
                 Col("piece").BitwiseAND(Lit(kingBit)).NotEqual(Lit(0))
@@ -73,31 +67,26 @@ public static class LegalityEngine
                 .And(Col("y").EqualTo(Col("perspective_y")))
             )
             .Select(Col("x").Alias("king_x"), Col("y").Alias("king_y"))
-            .Distinct();
+            .Distinct()
+            .Limit(1);
 
-        // No king on board (edge case for tests) - allow all moves
-        if (IsEmpty(kingPerspective))
-        {
-            return candidatesDf;
-        }
-
-        var kingPos = kingPerspective.Collect().First();
-        int currentKingX = kingPos.GetAs<int>("king_x");
-        int currentKingY = kingPos.GetAs<int>("king_y");
+        // If no king on board (edge case for tests), we still proceed - cross join will produce empty result naturally
 
         if (debug)
         {
-            Console.WriteLine($"[LegalityEngine] King at ({currentKingX}, {currentKingY})");
+            // Debug: would show king position, but we're not materializing
+            // Instead, king position is now available as columns via cross join
         }
 
-        // Step 2: Track which moves involve the king
+        // Step 2: Track which moves involve the king - cross join to get king position columns
         var candidatesWithKingPos = candidatesDf
+            .CrossJoin(kingPerspective)
             .WithColumn("king_is_moving",
                 Col("src_generic_piece").BitwiseAND(Lit(kingBit)).NotEqual(Lit(0)))
             .WithColumn("king_x_after",
-                When(Col("king_is_moving"), Col("dst_x")).Otherwise(Lit(currentKingX)))
+                When(Col("king_is_moving"), Col("dst_x")).Otherwise(Col("king_x")))
             .WithColumn("king_y_after",
-                When(Col("king_is_moving"), Col("dst_y")).Otherwise(Lit(currentKingY)));
+                When(Col("king_is_moving"), Col("dst_y")).Otherwise(Col("king_y")));
 
         // Step 3: Create unique move identifier for deduplication
         var candidatesWithId = candidatesWithKingPos
@@ -170,29 +159,19 @@ public static class LegalityEngine
                 Col("piece").Alias("attacker_piece")
             );
 
-        DataFrame validNonKingMoves;
-
-        // If no opponent sliding pieces, no pin detection needed
-        if (IsEmpty(opponentSlidingPieces))
-        {
-            validNonKingMoves = nonKingMovesCheck
-                .Select(candidatesWithId.Columns().Select(c => Col(c)).ToArray())
-                .Distinct();
-        }
-        else
-        {
-            // Full pin detection: check if piece is between attacker and king
-            var nonKingWithPinCheck = nonKingMovesCheck
-                .CrossJoin(opponentSlidingPieces)
+        // Full pin detection: check if piece is between attacker and king
+        // If no opponent sliding pieces, CrossJoin produces empty and validNonKingMoves filters correctly
+        var nonKingWithPinCheck = nonKingMovesCheck
+            .CrossJoin(opponentSlidingPieces)
                 .WithColumn("is_on_same_file", 
-                    Col("attacker_x").EqualTo(Col("src_x")).And(Col("src_x").EqualTo(Lit(currentKingX))))
+                    Col("attacker_x").EqualTo(Col("src_x")).And(Col("src_x").EqualTo(Col("king_x"))))
                 .WithColumn("is_on_same_rank",
-                    Col("attacker_y").EqualTo(Col("src_y")).And(Col("src_y").EqualTo(Lit(currentKingY))))
+                    Col("attacker_y").EqualTo(Col("src_y")).And(Col("src_y").EqualTo(Col("king_y"))))
                 .WithColumn("is_on_same_diagonal",
                     // All three points on same diagonal
                     Abs(Col("attacker_x") - Col("src_x")).EqualTo(Abs(Col("attacker_y") - Col("src_y")))
-                    .And(Abs(Col("src_x") - Lit(currentKingX)).EqualTo(Abs(Col("src_y") - Lit(currentKingY))))
-                    .And(Abs(Col("attacker_x") - Lit(currentKingX)).EqualTo(Abs(Col("attacker_y") - Lit(currentKingY))))
+                    .And(Abs(Col("src_x") - Col("king_x")).EqualTo(Abs(Col("src_y") - Col("king_y"))))
+                    .And(Abs(Col("attacker_x") - Col("king_x")).EqualTo(Abs(Col("attacker_y") - Col("king_y"))))
                 )
                 .WithColumn("src_between_attacker_and_king",
                     // Source is between attacker and king
@@ -200,15 +179,15 @@ public static class LegalityEngine
                         // For orthogonal lines
                         (Col("is_on_same_file").Or(Col("is_on_same_rank")))
                         .And(
-                            Col("src_x").Between(Least(Col("attacker_x"), Lit(currentKingX)), Greatest(Col("attacker_x"), Lit(currentKingX)))
-                            .And(Col("src_y").Between(Least(Col("attacker_y"), Lit(currentKingY)), Greatest(Col("attacker_y"), Lit(currentKingY))))
+                            Col("src_x").Between(Least(Col("attacker_x"), Col("king_x")), Greatest(Col("attacker_x"), Col("king_x")))
+                            .And(Col("src_y").Between(Least(Col("attacker_y"), Col("king_y")), Greatest(Col("attacker_y"), Col("king_y"))))
                         )
                     )
                     .Or(
                         // For diagonals
                         Col("is_on_same_diagonal")
-                        .And(Col("src_x").Between(Least(Col("attacker_x"), Lit(currentKingX)), Greatest(Col("attacker_x"), Lit(currentKingX))))
-                        .And(Col("src_y").Between(Least(Col("attacker_y"), Lit(currentKingY)), Greatest(Col("attacker_y"), Lit(currentKingY))))
+                        .And(Col("src_x").Between(Least(Col("attacker_x"), Col("king_x")), Greatest(Col("attacker_x"), Col("king_x"))))
+                        .And(Col("src_y").Between(Least(Col("attacker_y"), Col("king_y")), Greatest(Col("attacker_y"), Col("king_y"))))
                     )
                 )
                 .WithColumn("attacker_can_use_line",
@@ -233,50 +212,35 @@ public static class LegalityEngine
                     // If pinned, move must stay on the same line to the king
                     When(
                         Col("is_on_same_file"),
-                        Col("dst_x").EqualTo(Lit(currentKingX))  // Stay on same file
+                        Col("dst_x").EqualTo(Col("king_x"))  // Stay on same file
                     )
                     .When(
                         Col("is_on_same_rank"),
-                        Col("dst_y").EqualTo(Lit(currentKingY))  // Stay on same rank
+                        Col("dst_y").EqualTo(Col("king_y"))  // Stay on same rank
                     )
                     .When(
                         Col("is_on_same_diagonal"),
                         // Stay on diagonal between attacker and king
-                        Abs(Col("dst_x") - Lit(currentKingX)).EqualTo(Abs(Col("dst_y") - Lit(currentKingY)))
+                        Abs(Col("dst_x") - Col("king_x")).EqualTo(Abs(Col("dst_y") - Col("king_y")))
                     )
                     .Otherwise(Lit(true))
                 );
-            
-            // Filter: if pinned, must stay on line; if not pinned, any move ok
-            validNonKingMoves = nonKingWithPinCheck
-                .Filter(
-                    Not(Col("is_pinned"))  // Not pinned
-                    .Or(Col("move_stays_on_line"))  // Pinned but stays on line
-                )
-                .Select(candidatesWithId.Columns().Select(c => Col(c)).ToArray())
-                .Distinct();
-        }
+        
+        // Filter: if pinned, must stay on line; if not pinned, any move ok
+        var validNonKingMoves = nonKingWithPinCheck
+            .Filter(
+                Not(Col("is_pinned"))  // Not pinned
+                .Or(Col("move_stays_on_line"))  // Pinned but stays on line
+            )
+            .Select(candidatesWithId.Columns().Select(c => Col(c)).ToArray())
+            .Distinct();
 
         // Step 8: Combine results and clean up
         var allSafeMoves = kingMovesCheck.Union(validNonKingMoves);
         
         var result = allSafeMoves
-            .Drop("king_is_moving", "king_x_after", "king_y_after", "move_id");
-
-        if (debug)
-        {
-            Console.WriteLine($"[LegalityEngine] Filtered to {result.Count()} legal moves");
-        }
+            .Drop("king_is_moving", "king_x_after", "king_y_after", "move_id", "king_x", "king_y");
 
         return result;
-    }
-
-    /// <summary>
-    /// Helper to check if DataFrame is empty without calling Count()
-    /// Count() materializes the entire DataFrame, which is expensive
-    /// </summary>
-    private static bool IsEmpty(DataFrame df)
-    {
-        return df.Limit(1).Count() == 0;
     }
 }

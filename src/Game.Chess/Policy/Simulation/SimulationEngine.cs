@@ -30,11 +30,6 @@ public class SimulationEngine
         DataFrame candidatesDf,
         Piece[] specificFactions)
     {
-        if (!candidatesDf.Limit(1).Collect().Any())
-        {
-            return perspectivesDf;
-        }
-
         // Get the move details - we need src_x, src_y, dst_x, dst_y, and the piece info
         // Rename columns to avoid ambiguity when joining with perspectivesDf
         var moveDf = candidatesDf.Select(

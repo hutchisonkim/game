@@ -78,7 +78,7 @@ public static class ThreatEngine
 
         if (debug)
         {
-            System.Console.WriteLine($"[ThreatEngine] Total threatened cells: {allThreatsDf.Count()}");
+            System.Console.WriteLine($"[ThreatEngine] Computed threatened cells");
         }
 
         return allThreatsDf;
@@ -144,7 +144,7 @@ public static class ThreatEngine
 
         if (debug)
         {
-            System.Console.WriteLine($"[DirectThreats] Count: {threatenedCellsDf.Count()}");
+            System.Console.WriteLine($"[DirectThreats] Computed direct threats");
         }
 
         return threatenedCellsDf;
@@ -173,9 +173,6 @@ public static class ThreatEngine
             .And(Col("sequence").BitwiseAND(Lit(publicFlag)).EqualTo(Lit(0)))
         );
 
-        if (IsEmpty(entryPatternsDf))
-            return CreateEmptyThreatenedCellsDf(perspectivesDf);
-
         // Start with initial perspectives
         var initialPerspectivesDf = perspectivesDf
             .WithColumn("original_perspective_x", Col("perspective_x"))
@@ -191,9 +188,6 @@ public static class ThreatEngine
             debug: false
         );
 
-        if (IsEmpty(currentFrontier))
-            return CreateEmptyThreatenedCellsDf(perspectivesDf);
-
         // Collect all threatened cells from first step
         var allThreatenedCells = currentFrontier
             .Select(Col("dst_x").Alias("threatened_x"), Col("dst_y").Alias("threatened_y"))
@@ -207,11 +201,8 @@ public static class ThreatEngine
         // Iterate to find all threatened cells
         for (int depth = 1; depth < maxDepth; depth++)
         {
-            if (IsEmpty(emptyFrontier)) break;
-
             // Create perspectives from frontier positions
             var nextPerspectives = ComputeNextPerspectivesFromMoves(emptyFrontier, perspectivesDf);
-            if (IsEmpty(nextPerspectives)) break;
 
             // Compute next step of sliding
             var nextMoves = PatternMatcher.MatchPatternsWithSequence(
@@ -222,8 +213,6 @@ public static class ThreatEngine
                 activeSequences: ChessPolicy.Sequence.None,
                 debug: false
             );
-
-            if (IsEmpty(nextMoves)) break;
 
             // Add new threatened cells
             var newThreatened = nextMoves
@@ -294,15 +283,5 @@ public static class ThreatEngine
     /// <summary>
     /// Checks if a dataframe is empty without materializing it.
     /// </summary>
-    private static bool IsEmpty(DataFrame df)
-    {
-        try
-        {
-            return df.Limit(1).Count() == 0;
-        }
-        catch
-        {
-            return true;
-        }
-    }
+    private static bool IsEmpty(DataFrame df) => false; // Deprecated; keep for signature compatibility if referenced elsewhere
 }

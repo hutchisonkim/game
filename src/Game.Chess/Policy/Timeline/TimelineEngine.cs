@@ -101,15 +101,6 @@ public static class TimelineEngine
                 maxDepth: maxDepth
             );
 
-            if (IsEmpty(candidatesDf))
-            {
-                if (debug)
-                {
-                    Console.WriteLine($"[TimelineEngine] No candidates at depth {depth}");
-                }
-                break;  // No more moves possible
-            }
-
             // Filter legal moves using LegalityEngine
             var legalMovesDf = LegalityEngine.FilterMovesLeavingKingInCheck(
                 candidatesDf,
@@ -119,15 +110,6 @@ public static class TimelineEngine
                 turn: currentTurn,
                 debug: debug
             );
-
-            if (IsEmpty(legalMovesDf))
-            {
-                if (debug)
-                {
-                    Console.WriteLine($"[TimelineEngine] No legal moves at depth {depth}");
-                }
-                break;  // Checkmate or stalemate
-            }
 
             // Simulate board after legal moves
             var simulationEngine = new SimulationEngine();
@@ -162,14 +144,5 @@ public static class TimelineEngine
         }
 
         return timelineDf;
-    }
-
-    /// <summary>
-    /// Helper to check if DataFrame is empty without calling Count()
-    /// Count() materializes the entire DataFrame, which is expensive
-    /// </summary>
-    private static bool IsEmpty(DataFrame df)
-    {
-        return df.Limit(1).Count() == 0;
     }
 }

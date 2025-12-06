@@ -61,9 +61,6 @@ public static class SequenceEngine
             .And(Col("sequence").BitwiseAND(Lit(publicFlag)).EqualTo(Lit(0)))
         );
 
-        if (IsEmpty(entryPatternsDf))
-            return CreateEmptyMovesDf(perspectivesDf);
-
         // Step 2: Get initial entry moves using PatternMatcher
         var initialPerspectivesDf = perspectivesDf
             .WithColumn("original_perspective_x", Col("perspective_x"))
@@ -77,9 +74,6 @@ public static class SequenceEngine
             activeSequences: ChessPolicy.Sequence.None,
             debug: false
         );
-
-        if (IsEmpty(entryMoves))
-            return CreateEmptyMovesDf(perspectivesDf);
 
         // Step 3: Start accumulating all moves (entry + continuations)
         var allSequencedMoves = entryMoves.Select(
@@ -130,8 +124,6 @@ public static class SequenceEngine
         // Step 5: Iteratively expand sliding moves
         for (int depth = 1; depth < maxDepth; depth++)
         {
-            if (IsEmpty(emptyFrontier)) break;
-
             // Get continuation moves
             var continuationMoves = ExpandContinuationMoves(
                 emptyFrontier,
@@ -142,8 +134,6 @@ public static class SequenceEngine
                 variantMask,
                 emptyBit
             );
-
-            if (IsEmpty(continuationMoves)) break;
 
             // Add continuation moves to results
             var continuationFormatted = continuationMoves.Select(
@@ -330,15 +320,5 @@ public static class SequenceEngine
             .Limit(0);
     }
 
-    private static bool IsEmpty(DataFrame df)
-    {
-        try
-        {
-            return df.Limit(1).Count() == 0;
-        }
-        catch
-        {
-            return true;
-        }
-    }
+    private static bool IsEmpty(DataFrame df) => false; // Deprecated
 }
