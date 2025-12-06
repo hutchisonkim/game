@@ -171,18 +171,38 @@ try {
         $sparkLogPath = Join-Path $logDir "spark-test-output-$timestamp.log"
 
         # Run spark-submit in foreground so the script exits when it completes
-        Write-Host "Invoking spark-submit: $sparkSubmit"
-        & $sparkSubmit @argsList *> $sparkLogPath 2>&1
-        $ec = $LASTEXITCODE
+        Write-Host "Invoking spark-submit (streaming logs): $sparkSubmit"
 
-        if (Test-Path $sparkLogPath) {
-            Write-Host "[run-spark-tests-local] Spark test output saved to $sparkLogPath"
-            # Show the captured log, then exit — do not block with -Wait
-            Get-Content -Path $sparkLogPath
+        # Start log tail jobs (Spark log immediately; test log when first appears)
+        $tailJobs = @()
+        $tailJobs += Start-Job -ArgumentList $sparkLogPath -ScriptBlock {
+            param($path)
+            if (Test-Path $path) { Get-Content -Path $path -Wait }
         }
-        else {
-            Write-Warning "Spark test output log not found: $sparkLogPath"
+
+        $tailJobs += Start-Job -ArgumentList $logDir -ScriptBlock {
+            param($dir)
+            while ($true) {
+                $f = Get-ChildItem -Path $dir -Filter 'test-output-*.log' -ErrorAction SilentlyContinue |
+                     Sort-Object LastWriteTime -Descending | Select-Object -First 1
+                if ($f) { Get-Content -Path $f.FullName -Wait; break }
+                Start-Sleep -Seconds 1
+            }
         }
+
+        $proc = Start-Process -FilePath $sparkSubmit -ArgumentList ($argsList -join ' ') -WindowStyle Hidden -PassThru
+        if (-not $proc) { Fail("Failed to start spark-submit process") }
+
+        while (-not $proc.HasExited) {
+            Receive-Job -Job $tailJobs -ErrorAction SilentlyContinue | Write-Host
+            Start-Sleep -Milliseconds 200
+        }
+        # Drain any remaining log lines
+        Receive-Job -Job $tailJobs -ErrorAction SilentlyContinue | Write-Host
+        $tailJobs | ForEach-Object { try { Stop-Job $_ -Force -ErrorAction SilentlyContinue } catch {} }
+        $tailJobs | ForEach-Object { try { Remove-Job $_ -Force -ErrorAction SilentlyContinue } catch {} }
+
+        $ec = $proc.ExitCode
 
         if ($ec -ne 0) { Fail("spark-submit returned exit code $ec", $ec) }
     }
