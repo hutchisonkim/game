@@ -111,12 +111,15 @@ public static class LegalityEngine
             debug: debug
         );
 
+        // BROADCAST threatened cells (typically small, < 64 cells) to avoid shuffle joins
+        var broadcastThreats = Broadcast(currentThreats);
+
         // Step 5: Validate king moves
         // King can't move to threatened squares
         var kingMovesCheck = candidatesWithId
             .Filter(Col("king_is_moving"))
             .Join(
-                currentThreats
+                broadcastThreats
                     .WithColumnRenamed("threatened_x", "threat_x")
                     .WithColumnRenamed("threatened_y", "threat_y"),
                 Col("dst_x").EqualTo(Col("threat_x")).And(Col("dst_y").EqualTo(Col("threat_y"))),
@@ -131,7 +134,7 @@ public static class LegalityEngine
         // Join with threats to find which moves would leave king threatened
         var nonKingMovesCheck = nonKingMoves
             .Join(
-                currentThreats
+                broadcastThreats
                     .WithColumnRenamed("threatened_x", "threat_x")
                     .WithColumnRenamed("threatened_y", "threat_y"),
                 Col("king_x_after").EqualTo(Col("threat_x")).And(Col("king_y_after").EqualTo(Col("threat_y"))),

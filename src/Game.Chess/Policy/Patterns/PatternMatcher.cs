@@ -104,6 +104,9 @@ public static class PatternMatcher
         ChessPolicy.Sequence activeSequences,
         bool debug)
     {
+        // Cache perspectives early since we use it multiple times
+        perspectivesDf.Cache();
+
         // ===== STEP 0: Deduplicate patterns =====
         var uniquePatternsDf = patternsDf.DropDuplicates();
 
@@ -126,63 +129,60 @@ public static class PatternMatcher
                 Col("piece").BitwiseAND(Lit((int)turnFaction)).NotEqual(Lit(0))
             );
 
+        // Additional filter pushdown for sequence filtering - filter patterns before cross-join
+        var filteredPatternsDf = uniquePatternsDf;
+        if ((int)activeSequences != 0)
+        {
+            // If activeSequences are specified, filter patterns early
+            var inMask = (int)ChessPolicy.Sequence.InMask;
+            var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
+            var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
+
+            var activeSeqInt = (int)activeSequences;
+            var activeInFlagsFromOut = (activeSeqInt >> 1) & inMask;
+            var activeInFlagsDirect = activeSeqInt & inMask;
+            var activeInFlags = activeInFlagsFromOut | activeInFlagsDirect;
+            var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
+
+            filteredPatternsDf = uniquePatternsDf.Filter(
+                Col("sequence").BitwiseAND(Lit((int)ChessPolicy.Sequence.Public)).NotEqual(Lit(0))
+                .And(hasNoInRequirements.Or(inRequirementsMet))
+            );
+        }
+        else
+        {
+            // No active sequences - filter by Public flag only
+            filteredPatternsDf = uniquePatternsDf.Filter(
+                Col("sequence").BitwiseAND(Lit((int)ChessPolicy.Sequence.Public)).NotEqual(Lit(0))
+            );
+        }
 
         // ===== STEP 2: Cross-join actor pieces with patterns =====
+        // Using pre-filtered patterns to reduce cartesian product
         var dfA = actorPerspectives
             .WithColumnRenamed("piece", "src_piece")
             .WithColumnRenamed("generic_piece", "src_generic_piece")
             .WithColumnRenamed("x", "src_x")
             .WithColumnRenamed("y", "src_y")
-            .CrossJoin(uniquePatternsDf);
+            .CrossJoin(filteredPatternsDf);
+
+        // CRITICAL: Repartition immediately after cross-join to break up the massive logical plan
+        // This forces Spark to materialize and process in smaller chunks
+        var dfA_repartitioned = dfA.Repartition(100);
 
 
         // ===== STEP 3: Apply source condition filtering =====
         // Require ALL bits of src_conditions to be present in src_generic_piece
-        var dfB = dfA.Filter(
+        // This aggressively reduces the dataframe size before further processing
+        var dfB = dfA_repartitioned.Filter(
             Col("src_generic_piece").BitwiseAND(Col("src_conditions"))
             .EqualTo(Col("src_conditions"))
         );
 
 
-        // ===== STEP 4: Apply sequence filtering =====
-        // When activeSequences is None, just filter by Public flag (backward compatible)
-        // When activeSequences has Out* flags active, enable patterns with matching In* flags
-        DataFrame dfC;
-        var activeSeqInt = (int)activeSequences;
-
-        if (activeSeqInt == 0)
-        {
-            // No active sequences - use simple Public filter (backward compatible)
-            dfC = dfB.Filter(
-                Col("sequence").BitwiseAND(Lit((int)ChessPolicy.Sequence.Public)).NotEqual(Lit(0))
-            );
-        }
-        else
-        {
-            // Active sequences present - apply In/Out matching logic
-            var inMask = (int)ChessPolicy.Sequence.InMask;
-
-            // Pattern's In* flags (what it requires)
-            var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
-
-            // Check if pattern has no In* requirements (it's an entry pattern)
-            var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
-
-            // Check if pattern's In* requirements are met by activeSequences
-            // The In/Out pairs have consecutive bit positions in the enum:
-            // InA = 1 << 5, OutA = 1 << 6, InB = 1 << 7, OutB = 1 << 8, etc.
-            // This means OutX >> 1 = InX for all pairs.
-            var activeInFlagsFromOut = (activeSeqInt >> 1) & inMask; // Shift Out flags to corresponding In flags
-            var activeInFlagsDirect = activeSeqInt & inMask; // In flags passed directly
-            var activeInFlags = activeInFlagsFromOut | activeInFlagsDirect; // Combine both
-            var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
-
-            // A pattern can execute if it's Public and (has no In requirements OR In requirements are met)
-            dfC = dfB.Filter(
-                Col("sequence").BitwiseAND(Lit((int)ChessPolicy.Sequence.Public)).NotEqual(Lit(0))
-                .And(hasNoInRequirements.Or(inRequirementsMet))
-            );
-        }
+        // ===== STEP 4: Skip sequence filtering (done in STEP 1) =====
+        // Sequence filtering was moved to pattern preprocessing in STEP 1
+        var dfC = dfB;
 
 
         // ===== STEP 5: Compute dst_x, dst_y =====

@@ -11,6 +11,19 @@ namespace Game.Chess.Tests.Integration.Runner
         // Returns a concise text summary.
         public static string RunTests(string publishDir, string filter)
         {
+            // Use a unique log file per run inside a dedicated subfolder
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var logDir = Path.Combine(publishDir, "test-logs");
+            Directory.CreateDirectory(logDir);
+            var logPath = Path.Combine(logDir, $"test-output-{timestamp}.log");
+
+            // Build the integration test project first to ensure latest binaries
+            var buildResult = BuildIntegrationTestProject(logPath);
+            if (!string.IsNullOrEmpty(buildResult))
+            {
+                return buildResult;
+            }
+
             // Resolve test DLL location
             string testDll = ResolveTestDll();
             if (!File.Exists(testDll))
@@ -29,12 +42,6 @@ namespace Game.Chess.Tests.Integration.Runner
             }
 
             testDll = Path.Combine(publishDir, Path.GetFileName(testDll));
-
-            // Use a unique log file per run inside a dedicated subfolder
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-            var logDir = Path.Combine(publishDir, "test-logs");
-            Directory.CreateDirectory(logDir);
-            var logPath = Path.Combine(logDir, $"test-output-{timestamp}.log");
 
             try
             {
@@ -121,10 +128,12 @@ namespace Game.Chess.Tests.Integration.Runner
                         {
                             const int perTestTimeoutMs = 20_000;
                             var outLog = new System.Text.StringBuilder();
+                            var testResults = new System.Collections.Generic.List<(string Name, string Result, long DurationMs)>();
                             var stopwatch = System.Diagnostics.Stopwatch.StartNew(); // Start measuring duration
                             foreach (var fullyQualified in tests)
                             {
                                 total++;
+                                var testStopwatch = System.Diagnostics.Stopwatch.StartNew();
                                 var singleArgs = new System.Collections.Generic.List<string> { "vstest", '"' + assemblyPath + '"', "--TestCaseFilter:" + '"' + $"FullyQualifiedName={fullyQualified}" + '"' };
                                 var psiSingle = new System.Diagnostics.ProcessStartInfo
                                 {
@@ -137,7 +146,7 @@ namespace Game.Chess.Tests.Integration.Runner
                                 };
 
                                 var p = System.Diagnostics.Process.Start(psiSingle);
-                                if (p == null) { failed++; outLog.AppendLine($"[Runner] Failed to start process for {fullyQualified}"); continue; }
+                                if (p == null) { failed++; outLog.AppendLine($"[Runner] Failed to start process for {fullyQualified}"); testResults.Add((fullyQualified, "FAILED", 0)); continue; }
 
                                 var exited = p.WaitForExit(perTestTimeoutMs);
                                 string sout = string.Empty, serr = string.Empty;
@@ -153,8 +162,10 @@ namespace Game.Chess.Tests.Integration.Runner
                                     } 
                                     catch { }
                                     
+                                    testStopwatch.Stop();
                                     timedOut++;
                                     outLog.AppendLine($"[Runner] Timed out: {fullyQualified}");
+                                    testResults.Add((fullyQualified, "TIMEOUT", testStopwatch.ElapsedMilliseconds));
 
                                     // Skip remaining tests to avoid waiting further
                                     var remaining = tests.Count - total;
@@ -170,16 +181,30 @@ namespace Game.Chess.Tests.Integration.Runner
                                     File.AppendAllText(logPath, outLog.ToString());
                                     outLog.Clear();
                                     
+                                    // Output individual test results before summary
+                                    var resultLines = new System.Text.StringBuilder();
+                                    resultLines.AppendLine("[Runner Test Results]");
+                                    foreach (var (name, result, duration) in testResults)
+                                    {
+                                        var durationSecs = duration / 1000.0;
+                                        var color = result == "PASSED" ? "\u001b[32m" : result == "TIMEOUT" ? "\u001b[33m" : "\u001b[31m"; // Green for passed, yellow for timeout, red for failed
+                                        var reset = "\u001b[0m";
+                                        resultLines.AppendLine($"  {color}[{result}]{reset} {name} ({durationSecs:F3}s)");
+                                    }
+                                    var summary = resultLines.ToString() + $"VSTest Per-Test Summary: Total: {total}, Passed: {passed}, Failed: {failed}, TimedOut: {timedOut}, Skipped: {skipped}";
+                                    File.AppendAllText(logPath, summary);
+                                    
                                     // Return immediately with results instead of falling back to VSTest,
                                     // which would re-run all tests
-                                    return $"VSTest Per-Test Summary: Total: {total}, Passed: {passed}, Failed: {failed}, TimedOut: {timedOut}, Skipped: {skipped}";
+                                    return summary;
                                 }
                                 
+                                testStopwatch.Stop();
                                 // Process exited normally - read its output
                                 try { sout = p.StandardOutput.ReadToEnd(); serr = p.StandardError.ReadToEnd(); } catch { }
 
-                                if (p.ExitCode == 0) { passed++; outLog.AppendLine($"[Runner] Passed: {fullyQualified}"); }
-                                else { failed++; outLog.AppendLine($"[Runner] Failed: {fullyQualified}"); }
+                                if (p.ExitCode == 0) { passed++; outLog.AppendLine($"[Runner] Passed: {fullyQualified}"); testResults.Add((fullyQualified, "PASSED", testStopwatch.ElapsedMilliseconds)); }
+                                else { failed++; outLog.AppendLine($"[Runner] Failed: {fullyQualified}"); testResults.Add((fullyQualified, "FAILED", testStopwatch.ElapsedMilliseconds)); }
 
                                 outLog.AppendLine(sout); outLog.AppendLine(serr);
                                 File.AppendAllText(logPath, outLog.ToString());
@@ -187,7 +212,19 @@ namespace Game.Chess.Tests.Integration.Runner
                             }
                             stopwatch.Stop(); // Stop measuring duration
                             var durationTotalMs = stopwatch.ElapsedMilliseconds; // Calculate total duration
-                            return $"VSTest Per-Test Summary: Total: {total}, Passed: {passed}, Failed: {failed}, TimedOut: {timedOut}, Skipped: {skipped} Duration: {durationTotalMs}ms";
+                            
+                            // Output individual test results
+                            var resultLines2 = new System.Text.StringBuilder();
+                            resultLines2.AppendLine("[Runner Test Results]");
+                            foreach (var (name, result, duration) in testResults)
+                            {
+                                var durationSecs = duration / 1000.0;
+                                var color = result == "PASSED" ? "\u001b[32m" : result == "TIMEOUT" ? "\u001b[33m" : "\u001b[31m"; // Green for passed, yellow for timeout, red for failed
+                                var reset = "\u001b[0m";
+                                resultLines2.AppendLine($"  {color}[{result}]{reset} {name} ({durationSecs:F3}s)");
+                            }
+                            var finalSummary = resultLines2.ToString() + $"VSTest Per-Test Summary: Total: {total}, Passed: {passed}, Failed: {failed}, TimedOut: {timedOut}, Skipped: {skipped} Duration: {durationTotalMs}ms";
+                            return finalSummary;
                         }
                     }
                     catch (Exception ex)
@@ -340,6 +377,113 @@ namespace Game.Chess.Tests.Integration.Runner
             }
 
             return "Game.Chess.Tests.Integration.dll";
+        }
+
+        private static string BuildIntegrationTestProject(string logPath)
+        {
+            try
+            {
+                // Find the integration test project file
+                var projectCandidates = new[]
+                {
+                    @"tests\Game.Chess.Tests.Integration\Game.Chess.Tests.Integration.csproj",
+                    @"..\Game.Chess.Tests.Integration\Game.Chess.Tests.Integration.csproj",
+                };
+
+                string projectPath = null;
+                var startPath = Directory.GetCurrentDirectory();
+                var searchPath = startPath;
+
+                while (!string.IsNullOrEmpty(searchPath))
+                {
+                    foreach (var candidate in projectCandidates)
+                    {
+                        var fullPath = Path.Combine(searchPath, candidate);
+                        if (File.Exists(fullPath))
+                        {
+                            projectPath = fullPath;
+                            break;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(projectPath)) break;
+
+                    var parent = Path.GetDirectoryName(searchPath);
+                    if (parent == searchPath) break;
+                    searchPath = parent;
+                }
+
+                if (string.IsNullOrEmpty(projectPath))
+                {
+                    var msg = "[Builder] Integration test project file not found";
+                    File.AppendAllText(logPath, msg + Environment.NewLine);
+                    return msg;
+                }
+
+                var buildMsg = $"[Builder] Building project: {projectPath}";
+                Console.WriteLine(buildMsg);
+                File.AppendAllText(logPath, buildMsg + Environment.NewLine);
+
+                var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+                string dotnetExe = string.IsNullOrWhiteSpace(dotnetRoot) ? "dotnet" : Path.Combine(dotnetRoot, "dotnet.exe");
+
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = dotnetExe,
+                    Arguments = $"build \"{projectPath}\" -c Debug",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                };
+
+                var proc = System.Diagnostics.Process.Start(psi);
+                if (proc == null)
+                {
+                    var msg = "[Builder] Failed to start build process";
+                    File.AppendAllText(logPath, msg + Environment.NewLine);
+                    return msg;
+                }
+
+                string output = proc.StandardOutput.ReadToEnd();
+                string error = proc.StandardError.ReadToEnd();
+                proc.WaitForExit();
+
+                // Log build output to file for visibility
+                File.AppendAllText(logPath, "[Builder] --- Build Output ---" + Environment.NewLine);
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Console.WriteLine("[Builder] --- Build Output ---");
+                    Console.WriteLine(output);
+                    File.AppendAllText(logPath, output + Environment.NewLine);
+                }
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    Console.WriteLine("[Builder] --- Build Errors/Warnings ---");
+                    Console.WriteLine(error);
+                    File.AppendAllText(logPath, "[Builder] --- Build Errors/Warnings ---" + Environment.NewLine);
+                    File.AppendAllText(logPath, error + Environment.NewLine);
+                }
+
+                if (proc.ExitCode != 0)
+                {
+                    var failMsg = $"[Builder] Build failed with exit code {proc.ExitCode}";
+                    Console.WriteLine(failMsg);
+                    File.AppendAllText(logPath, failMsg + Environment.NewLine);
+                    return failMsg;
+                }
+
+                var successMsg = "[Builder] Build completed successfully";
+                Console.WriteLine(successMsg);
+                File.AppendAllText(logPath, successMsg + Environment.NewLine);
+                return null; // Success - return null to indicate no error
+            }
+            catch (Exception ex)
+            {
+                var errMsg = $"[Builder] Exception during build: {ex.Message}";
+                Console.WriteLine(errMsg);
+                File.AppendAllText(logPath, errMsg + Environment.NewLine);
+                return errMsg;
+            }
         }
     }
 }
