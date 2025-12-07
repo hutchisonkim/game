@@ -352,10 +352,14 @@ namespace Game.Chess.Tests.Integration.Runner
         {
             var candidates = new[]
             {
-                @"tests\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
+                @"tests\Game.Chess.Tests.Integration\bin\Debug\net8.0\publish\Game.Chess.Tests.Integration.dll",
+                @"tests\Game.Chess.Tests.Integration\bin\Release\net8.0\publish\Game.Chess.Tests.Integration.dll",
+                @"..\Game.Chess.Tests.Integration\bin\Debug\net8.0\publish\Game.Chess.Tests.Integration.dll",
+                @"..\Game.Chess.Tests.Integration\bin\Release\net8.0\publish\Game.Chess.Tests.Integration.dll",
                 @"tests\Game.Chess.Tests.Integration\bin\Debug\net8.0\Game.Chess.Tests.Integration.dll",
-                @"..\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
+                @"tests\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
                 @"..\Game.Chess.Tests.Integration\bin\Debug\net8.0\Game.Chess.Tests.Integration.dll",
+                @"..\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
             };
 
             var startPath = Directory.GetCurrentDirectory();
@@ -430,7 +434,7 @@ namespace Game.Chess.Tests.Integration.Runner
                 var psi = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = dotnetExe,
-                    Arguments = $"build \"{projectPath}\" -c Debug",
+                    Arguments = $"publish \"{projectPath}\" -c Debug --no-restore",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,

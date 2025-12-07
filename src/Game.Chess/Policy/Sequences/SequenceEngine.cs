@@ -196,6 +196,7 @@ public static class SequenceEngine
                 Col("src_generic_piece"),
                 Col("dst_x"),
                 Col("dst_y"),
+                Col("dst_piece"),
                 Col("dst_generic_piece"),
                 Col("sequence"),
                 Col("dst_effects")

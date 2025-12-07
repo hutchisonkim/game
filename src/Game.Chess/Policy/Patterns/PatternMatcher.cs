@@ -166,15 +166,10 @@ public static class PatternMatcher
             .WithColumnRenamed("y", "src_y")
             .CrossJoin(filteredPatternsDf);
 
-        // CRITICAL: Repartition immediately after cross-join to break up the massive logical plan
-        // This forces Spark to materialize and process in smaller chunks
-        var dfA_repartitioned = dfA.Repartition(100);
-
-
         // ===== STEP 3: Apply source condition filtering =====
         // Require ALL bits of src_conditions to be present in src_generic_piece
         // This aggressively reduces the dataframe size before further processing
-        var dfB = dfA_repartitioned.Filter(
+        var dfB = dfA.Filter(
             Col("src_generic_piece").BitwiseAND(Col("src_conditions"))
             .EqualTo(Col("src_conditions"))
         );
@@ -244,6 +239,7 @@ public static class PatternMatcher
                 Col("y").Alias("lookup_y"),
                 Col("perspective_x").Alias("lookup_perspective_x"),
                 Col("perspective_y").Alias("lookup_perspective_y"),
+                Col("piece").Alias("lookup_piece"),
                 Col("generic_piece").Alias("lookup_generic_piece")
             );
 
@@ -268,9 +264,10 @@ public static class PatternMatcher
             Col("lookup_generic_piece") != Lit((int)ChessPolicy.Piece.OutOfBounds)
         );
 
-        // ===== STEP 10: Rename dst_generic_piece =====
+        // ===== STEP 10: Rename dst columns =====
         var dfI = dfH
             .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y")
+            .WithColumnRenamed("lookup_piece", "dst_piece")
             .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");
 
         // ===== STEP 11: Apply destination condition filtering =====
