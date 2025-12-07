@@ -5,6 +5,8 @@
     instances (conhost.exe) caused by test runners, hot reload development,
     or crashed projects.
 
+    **Excludes:** VS Code .NET processes (CPS/BuildHost)
+
     Configure $Pattern to match your runner DLL, exe, or project path.
 
     Example:
@@ -25,13 +27,19 @@ Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 Write-Host ""
 
 # Gather dotnet processes that match pattern
-$dotnetProcs = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'dotnet.exe' }
+# Exclude VS Code dotnet processes (CPS/BuildHost)
+$dotnetProcs = Get-CimInstance Win32_Process | Where-Object {
+    $_.Name -eq 'dotnet.exe' -and
+    $_.CommandLine -notmatch 'visualstudio-projectsystem-buildhost' -and
+    $_.CommandLine -notmatch 'CPS.*BuildHost'
+}
+
 if (-not $dotnetProcs -or $dotnetProcs.Count -eq 0) {
-    Write-Host "No dotnet.exe processes found." -ForegroundColor Green
+    Write-Host "No dotnet.exe runner processes found (VS Code processes excluded)." -ForegroundColor Green
     return
 }
 
-Write-Warning "About to kill ALL detected dotnet.exe processes (this will stop other dotnet apps)."
+Write-Warning "About to kill detected dotnet.exe runner processes (excluding VS Code)."
 Write-Host "Press Ctrl-C to cancel within 1 second(s)..." -ForegroundColor Yellow
 Start-Sleep -Seconds 1
 

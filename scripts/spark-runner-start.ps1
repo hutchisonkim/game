@@ -179,6 +179,13 @@ try {
     Push-Location $publishDir
     try {
         $argsList = @(
+            '--conf', 'spark.sql.autoBroadcastJoinThreshold=10485760',
+            '--conf', 'spark.sql.shuffle.partitions=200',
+            '--conf', 'spark.sql.adaptive.enabled=true',
+            '--conf', 'spark.sql.adaptive.coalescePartitions.enabled=true',
+            '--conf', 'spark.sql.statistics.histogram.enabled=true',
+            '--conf', 'spark.driver.memory=4g',
+            '--conf', 'spark.driver.extraJavaOptions=-XX:+ExitOnOutOfMemoryError -Xmx4g',
             '--class', 'org.apache.spark.deploy.dotnet.DotnetRunner',
             '--master', 'local',
             $jarPath,

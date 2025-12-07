@@ -58,14 +58,16 @@ function Invoke-RunnerPing {
 
 function Get-ProcessSummary {
     param(
-        [System.Collections.Generic.IEnumerable[object]]$Items
+        [object[]]$Items
     )
 
     $count = 0
     $wsTotal = 0
     foreach ($p in $Items) {
-        $count += 1
-        $wsTotal += [int64]$p.WorkingSetSize
+        if ($p) {
+            $count += 1
+            $wsTotal += [int64]$p.WorkingSetSize
+        }
     }
     return [pscustomobject]@{
         Count = $count
