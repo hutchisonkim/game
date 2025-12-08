@@ -128,9 +128,20 @@ if (-not (Test-Path $logDir)) { Fail "Log directory not found: $logDir" }
 
 $runStartUtc = (Get-Date).ToUniversalTime()
 $tailJobs = @()
-$spinner = @('|','/','-','\\')
+$green = "`e[32m"; $yellow = "`e[33m"; $magenta = "`e[35m"; $reset = "`e[0m"
+$spinnerFrames = @(
+    "[tail] seed   .",
+    "[tail] seed   o",
+    "[tail] sprout ${green}|${reset}",
+    "[tail] sprout ${green}/|${reset}",
+    "[tail] sprout ${green}/|\\${reset}",
+    "[tail] leaf   ${green}/|\\*${reset}",
+    "[tail] leaf   ${green}/|\\*${reset}${yellow}.${reset}",
+    "[tail] bloom  ${green}/|\\${reset}${yellow}*${reset}${magenta}*${reset}"
+)
 $spinIndex = 0
 $spinnerActive = $false
+$spinnerClear = ' '.PadRight(40)
 
 $runJob = Invoke-RunnerAsync $body
 if (-not $runJob) { Fail "Failed to start RUN request" }
@@ -171,9 +182,9 @@ if ($tailJobs.Count -gt 0) {
         $runState = (Get-Job -Id $runJob.Id).State
         if ($runState -ne 'Running') { break }
 
-        $spin = $spinner[$spinIndex % $spinner.Count]
+        $spin = $spinnerFrames[$spinIndex % $spinnerFrames.Count]
         $spinIndex++
-        Write-Host -NoNewline "`r[tail] $spin"
+        Write-Host -NoNewline "`r$spinnerClear`r$spin"
         $spinnerActive = $true
 
         Start-Sleep -Milliseconds 300
@@ -191,7 +202,7 @@ if ($tailJobs.Count -gt 0) {
         if ($spinnerActive) { Write-Host -NoNewline "`r       `r"; $spinnerActive = $false }
         $output | ForEach-Object { Write-Host $_ }
     }
-    Write-Host "`r       `r"
+    Write-Host "`r$spinnerClear`r"
     Write-Host "Stopping tail jobs..."
     Stop-Job -Job $tailJobs -ErrorAction SilentlyContinue | Out-Null
     Remove-Job -Job $tailJobs -Force -ErrorAction SilentlyContinue | Out-Null
