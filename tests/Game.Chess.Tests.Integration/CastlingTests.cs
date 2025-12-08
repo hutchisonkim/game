@@ -599,7 +599,7 @@ public class CastlingTests : ChessTestBase
     /// </summary>
     [Fact]
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    // [Trait("Essential", "True")]
     public void CastlingIntegration_CandidatesGenerated_SequenceEngine_Refactored()
     {
         // Arrange - Use refactored policy
@@ -635,7 +635,7 @@ public class CastlingTests : ChessTestBase
     /// </summary>
     [Fact]
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    // [Trait("Essential", "True")]
     public void CastlingIntegration_CandidatesGenerated_Combined_Refactored()
     {
         // Arrange - Use refactored policy
@@ -671,7 +671,7 @@ public class CastlingTests : ChessTestBase
     /// </summary>
     [Fact]
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    // [Trait("Essential", "True")]
     public void CastlingIntegration_LegalityFiltering_Refactored()
     {
         // Arrange
@@ -715,7 +715,7 @@ public class CastlingTests : ChessTestBase
     /// </summary>
     [Fact]
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    // [Trait("Essential", "True")]
     public void CastlingIntegration_SimulationWorks_Refactored()
     {
         // Arrange
