@@ -100,14 +100,20 @@ public class SimulationEngine
             )
             .Otherwise(Col("new_piece"));
 
+        // Explicitly select only perspective columns to avoid ambiguity
         var finalDf = newPerspectivesDf
             .WithColumn("piece", Col("new_piece"))
             .WithColumn("generic_piece", newGenericPieceCol)
-            .Drop("new_piece", "src_x", "src_y", "src_piece", "src_generic_piece", "dst_x", "dst_y", 
-                  "move_perspective_x", "move_perspective_y", "move_perspective_piece");
+            .Select(
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_piece"),
+                Col("x"),
+                Col("y"),
+                Col("piece"),
+                Col("generic_piece")
+            );
 
-        // Remove any duplicate columns from the join
-        var columns = perspectivesDf.Columns();
-        return finalDf.Select(columns.Select(c => Col(c)).ToArray());
+        return finalDf;
     }
 }

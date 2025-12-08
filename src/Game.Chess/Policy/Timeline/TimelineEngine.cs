@@ -54,22 +54,31 @@ public static class TimelineEngine
         int maxDepth = 3,
         bool debug = false)
     {
+        // Ensure perspectives carry a stable identifier for unions
+        var perspectiveEngine = new PerspectiveEngine();
+        var perspectivesWithId = perspectiveEngine.AddPerspectiveId(perspectivesDf);
+
         // Step 1: Initialize timeline at depth 0 with threatened cells
         var threatenedCellsDf = ThreatEngine.ComputeThreatenedCells(
-            perspectivesDf,
+            perspectivesWithId,
             patternsDf,
             specificFactions,
             turn: 0,
             debug: debug
         );
 
-        var perspectiveEngine = new PerspectiveEngine();
         var perspectivesWithThreats = perspectiveEngine.ApplyThreatMask(
-            perspectivesDf,
+            perspectivesWithId,
             threatenedCellsDf
         );
 
-        var timelineDf = perspectivesWithThreats.WithColumn("timestep", Lit(0));
+        // Ensure schema matches the explicit selection we'll use for depth N+
+        var timelineColumns = new[] { "x", "y", "piece", "perspective_x", "perspective_y", "perspective_piece", "generic_piece", "perspective_id", "timestep" };
+        var perspectivesForTimeline = perspectivesWithThreats
+            .WithColumn("timestep", Lit(0))
+            .Select(timelineColumns.Select(c => Col(c)).ToArray());
+
+        var timelineDf = perspectivesForTimeline;
 
         if (debug)
         {
@@ -129,13 +138,21 @@ public static class TimelineEngine
                 debug: debug
             );
 
-            var nextPerspectivesWithThreats = perspectiveEngine.ApplyThreatMask(
-                nextPerspectivesDf,
-                nextThreatenedCellsDf
-            ).WithColumn("timestep", Lit(depth));
+            var nextPerspectivesWithThreats = perspectiveEngine.AddPerspectiveId(
+                    perspectiveEngine.ApplyThreatMask(
+                        nextPerspectivesDf,
+                        nextThreatenedCellsDf
+                    )
+                )
+                .WithColumn("timestep", Lit(depth));
+
+            // Ensure schema matches timelineDf before union
+            // Both must have exactly the same columns in the same order
+            var nextPerspectivesForUnion = nextPerspectivesWithThreats
+                .Select(timelineColumns.Select(c => Col(c)).ToArray());
 
             // Add to timeline
-            timelineDf = timelineDf.Union(nextPerspectivesWithThreats);
+            timelineDf = timelineDf.Union(nextPerspectivesForUnion);
 
             if (debug)
             {

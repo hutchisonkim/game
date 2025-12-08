@@ -119,7 +119,11 @@ public static class SequenceEngine
                     .Otherwise(Col("original_perspective_x")).Alias("original_perspective_x"),
                 When(Col("original_perspective_y").IsNull(), Col("src_y"))
                     .Otherwise(Col("original_perspective_y")).Alias("original_perspective_y")
-            );
+            )
+            .Cache();  // Cache frontier to help optimizer with repeated use in iterations
+
+        // Cache patterns to avoid recomputation in each iteration
+        var cachedPatterns = entryPatternsDf.Cache();
 
         // Step 5: Iteratively expand sliding moves
         for (int depth = 1; depth < maxDepth; depth++)
@@ -128,7 +132,7 @@ public static class SequenceEngine
             var continuationMoves = ExpandContinuationMoves(
                 emptyFrontier,
                 perspectivesDf,
-                entryPatternsDf,
+                cachedPatterns,
                 specificFactions,
                 turn,
                 variantMask,
@@ -159,6 +163,7 @@ public static class SequenceEngine
             allSequencedMoves = allSequencedMoves.Union(continuationFormatted);
 
             // Update frontier for next iteration (only empty destinations)
+            // Note: we explicitly exclude 'sequence' from frontier because we'll get it fresh from patterns
             emptyFrontier = continuationMoves
                 .Filter(Col("dst_generic_piece").BitwiseAND(Lit(emptyBit)).NotEqual(Lit(0)))
                 .Select(
@@ -174,12 +179,12 @@ public static class SequenceEngine
                     Col("dst_generic_piece"),
                     Col("src_piece"),
                     Col("src_generic_piece"),
-                    Col("sequence"),
                     Col("dst_effects"),
                     Col("direction_key"),
                     Col("original_perspective_x"),
                     Col("original_perspective_y")
-                );
+                )
+                .Cache();  // Cache frontier to break query plan dependencies in next iteration
         }
 
         // Normalize schema to match PatternMatcher output
@@ -199,7 +204,9 @@ public static class SequenceEngine
                 Col("dst_piece"),
                 Col("dst_generic_piece"),
                 Col("sequence"),
-                Col("dst_effects")
+                Col("dst_effects"),
+                Col("original_perspective_x"),
+                Col("original_perspective_y")
             );
     }
 
@@ -226,11 +233,29 @@ public static class SequenceEngine
             .WithColumn("piece", Col("dst_piece"))
             .WithColumn("generic_piece", Col("dst_generic_piece"))
             .WithColumn("perspective_x", Col("continuation_x"))
-            .WithColumn("perspective_y", Col("continuation_y"));
+            .WithColumn("perspective_y", Col("continuation_y"))
+            .Select(
+                Col("x"),
+                Col("y"),
+                Col("piece"),
+                Col("generic_piece"),
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_id"),
+                Col("src_x"),
+                Col("src_y"),
+                Col("src_piece"),
+                Col("src_generic_piece"),
+                Col("dst_effects"),
+                Col("direction_key"),
+                Col("original_perspective_x"),
+                Col("original_perspective_y")
+            );
 
         // Match patterns with direction consistency
+        // Broadcast patterns to optimize the CrossJoin
         var nextMoves = nextPerspectives
-            .CrossJoin(entryPatternsDf.Alias("pat"))
+            .CrossJoin(Functions.Broadcast(entryPatternsDf).Alias("pat"))
             .Filter(
                 // Actor at perspective position
                 Col("x").EqualTo(Col("perspective_x")).And(
@@ -244,7 +269,26 @@ public static class SequenceEngine
             )
             .WithColumn("dst_x", Col("x") + Col("pat.delta_x"))
             .WithColumn("dst_y", Col("y") + Col("pat.delta_y"))
-            .Drop("pat.src_conditions", "pat.dst_conditions", "pat.delta_x", "pat.delta_y", "pat.sequence", "pat.dst_effects");
+            .Select(
+                Col("x"),
+                Col("y"),
+                Col("piece"),
+                Col("generic_piece"),
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_id"),
+                Col("src_x"),
+                Col("src_y"),
+                Col("src_piece"),
+                Col("src_generic_piece"),
+                Col("pat.sequence").Alias("sequence"),
+                Col("dst_effects"),
+                Col("direction_key"),
+                Col("original_perspective_x"),
+                Col("original_perspective_y"),
+                Col("dst_x"),
+                Col("dst_y")
+            );
 
         // Lookup destination pieces
         var lookupDf = perspectivesDf
@@ -267,12 +311,31 @@ public static class SequenceEngine
                 "left_outer"
             )
             .Na().Fill((int)ChessPolicy.Piece.OutOfBounds, new[] { "lookup_generic_piece" })
-            .Filter(
-                Col("lookup_generic_piece") != Lit((int)ChessPolicy.Piece.OutOfBounds) &
-                Col("lookup_generic_piece").BitwiseAND(Col("pat.dst_conditions"))
-                    .EqualTo(Col("pat.dst_conditions"))
+            .Select(
+                Col("x"),
+                Col("y"),
+                Col("piece"),
+                Col("generic_piece"),
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_id"),
+                Col("src_x"),
+                Col("src_y"),
+                Col("src_piece"),
+                Col("src_generic_piece"),
+                Col("sequence"),
+                Col("dst_effects"),
+                Col("direction_key"),
+                Col("original_perspective_x"),
+                Col("original_perspective_y"),
+                Col("dst_x"),
+                Col("dst_y"),
+                Col("lookup_generic_piece"),
+                Col("lookup_piece")
             )
-            .Drop("lookup_x", "lookup_y", "lookup_perspective_x", "lookup_perspective_y", "pat.src_conditions", "pat.dst_conditions", "pat.delta_x", "pat.delta_y", "pat.sequence", "pat.dst_effects")
+            .Filter(
+                Col("lookup_generic_piece") != Lit((int)ChessPolicy.Piece.OutOfBounds)
+            )
             .WithColumnRenamed("lookup_piece", "dst_piece")
             .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");
 

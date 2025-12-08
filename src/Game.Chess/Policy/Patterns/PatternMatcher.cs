@@ -277,9 +277,38 @@ public static class PatternMatcher
             .EqualTo(Col("dst_conditions"))
         );
 
-        // ===== STEP 12: Final cleanup =====
-        var finalDf = dfJ.Drop("src_conditions", "dst_conditions");
+        // ===== STEP 12: Final cleanup and schema alignment =====
+        // Add missing columns to match SequenceEngine output schema
+        var finalDf = dfJ
+            .Drop("src_conditions", "dst_conditions")
+            .WithColumn("perspective_id", 
+                Sha2(ConcatWs("_",
+                    Col("perspective_x").Cast("string"),
+                    Col("perspective_y").Cast("string"),
+                    Col("src_generic_piece").Cast("string")),
+                256))
+            .WithColumn("dst_effects", Lit(""))
+            .WithColumn("original_perspective_x", Col("perspective_x"))
+            .WithColumn("original_perspective_y", Col("perspective_y"));
 
-        return finalDf;
+        // Select only the columns we need, in the same order as SequenceEngine
+        return finalDf.Select(
+            Col("perspective_x"),
+            Col("perspective_y"),
+            Col("perspective_piece"),
+            Col("perspective_id"),
+            Col("src_x"),
+            Col("src_y"),
+            Col("src_piece"),
+            Col("src_generic_piece"),
+            Col("dst_x"),
+            Col("dst_y"),
+            Col("dst_piece"),
+            Col("dst_generic_piece"),
+            Col("sequence"),
+            Col("dst_effects"),
+            Col("original_perspective_x"),
+            Col("original_perspective_y")
+        );
     }
 }

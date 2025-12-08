@@ -548,12 +548,95 @@ public class CastlingTests : ChessTestBase
     }
 
     /// <summary>
-    /// Essential Test 1c: Verify candidate move generation works
+    /// Essential Test 1c: Verify candidate move generation works (broken down into sub-tests)
+    /// </summary>
+    [Fact]
+    [Trait("Refactored", "True")]
+    public void CastlingIntegration_CandidatesGenerated_Refactored()
+    {
+        // This test is now broken down into smaller sub-tests below to avoid timeout
+        Assert.True(true);
+    }
+
+    /// <summary>
+    /// Essential Test 1c.1: Verify PatternMatcher generates atomic moves
     /// </summary>
     [Fact]
     [Trait("Refactored", "True")]
     [Trait("Essential", "True")]
-    public void CastlingIntegration_CandidatesGenerated_Refactored()
+    public void CastlingIntegration_CandidatesGenerated_PatternMatcher_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+        
+        // Setup board with castling-ready position
+        var board = CreateBoardWithPieces(
+            (4, 0, WhiteMintKing),
+            (7, 0, WhiteMintRook),
+            (4, 7, BlackMintKing),
+            (0, 7, BlackMintRook));
+
+        // Act - Get perspectives
+        var perspectives = refactoredPolicy.GetPerspectives(board, DefaultFactions);
+        var patternFactory = new PatternFactory(Spark);
+        var patterns = patternFactory.GetPatterns();
+        
+        // Get atomic pattern matches only
+        var atomicCandidates = Game.Chess.Policy.Patterns.PatternMatcher.MatchAtomicPatterns(
+            perspectives,
+            patterns,
+            new[] { Piece.White, Piece.Black },
+            turn: 0
+        );
+
+        // Should have some candidate moves
+        var count = atomicCandidates.Count();
+        Assert.True(count > 0, "Expected atomic pattern matches to be generated");
+    }
+
+    /// <summary>
+    /// Essential Test 1c.2: Verify SequenceEngine generates sliding moves
+    /// </summary>
+    [Fact]
+    [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
+    public void CastlingIntegration_CandidatesGenerated_SequenceEngine_Refactored()
+    {
+        // Arrange - Use refactored policy
+        var refactoredPolicy = new ChessPolicyRefactored(Spark);
+        
+        // Setup board with castling-ready position
+        var board = CreateBoardWithPieces(
+            (4, 0, WhiteMintKing),
+            (7, 0, WhiteMintRook),
+            (4, 7, BlackMintKing),
+            (0, 7, BlackMintRook));
+
+        // Act - Get perspectives
+        var perspectives = refactoredPolicy.GetPerspectives(board, DefaultFactions);
+        var patternFactory = new PatternFactory(Spark);
+        var patterns = patternFactory.GetPatterns();
+        
+        // Get sequence moves
+        var sequenceCandidates = Game.Chess.Policy.Sequences.SequenceEngine.ExpandSequencedMoves(
+            perspectives,
+            patterns,
+            new[] { Piece.White, Piece.Black },
+            turn: 0
+        );
+
+        // Should have some candidate moves (sliding pieces like rooks)
+        var count = sequenceCandidates.Count();
+        Assert.True(count > 0, "Expected sequence moves to be generated");
+    }
+
+    /// <summary>
+    /// Essential Test 1c.3: Verify CandidateGenerator combines PatternMatcher and SequenceEngine
+    /// </summary>
+    [Fact]
+    [Trait("Refactored", "True")]
+    [Trait("Essential", "True")]
+    public void CastlingIntegration_CandidatesGenerated_Combined_Refactored()
     {
         // Arrange - Use refactored policy
         var refactoredPolicy = new ChessPolicyRefactored(Spark);

@@ -79,7 +79,17 @@ public static class LegalityEngine
         }
 
         // Step 2: Track which moves involve the king - cross join to get king position columns
+        // Define expected candidate columns explicitly (from CandidateGenerator union of PatternMatcher + SequenceEngine)
+        var expectedCandidateColumns = new[]
+        {
+            "perspective_x", "perspective_y", "perspective_piece", "perspective_id",
+            "src_x", "src_y", "src_piece", "src_generic_piece",
+            "dst_x", "dst_y", "dst_piece", "dst_generic_piece",
+            "sequence", "dst_effects"
+        };
+        
         var candidatesWithKingPos = candidatesDf
+            .Select(expectedCandidateColumns.Select(c => Col(c)).ToArray())
             .CrossJoin(kingPerspective)
             .WithColumn("king_is_moving",
                 Col("src_generic_piece").BitwiseAND(Lit(kingBit)).NotEqual(Lit(0)))
@@ -126,7 +136,18 @@ public static class LegalityEngine
                 "left_outer"
             )
             .Filter(Col("threat_x").IsNull())  // Safe if not in threatened cells
-            .Drop("threat_x", "threat_y");
+            .Drop("threat_x", "threat_y")
+            .Select(
+                // Keep original candidate schema plus king tracking columns to align with non-king branch
+                expectedCandidateColumns.Select(c => Col(c)).Concat(
+                    new[]
+                    {
+                        Col("king_x"), Col("king_y"),
+                        Col("king_is_moving"), Col("king_x_after"), Col("king_y_after"),
+                        Col("move_id")
+                    }
+                ).ToArray()
+            );
 
         // Step 6: Validate non-king moves (without pin detection)
         var nonKingMoves = candidatesWithId.Filter(Not(Col("king_is_moving")));
@@ -235,7 +256,20 @@ public static class LegalityEngine
                 Not(Col("is_pinned"))  // Not pinned
                 .Or(Col("move_stays_on_line"))  // Pinned but stays on line
             )
-            .Select(candidatesWithId.Columns().Select(c => Col(c)).ToArray())
+            .Drop("is_on_same_file", "is_on_same_rank", "is_on_same_diagonal",
+                  "src_between_attacker_and_king", "attacker_can_use_line", "is_pinned",
+                  "move_stays_on_line", "attacker_x", "attacker_y", "attacker_piece")
+            .Select(
+                // Match king branch schema: original candidate columns + king tracking + move_id
+                expectedCandidateColumns.Select(c => Col(c)).Concat(
+                    new[]
+                    {
+                        Col("king_x"), Col("king_y"),
+                        Col("king_is_moving"), Col("king_x_after"), Col("king_y_after"),
+                        Col("move_id")
+                    }
+                ).ToArray()
+            )
             .Distinct();
 
         // Step 8: Combine results and clean up
