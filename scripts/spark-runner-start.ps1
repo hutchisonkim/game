@@ -80,6 +80,7 @@ try {
     $publishDir = Join-Path -Path (Get-Location).Path -ChildPath "bin/Release/$Framework/$runtime/publish"
     if (-not (Test-Path $publishDir)) { Fail("Publish directory not found: $publishDir") }
     Write-Host "Publish dir: $publishDir"
+    Set-Item -Path Env:SPARK_RUNNER_PUBLISH_DIR -Value $publishDir -Force
 
     # Copy xUnit runner bits if present in user's NuGet cache (console + utility)
     $nugetCandidates = @()
@@ -189,7 +190,7 @@ try {
 
         $logDir = Join-Path $publishDir 'test-logs'
         if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
-        $timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd_HHmmss')
+        $timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd_HHmmss_fff')
         $sparkLogPath = Join-Path $logDir "spark-runner-output-$timestamp.log"
         New-Item -ItemType File -Path $sparkLogPath -Force | Out-Null
 

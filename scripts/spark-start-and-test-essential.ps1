@@ -18,8 +18,8 @@ if ($AlwaysStart -or $resp -ne 'PONG') {
     Write-Host "[spark-start-and-test] Runner already running (PONG). Skipping start."
 }
 
-Write-Host "[spark-start-and-test] Invoking tests with filter: $Filter"
-pwsh -NoProfile -ExecutionPolicy Bypass -File "$PSScriptRoot/spark-testctl.ps1" -Filter $Filter
+Write-Host "[spark-start-and-test] Invoking tests with filter: $Filter (tailing logs)"
+pwsh -NoProfile -ExecutionPolicy Bypass -File "$PSScriptRoot/spark-testctl.ps1" -Filter $Filter -Tail -IncludeSparkLog
 
 # Wait for ALL subprocess cleanup to complete
 Write-Host "[spark-start-and-test] Waiting for all test subprocesses to exit..."
