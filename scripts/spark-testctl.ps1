@@ -128,20 +128,47 @@ if (-not (Test-Path $logDir)) { Fail "Log directory not found: $logDir" }
 
 $runStartUtc = (Get-Date).ToUniversalTime()
 $tailJobs = @()
-$green = "`e[32m"; $yellow = "`e[33m"; $magenta = "`e[35m"; $reset = "`e[0m"
+$green = "`e[32m"; $brightGreen = "`e[92m"; $yellow = "`e[33m"; $magenta = "`e[35m"; $cyan = "`e[36m"; $reset = "`e[0m"
+# Hide cursor
+Write-Host -NoNewline "`e[?25l"
+$accumulator = ""
 $spinnerFrames = @(
-    "[tail] seed   .",
-    "[tail] seed   o",
-    "[tail] sprout ${green}|${reset}",
-    "[tail] sprout ${green}/|${reset}",
-    "[tail] sprout ${green}/|\\${reset}",
-    "[tail] leaf   ${green}/|\\*${reset}",
-    "[tail] leaf   ${green}/|\\*${reset}${yellow}.${reset}",
-    "[tail] bloom  ${green}/|\\${reset}${yellow}*${reset}${magenta}*${reset}"
+    "${yellow}-${reset}",
+    "${yellow}/${reset}",
+    "${yellow}|${reset}",
+    "${yellow}\\${reset}",
+    "${green}=${reset}${yellow}-${reset}",
+    "${green}=${reset}${yellow}/${reset}",
+    "${green}=${reset}${yellow}|${reset}",
+    "${green}=${reset}${yellow}\\${reset}",
+    "${green}==${reset}${yellow}-${reset}",
+    "${green}==${reset}${yellow}/${reset}",
+    "${green}==${reset}${yellow}|${reset}",
+    "${green}==${reset}${yellow}\\${reset}",
+    "${green}===${reset}${yellow}-${reset}",
+    "${green}===${reset}${yellow}/${reset}",
+    "${green}===${reset}${yellow}|${reset}",
+    "${green}===${reset}${yellow}\\${reset}",
+    "${brightGreen}====${reset}${yellow}-${reset}",
+    "${brightGreen}====${reset}${yellow}/${reset}",
+    "${brightGreen}====${reset}${yellow}|${reset}",
+    "${brightGreen}====${reset}${yellow}\\${reset}",
+    "${brightGreen}=====${reset}${yellow}-${reset}",
+    "${brightGreen}=====${reset}${yellow}/${reset}",
+    "${brightGreen}=====${reset}${yellow}|${reset}",
+    "${brightGreen}=====${reset}${yellow}\\${reset}",
+    "${cyan}======${reset}${yellow}-${reset}",
+    "${cyan}======${reset}${yellow}/${reset}",
+    "${cyan}======${reset}${yellow}|${reset}",
+    "${cyan}======${reset}${yellow}\\${reset}",
+    "${cyan}=======${reset}${magenta}-${reset}",
+    "${cyan}=======${reset}${magenta}/${reset}",
+    "${cyan}=======${reset}${magenta}|${reset}",
+    "${cyan}=======${reset}${magenta}\\${reset}"
 )
 $spinIndex = 0
 $spinnerActive = $false
-$spinnerClear = ' '.PadRight(40)
+$spinnerClear = ' '.PadRight(80)
 
 $runJob = Invoke-RunnerAsync $body
 if (-not $runJob) { Fail "Failed to start RUN request" }
@@ -176,6 +203,8 @@ if ($tailJobs.Count -gt 0) {
                 Write-Host -NoNewline "`r       `r"
                 $spinnerActive = $false
             }
+            $spinIndex = 0
+            $accumulator = ""
             $output | ForEach-Object { Write-Host $_ }
         }
 
@@ -184,7 +213,8 @@ if ($tailJobs.Count -gt 0) {
 
         $spin = $spinnerFrames[$spinIndex % $spinnerFrames.Count]
         $spinIndex++
-        Write-Host -NoNewline "`r$spinnerClear`r$spin"
+        if ($spinIndex % $spinnerFrames.Count -eq 0) { $accumulator += "${cyan}*${reset}" }
+        Write-Host -NoNewline "`r$spinnerClear`r[tail] $accumulator$spin"
         $spinnerActive = $true
 
         Start-Sleep -Milliseconds 300
@@ -207,5 +237,7 @@ if ($tailJobs.Count -gt 0) {
     Stop-Job -Job $tailJobs -ErrorAction SilentlyContinue | Out-Null
     Remove-Job -Job $tailJobs -Force -ErrorAction SilentlyContinue | Out-Null
 }
+# Show cursor
+Write-Host -NoNewline "`e[?25h"
 
 exit 0
