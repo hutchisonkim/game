@@ -227,12 +227,21 @@ if ($sortedTests -and $sortedTests.Count -gt 0) {
 
 # Perform single rebuild+republish at the start to avoid DLL lock issues
 Write-Host ""
-Write-Host "🔨 Preparing test assemblies" -ForegroundColor Yellow
+Write-Host "🔨 Preparing test assemblies (rebuild once, then reuse)" -ForegroundColor Yellow
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
 try {
     $rebuildResult = pwsh -NoProfile -ExecutionPolicy Bypass -File "$workspaceRoot/scripts/spark-testctl.ps1" -RebuildOnly 2>&1
-    Write-Host $rebuildResult | Out-String
-    Write-Host "✓ Test assemblies prepared" -ForegroundColor Green
+    $rebuildOutput = $rebuildResult | Out-String
+    
+    # Check if rebuild succeeded
+    if ($rebuildOutput -match "rebuilt and republished successfully" -or $rebuildOutput -match "Rebuild and republish complete") {
+        Write-Host "✓ Test assemblies prepared successfully" -ForegroundColor Green
+    } else {
+        Write-Host "✗ Rebuild output:" -ForegroundColor Red
+        Write-Host $rebuildOutput
+        Write-Host "✗ Failed to prepare test assemblies" -ForegroundColor Red
+        exit 1
+    }
 }
 catch {
     Write-Host "✗ Failed to prepare test assemblies: $_" -ForegroundColor Red

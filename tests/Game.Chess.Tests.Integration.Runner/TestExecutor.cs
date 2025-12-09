@@ -53,7 +53,7 @@ namespace Game.Chess.Tests.Integration.Runner
             Console.WriteLine(resolvedMsg);
             File.AppendAllText(logPath, resolvedMsg + Environment.NewLine);
 
-            // Proactively kill any lingering vstest/testhost processes holding previous binaries
+            // Define lock targets - used throughout the method for cleanup
             var lockTargets = new[]
             {
                 Path.Combine(publishDir, "Game.Chess.Tests.Integration.dll"),
@@ -62,100 +62,118 @@ namespace Game.Chess.Tests.Integration.Runner
                 Path.Combine(publishDir, "xunit.core.dll"),
                 Path.Combine(publishDir, "xunit.runner.visualstudio.testadapter.dll"),
             };
-            try
-            {
-                KillProcessesHolding(lockTargets, logPath, DateTime.UtcNow.AddMinutes(-5));
-            }
-            catch (Exception ex)
-            {
-                var warn = $"[Runner] KillProcessesHolding(before clean) failed: {ex.Message}";
-                Console.WriteLine(warn);
-                File.AppendAllText(logPath, warn + Environment.NewLine);
-            }
 
-            // Remove any stale test assemblies from publish directory before copying fresh ones
-            Console.WriteLine("[Runner] === Cleaning stale assemblies from publish directory ===");
-            File.AppendAllText(logPath, "[Runner] === Cleaning stale assemblies from publish directory ===" + Environment.NewLine);
-            var stalePatterns = new[] { "Game.Chess.Tests.Integration*.dll", "Game.Chess*.dll" };
-            int deletedCount = 0;
-            foreach (var pattern in stalePatterns)
+            // Only clean and copy assemblies when not skipping build
+            if (!skipBuild)
             {
+                // Proactively kill any lingering vstest/testhost processes holding previous binaries
                 try
                 {
-                    foreach (var staleFile in Directory.EnumerateFiles(publishDir, pattern))
+                    KillProcessesHolding(lockTargets, logPath, DateTime.UtcNow.AddMinutes(-5));
+                }
+                catch (Exception ex)
+                {
+                    var warn = $"[Runner] KillProcessesHolding(before clean) failed: {ex.Message}";
+                    Console.WriteLine(warn);
+                    File.AppendAllText(logPath, warn + Environment.NewLine);
+                }
+
+                // Remove any stale test assemblies from publish directory before copying fresh ones
+                Console.WriteLine("[Runner] === Cleaning stale assemblies from publish directory ===");
+                File.AppendAllText(logPath, "[Runner] === Cleaning stale assemblies from publish directory ===" + Environment.NewLine);
+                var stalePatterns = new[] { "Game.Chess.Tests.Integration*.dll", "Game.Chess*.dll" };
+                int deletedCount = 0;
+                foreach (var pattern in stalePatterns)
+                {
+                    try
                     {
-                        // Skip the runner's own DLL - we can't delete it while it's running
-                        if (staleFile.EndsWith("Game.Chess.Tests.Integration.Runner.dll", StringComparison.OrdinalIgnoreCase))
+                        foreach (var staleFile in Directory.EnumerateFiles(publishDir, pattern))
                         {
-                            Console.WriteLine($"[Runner]   Skipping runner's own DLL: {Path.GetFileName(staleFile)}");
-                            File.AppendAllText(logPath, $"[Runner]   Skipping runner's own DLL: {Path.GetFileName(staleFile)}" + Environment.NewLine);
-                            continue;
-                        }
-
-                        try
-                        {
-                            var staleInfo = new FileInfo(staleFile);
-                            Console.WriteLine($"[Runner]   Deleting: {Path.GetFileName(staleFile)} (Size: {staleInfo.Length}, Modified: {staleInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss.fff})");
-                            File.AppendAllText(logPath, $"[Runner]   Deleting: {Path.GetFileName(staleFile)} (Size: {staleInfo.Length}, Modified: {staleInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss.fff})" + Environment.NewLine);
-
-                            var retries = 4;
-                            bool deleted = false;
-                            while (retries-- > 0 && !deleted)
+                            // Skip the runner's own DLL - we can't delete it while it's running
+                            if (staleFile.EndsWith("Game.Chess.Tests.Integration.Runner.dll", StringComparison.OrdinalIgnoreCase))
                             {
-                                try
-                                {
-                                    File.Delete(staleFile);
-                                    deleted = true;
-                                    deletedCount++;
-                                }
-                                catch (IOException ioEx) when (ioEx.Message.Contains("used by another process", StringComparison.OrdinalIgnoreCase) && retries > 0)
-                                {
-                                    var retryMsg = $"[Runner]     Delete retry ({4 - retries}/4): still locked";
-                                    Console.WriteLine(retryMsg);
-                                    File.AppendAllText(logPath, retryMsg + Environment.NewLine);
-                                    System.Threading.Thread.Sleep(750);
-                                }
+                                Console.WriteLine($"[Runner]   Skipping runner's own DLL: {Path.GetFileName(staleFile)}");
+                                File.AppendAllText(logPath, $"[Runner]   Skipping runner's own DLL: {Path.GetFileName(staleFile)}" + Environment.NewLine);
+                                continue;
                             }
 
-                            if (!deleted)
+                            try
                             {
-                                var warnMsg = $"[Runner]   Failed to delete after retries: {Path.GetFileName(staleFile)}";
+                                var staleInfo = new FileInfo(staleFile);
+                                Console.WriteLine($"[Runner]   Deleting: {Path.GetFileName(staleFile)} (Size: {staleInfo.Length}, Modified: {staleInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss.fff})");
+                                File.AppendAllText(logPath, $"[Runner]   Deleting: {Path.GetFileName(staleFile)} (Size: {staleInfo.Length}, Modified: {staleInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss.fff})" + Environment.NewLine);
+
+                                var retries = 4;
+                                bool deleted = false;
+                                while (retries-- > 0 && !deleted)
+                                {
+                                    try
+                                    {
+                                        File.Delete(staleFile);
+                                        deleted = true;
+                                        deletedCount++;
+                                    }
+                                    catch (IOException ioEx) when (ioEx.Message.Contains("used by another process", StringComparison.OrdinalIgnoreCase) && retries > 0)
+                                    {
+                                        var retryMsg = $"[Runner]     Delete retry ({4 - retries}/4): still locked";
+                                        Console.WriteLine(retryMsg);
+                                        File.AppendAllText(logPath, retryMsg + Environment.NewLine);
+                                        System.Threading.Thread.Sleep(750);
+                                    }
+                                }
+
+                                if (!deleted)
+                                {
+                                    var warnMsg = $"[Runner]   Failed to delete after retries: {Path.GetFileName(staleFile)}";
+                                    Console.WriteLine(warnMsg);
+                                    File.AppendAllText(logPath, warnMsg + Environment.NewLine);
+                                }
+                            }
+                            catch (Exception delEx)
+                            {
+                                var warnMsg = $"[Runner]   Failed to delete: {Path.GetFileName(staleFile)}: {delEx.Message}";
                                 Console.WriteLine(warnMsg);
                                 File.AppendAllText(logPath, warnMsg + Environment.NewLine);
                             }
                         }
-                        catch (Exception delEx)
-                        {
-                            var warnMsg = $"[Runner]   Failed to delete: {Path.GetFileName(staleFile)}: {delEx.Message}";
-                            Console.WriteLine(warnMsg);
-                            File.AppendAllText(logPath, warnMsg + Environment.NewLine);
-                        }
                     }
+                    catch (Exception ex)
+                    {
+                        var warnMsg = $"[Runner] Warning: Could not enumerate pattern {pattern}: {ex.Message}";
+                        Console.WriteLine(warnMsg);
+                        File.AppendAllText(logPath, warnMsg + Environment.NewLine);
+                    }
+                }
+                var cleanMsg = $"[Runner] Cleaned {deletedCount} stale assemblies";
+                Console.WriteLine(cleanMsg);
+                File.AppendAllText(logPath, cleanMsg + Environment.NewLine);
+
+                // Copy test DLL and its dependencies to publish dir so they can be loaded
+                Console.WriteLine("[Runner] === Copying fresh test assemblies ===");
+                File.AppendAllText(logPath, "[Runner] === Copying fresh test assemblies ===" + Environment.NewLine);
+                try
+                {
+                    CopyTestAssemblies(testDll, publishDir, logPath);
                 }
                 catch (Exception ex)
                 {
-                    var warnMsg = $"[Runner] Warning: Could not enumerate pattern {pattern}: {ex.Message}";
-                    Console.WriteLine(warnMsg);
-                    File.AppendAllText(logPath, warnMsg + Environment.NewLine);
+                    var errMsg = $"[Runner] Failed to copy test assemblies: {ex.Message}";
+                    Console.WriteLine(errMsg);
+                    File.AppendAllText(logPath, errMsg + Environment.NewLine);
+                    return errMsg;
                 }
             }
-            var cleanMsg = $"[Runner] Cleaned {deletedCount} stale assemblies";
-            Console.WriteLine(cleanMsg);
-            File.AppendAllText(logPath, cleanMsg + Environment.NewLine);
-
-            // Copy test DLL and its dependencies to publish dir so they can be loaded
-            Console.WriteLine("[Runner] === Copying fresh test assemblies ===");
-            File.AppendAllText(logPath, "[Runner] === Copying fresh test assemblies ===" + Environment.NewLine);
-            try
+            else
             {
-                CopyTestAssemblies(testDll, publishDir, logPath);
-            }
-            catch (Exception ex)
-            {
-                var errMsg = $"[Runner] Failed to copy test assemblies: {ex.Message}";
-                Console.WriteLine(errMsg);
-                File.AppendAllText(logPath, errMsg + Environment.NewLine);
-                return errMsg;
+                // When skipping build, just verify the test DLL is already in publish dir
+                var publishTestDll = Path.Combine(publishDir, Path.GetFileName(testDll));
+                if (!File.Exists(publishTestDll))
+                {
+                    var errMsg = $"[Runner] Test DLL not found in publish dir (skipBuild mode): {publishTestDll}";
+                    Console.WriteLine(errMsg);
+                    File.AppendAllText(logPath, errMsg + Environment.NewLine);
+                    return errMsg;
+                }
             }
 
             testDll = Path.Combine(publishDir, Path.GetFileName(testDll));
@@ -379,39 +397,48 @@ namespace Game.Chess.Tests.Integration.Runner
                     }
                     finally
                     {
-                        // AGGRESSIVE: Delete test DLLs immediately to ensure they're not locked for next run
-                        var testDllsToDelete = new[]
+                        // Only delete test DLLs when NOT in skipBuild mode (to allow reuse of cached assemblies)
+                        if (!skipBuild)
                         {
-                            Path.Combine(publishDir, "Game.Chess.Tests.Integration.dll"),
-                            Path.Combine(publishDir, "Game.Chess.dll"),
-                            Path.Combine(publishDir, "xunit.core.dll"),
-                            Path.Combine(publishDir, "xunit.runner.visualstudio.testadapter.dll"),
-                        };
-                        
-                        foreach (var dllPath in testDllsToDelete)
-                        {
-                            if (!File.Exists(dllPath)) continue;
-                            
-                            for (int attempt = 0; attempt < 10; attempt++)
+                            // AGGRESSIVE: Delete test DLLs immediately to ensure they're not locked for next run
+                            var testDllsToDelete = new[]
                             {
-                                try
+                                Path.Combine(publishDir, "Game.Chess.Tests.Integration.dll"),
+                                Path.Combine(publishDir, "Game.Chess.dll"),
+                                Path.Combine(publishDir, "xunit.core.dll"),
+                                Path.Combine(publishDir, "xunit.runner.visualstudio.testadapter.dll"),
+                            };
+                            
+                            foreach (var dllPath in testDllsToDelete)
+                            {
+                                if (!File.Exists(dllPath)) continue;
+                                
+                                for (int attempt = 0; attempt < 10; attempt++)
                                 {
-                                    File.Delete(dllPath);
-                                    Console.WriteLine($"[Runner] Deleted test DLL: {Path.GetFileName(dllPath)}");
-                                    File.AppendAllText(logPath, $"[Runner] Deleted test DLL: {Path.GetFileName(dllPath)}" + Environment.NewLine);
-                                    break;
-                                }
-                                catch (IOException) when (attempt < 9)
-                                {
-                                    System.Threading.Thread.Sleep(100);
-                                }
-                                catch (Exception ex)
-                                {
-                                    var warn = $"[Runner] Failed to delete {Path.GetFileName(dllPath)} (attempt {attempt + 1}): {ex.Message}";
-                                    Console.WriteLine(warn);
-                                    File.AppendAllText(logPath, warn + Environment.NewLine);
+                                    try
+                                    {
+                                        File.Delete(dllPath);
+                                        Console.WriteLine($"[Runner] Deleted test DLL: {Path.GetFileName(dllPath)}");
+                                        File.AppendAllText(logPath, $"[Runner] Deleted test DLL: {Path.GetFileName(dllPath)}" + Environment.NewLine);
+                                        break;
+                                    }
+                                    catch (IOException) when (attempt < 9)
+                                    {
+                                        System.Threading.Thread.Sleep(100);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        var warn = $"[Runner] Failed to delete {Path.GetFileName(dllPath)} (attempt {attempt + 1}): {ex.Message}";
+                                        Console.WriteLine(warn);
+                                        File.AppendAllText(logPath, warn + Environment.NewLine);
+                                    }
                                 }
                             }
+                        }
+                        else
+                        {
+                            Console.WriteLine("[Runner] Skipping DLL deletion (using cached assemblies for subsequent tests)");
+                            File.AppendAllText(logPath, "[Runner] Skipping DLL deletion (using cached assemblies for subsequent tests)" + Environment.NewLine);
                         }
 
                         // Force explicit handle release before unloading context
@@ -1275,6 +1302,31 @@ namespace Game.Chess.Tests.Integration.Runner
             if (!string.IsNullOrEmpty(buildResult))
             {
                 return buildResult;
+            }
+
+            // Resolve test DLL location
+            string testDll = ResolveTestDll();
+            if (!File.Exists(testDll))
+            {
+                var msg = $"[Rebuild] Test DLL not found after build: {testDll}";
+                Console.WriteLine(msg);
+                File.AppendAllText(logPath, msg + Environment.NewLine);
+                return msg;
+            }
+
+            // Copy test DLL and its dependencies to publish dir
+            Console.WriteLine("[Rebuild] === Copying fresh test assemblies ===");
+            File.AppendAllText(logPath, "[Rebuild] === Copying fresh test assemblies ===" + Environment.NewLine);
+            try
+            {
+                CopyTestAssemblies(testDll, publishDir, logPath);
+            }
+            catch (Exception ex)
+            {
+                var errMsg = $"[Rebuild] Failed to copy test assemblies: {ex.Message}";
+                Console.WriteLine(errMsg);
+                File.AppendAllText(logPath, errMsg + Environment.NewLine);
+                return errMsg;
             }
 
             Console.WriteLine("[Rebuild] ✓ Rebuild and republish complete");
