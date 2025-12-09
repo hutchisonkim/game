@@ -1,5 +1,5 @@
 using Microsoft.Spark.Sql;
-using Game.Chess.HistoryB;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Tests.Integration.Helpers;
 
@@ -15,7 +15,7 @@ public class FilterBuilder
     /// Filters for patterns matching the specified piece type.
     /// Equivalent to: (src_conditions & {pieceType}) != 0
     /// </summary>
-    public FilterBuilder ForPieceType(ChessPolicy.Piece pieceType)
+    public FilterBuilder ForPieceType(Piece pieceType)
     {
         int pieceInt = (int)pieceType;
         _conditions.Add($"(src_conditions & {pieceInt}) != 0");
@@ -26,7 +26,7 @@ public class FilterBuilder
     /// Filters for patterns with the specified sequence flag(s) set.
     /// Equivalent to: (sequence & {sequenceFlags}) != 0
     /// </summary>
-    public FilterBuilder WithSequence(ChessPolicy.Sequence sequenceFlags)
+    public FilterBuilder WithSequence(Sequence sequenceFlags)
     {
         int seqInt = (int)sequenceFlags;
         _conditions.Add($"(sequence & {seqInt}) != 0");
@@ -37,7 +37,7 @@ public class FilterBuilder
     /// Filters for patterns with sequence flags exactly matching the specified value.
     /// Equivalent to: (sequence & {mask}) = {expectedValue}
     /// </summary>
-    public FilterBuilder WithSequenceExact(ChessPolicy.Sequence mask, ChessPolicy.Sequence expectedValue)
+    public FilterBuilder WithSequenceExact(Sequence mask, Sequence expectedValue)
     {
         int maskInt = (int)mask;
         int valueInt = (int)expectedValue;
@@ -49,7 +49,7 @@ public class FilterBuilder
     /// Filters for patterns where the sequence flags do NOT include the specified flag(s).
     /// Equivalent to: (sequence & {mask}) = 0
     /// </summary>
-    public FilterBuilder WithoutSequence(ChessPolicy.Sequence sequenceFlags)
+    public FilterBuilder WithoutSequence(Sequence sequenceFlags)
     {
         int seqInt = (int)sequenceFlags;
         _conditions.Add($"(sequence & {seqInt}) = 0");
@@ -60,7 +60,7 @@ public class FilterBuilder
     /// Filters for patterns with the specified destination condition.
     /// Equivalent to: (dst_conditions & {condition}) != 0
     /// </summary>
-    public FilterBuilder WithDestinationCondition(ChessPolicy.Piece condition)
+    public FilterBuilder WithDestinationCondition(Piece condition)
     {
         int condInt = (int)condition;
         _conditions.Add($"(dst_conditions & {condInt}) != 0");
@@ -71,7 +71,7 @@ public class FilterBuilder
     /// Filters for patterns with the specified source condition.
     /// Equivalent to: (src_conditions & {condition}) != 0
     /// </summary>
-    public FilterBuilder WithSourceCondition(ChessPolicy.Piece condition)
+    public FilterBuilder WithSourceCondition(Piece condition)
     {
         int condInt = (int)condition;
         _conditions.Add($"(src_conditions & {condInt}) != 0");
@@ -118,11 +118,11 @@ public static class FilterHelpers
     /// Filters DataFrame for patterns of a specific piece type with Public sequence flag.
     /// Common pattern used in most basic movement tests.
     /// </summary>
-    public static DataFrame ForPieceTypeWithPublic(this DataFrame patternsDf, ChessPolicy.Piece pieceType)
+    public static DataFrame ForPieceTypeWithPublic(this DataFrame patternsDf, Piece pieceType)
     {
         return CreateFilter()
             .ForPieceType(pieceType)
-            .WithSequence(ChessPolicy.Sequence.Public)
+            .WithSequence(Sequence.Public)
             .ApplyTo(patternsDf);
     }
 
@@ -130,13 +130,13 @@ public static class FilterHelpers
     /// Filters DataFrame for entry patterns (Out flag, InstantRecursive, no In flags).
     /// Used for sliding pieces like Rook and Bishop.
     /// </summary>
-    public static DataFrame ForEntryPatterns(this DataFrame patternsDf, ChessPolicy.Piece pieceType, ChessPolicy.Sequence outFlag)
+    public static DataFrame ForEntryPatterns(this DataFrame patternsDf, Piece pieceType, Sequence outFlag)
     {
         return CreateFilter()
             .ForPieceType(pieceType)
             .WithSequence(outFlag)
-            .WithSequenceExact(ChessPolicy.Sequence.InstantRecursive, ChessPolicy.Sequence.InstantRecursive)
-            .WithoutSequence(ChessPolicy.Sequence.InMask)
+            .WithSequenceExact(Sequence.InstantRecursive, Sequence.InstantRecursive)
+            .WithoutSequence(Sequence.InMask)
             .ApplyTo(patternsDf);
     }
 
@@ -144,12 +144,12 @@ public static class FilterHelpers
     /// Filters DataFrame for continuation patterns (In flag, Public).
     /// Used for sliding pieces to continue movement sequences.
     /// </summary>
-    public static DataFrame ForContinuationPatterns(this DataFrame patternsDf, ChessPolicy.Piece pieceType, ChessPolicy.Sequence inFlag)
+    public static DataFrame ForContinuationPatterns(this DataFrame patternsDf, Piece pieceType, Sequence inFlag)
     {
         return CreateFilter()
             .ForPieceType(pieceType)
             .WithSequence(inFlag)
-            .WithSequence(ChessPolicy.Sequence.Public)
+            .WithSequence(Sequence.Public)
             .ApplyTo(patternsDf);
     }
 }

@@ -6,7 +6,8 @@ using Game.Chess.Policy.Simulation;
 using Game.Chess.Policy.Threats;
 using Game.Chess.Policy.Candidates;
 using Game.Chess.Policy.Validation;
-using Game.Chess.HistoryB;
+using Game.Chess.HistoryRefactor;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Policy.Timeline;
 
@@ -50,7 +51,7 @@ public static class TimelineEngine
     public static DataFrame BuildTimeline(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int maxDepth = 3,
         bool debug = false)
     {

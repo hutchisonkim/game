@@ -500,6 +500,10 @@ public static class ChessPolicyUtility
         ParallelInstantRecursive = Parallel | Instant | Recursive,
         ParallelMandatory = Parallel | Mandatory,
 
+        // Masks for In/Out flags
+        InMask = InA | InB | InC | InD | InE | InF | InG | InH | InI,
+        OutMask = OutA | OutB | OutC | OutD | OutE | OutF | OutG | OutH | OutI,
+
     }
 
     public static (int Dx, int Dy) Q1(this (int Dx, int Dy) delta) => (delta.Dx, delta.Dy);

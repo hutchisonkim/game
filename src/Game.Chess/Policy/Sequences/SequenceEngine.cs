@@ -1,7 +1,8 @@
 using Microsoft.Spark.Sql;
 using static Microsoft.Spark.Sql.Functions;
-using Game.Chess.HistoryB;
+using Game.Chess.HistoryRefactor;
 using Game.Chess.Policy.Patterns;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Policy.Sequences;
 
@@ -42,17 +43,17 @@ public static class SequenceEngine
     public static DataFrame ExpandSequencedMoves(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int turn = 0,
         int maxDepth = 7,
         bool debug = false)
     {
-        var outMask = (int)ChessPolicy.Sequence.OutMask;
-        var instantRecursive = (int)ChessPolicy.Sequence.InstantRecursive;
-        var publicFlag = (int)ChessPolicy.Sequence.Public;
-        var variantMask = (int)(ChessPolicy.Sequence.Variant1 | ChessPolicy.Sequence.Variant2 | 
-                                ChessPolicy.Sequence.Variant3 | ChessPolicy.Sequence.Variant4);
-        var emptyBit = (int)ChessPolicy.Piece.Empty;
+        var outMask = (int)ChessPolicyUtility.Sequence.OutMask;
+        var instantRecursive = (int)ChessPolicyUtility.Sequence.InstantRecursive;
+        var publicFlag = (int)ChessPolicyUtility.Sequence.Public;
+        var variantMask = (int)(ChessPolicyUtility.Sequence.Variant1 | ChessPolicyUtility.Sequence.Variant2 | 
+                                ChessPolicyUtility.Sequence.Variant3 | ChessPolicyUtility.Sequence.Variant4);
+        var emptyBit = (int)Piece.Empty;
 
         // Step 1: Filter patterns for entry moves (OutX | InstantRecursive, no Public)
         var entryPatternsDf = patternsDf.Filter(
@@ -71,7 +72,7 @@ public static class SequenceEngine
             entryPatternsDf,
             specificFactions,
             turn: turn,
-            activeSequences: ChessPolicy.Sequence.None,
+            activeSequences: ChessPolicyUtility.Sequence.None,
             debug: false
         );
 
@@ -219,7 +220,7 @@ public static class SequenceEngine
         DataFrame emptyFrontier,
         DataFrame perspectivesDf,
         DataFrame entryPatternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int turn,
         int variantMask,
         int emptyBit)
@@ -310,7 +311,7 @@ public static class SequenceEngine
                 .And(Col("dst_y") == Col("lookup_y")),
                 "left_outer"
             )
-            .Na().Fill((int)ChessPolicy.Piece.OutOfBounds, new[] { "lookup_generic_piece" })
+            .Na().Fill((int)Piece.OutOfBounds, new[] { "lookup_generic_piece" })
             .Select(
                 Col("x"),
                 Col("y"),
@@ -334,7 +335,7 @@ public static class SequenceEngine
                 Col("lookup_piece")
             )
             .Filter(
-                Col("lookup_generic_piece") != Lit((int)ChessPolicy.Piece.OutOfBounds)
+                Col("lookup_generic_piece") != Lit((int)Piece.OutOfBounds)
             )
             .WithColumnRenamed("lookup_piece", "dst_piece")
             .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");

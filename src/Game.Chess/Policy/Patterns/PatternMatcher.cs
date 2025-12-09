@@ -1,6 +1,7 @@
 using Microsoft.Spark.Sql;
 using static Microsoft.Spark.Sql.Functions;
-using Game.Chess.HistoryB;
+using Game.Chess.HistoryRefactor;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Policy.Patterns;
 
@@ -49,7 +50,7 @@ public static class PatternMatcher
     public static DataFrame MatchAtomicPatterns(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int turn = 0,
         bool debug = false)
     {
@@ -58,7 +59,7 @@ public static class PatternMatcher
             patternsDf,
             specificFactions,
             turn,
-            activeSequences: ChessPolicy.Sequence.None,
+            activeSequences: ChessPolicyUtility.Sequence.None,
             debug
         );
     }
@@ -75,9 +76,9 @@ public static class PatternMatcher
     public static DataFrame MatchPatternsWithSequence(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int turn = 0,
-        ChessPolicy.Sequence activeSequences = ChessPolicy.Sequence.None,
+        Sequence activeSequences = ChessPolicyUtility.Sequence.None,
         bool debug = false)
     {
         return MatchPatternsInternal(
@@ -99,9 +100,9 @@ public static class PatternMatcher
     private static DataFrame MatchPatternsInternal(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int turn,
-        ChessPolicy.Sequence activeSequences,
+        Sequence activeSequences,
         bool debug)
     {
         // Cache perspectives early since we use it multiple times
@@ -117,7 +118,7 @@ public static class PatternMatcher
             .Filter(
                 Col("x").EqualTo(Col("perspective_x")).And(
                 Col("y").EqualTo(Col("perspective_y"))).And(
-                    Col("piece") != Lit((int)ChessPolicy.Piece.Empty)
+                    Col("piece") != Lit((int)Piece.Empty)
                 )
             );
 
@@ -134,7 +135,7 @@ public static class PatternMatcher
         if ((int)activeSequences != 0)
         {
             // If activeSequences are specified, filter patterns early
-            var inMask = (int)ChessPolicy.Sequence.InMask;
+            var inMask = (int)ChessPolicyUtility.Sequence.InMask;
             var patternInFlags = Col("sequence").BitwiseAND(Lit(inMask));
             var hasNoInRequirements = patternInFlags.EqualTo(Lit(0));
 
@@ -145,7 +146,7 @@ public static class PatternMatcher
             var inRequirementsMet = patternInFlags.BitwiseAND(Lit(activeInFlags)).EqualTo(patternInFlags);
 
             filteredPatternsDf = uniquePatternsDf.Filter(
-                Col("sequence").BitwiseAND(Lit((int)ChessPolicy.Sequence.Public)).NotEqual(Lit(0))
+                Col("sequence").BitwiseAND(Lit((int)ChessPolicyUtility.Sequence.Public)).NotEqual(Lit(0))
                 .And(hasNoInRequirements.Or(inRequirementsMet))
             );
         }
@@ -153,7 +154,7 @@ public static class PatternMatcher
         {
             // No active sequences - filter by Public flag only
             filteredPatternsDf = uniquePatternsDf.Filter(
-                Col("sequence").BitwiseAND(Lit((int)ChessPolicy.Sequence.Public)).NotEqual(Lit(0))
+                Col("sequence").BitwiseAND(Lit((int)ChessPolicyUtility.Sequence.Public)).NotEqual(Lit(0))
             );
         }
 
@@ -257,11 +258,11 @@ public static class PatternMatcher
 
 
         // ===== STEP 8: Fill missing generic piece as OutOfBounds =====
-        var dfG = dfF.Na().Fill((int)ChessPolicy.Piece.OutOfBounds, new[] { "lookup_generic_piece" });
+        var dfG = dfF.Na().Fill((int)Piece.OutOfBounds, new[] { "lookup_generic_piece" });
 
         // ===== STEP 9: Remove moves landing out-of-bounds =====
         var dfH = dfG.Filter(
-            Col("lookup_generic_piece") != Lit((int)ChessPolicy.Piece.OutOfBounds)
+            Col("lookup_generic_piece") != Lit((int)Piece.OutOfBounds)
         );
 
         // ===== STEP 10: Rename dst columns =====

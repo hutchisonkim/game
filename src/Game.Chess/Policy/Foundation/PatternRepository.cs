@@ -1,7 +1,7 @@
 using Microsoft.Spark.Sql;
 using Microsoft.Spark.Sql.Types;
-using Game.Chess.HistoryB;
-using static Game.Chess.HistoryB.ChessPolicy;
+using Game.Chess.HistoryRefactor;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Policy.Foundation;
 

@@ -1,7 +1,8 @@
 using Microsoft.Spark.Sql;
 using static Microsoft.Spark.Sql.Functions;
-using Game.Chess.HistoryB;
+using Game.Chess.HistoryRefactor;
 using Game.Chess.Policy.Patterns;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Policy.Threats;
 
@@ -44,7 +45,7 @@ public static class ThreatEngine
     public static DataFrame ComputeThreatenedCells(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int turn = 0,
         bool debug = false)
     {
@@ -62,7 +63,7 @@ public static class ThreatEngine
             threatPatternsDf,
             specificFactions,
             turn: opponentTurn,
-            activeSequences: ChessPolicy.Sequence.None,
+            activeSequences: ChessPolicyUtility.Sequence.None,
             debug: debug
         );
 
@@ -99,7 +100,7 @@ public static class ThreatEngine
             "generic_piece",
             When(
                 Col("threatened_x").IsNotNull(),
-                Col("generic_piece").BitwiseOR(Lit((int)ChessPolicy.Piece.Threatened))
+                Col("generic_piece").BitwiseOR(Lit((int)Piece.Threatened))
             )
             .Otherwise(Col("generic_piece"))
         );

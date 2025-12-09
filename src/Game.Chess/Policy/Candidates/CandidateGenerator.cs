@@ -2,7 +2,8 @@ using Microsoft.Spark.Sql;
 using static Microsoft.Spark.Sql.Functions;
 using Game.Chess.Policy.Patterns;
 using Game.Chess.Policy.Sequences;
-using Game.Chess.HistoryB;
+using Game.Chess.HistoryRefactor;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Policy.Candidates;
 
@@ -37,7 +38,7 @@ public static class CandidateGenerator
     public static DataFrame GetMoves(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int turn = 0,
         int maxDepth = 7,
         bool deduplicateResults = true)
@@ -83,8 +84,8 @@ public static class CandidateGenerator
     public static DataFrame GetMovesForPieceType(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
-        ChessPolicy.Piece targetGenericPiece,
+        Piece[] specificFactions,
+        Piece targetGenericPiece,
         int turn = 0,
         int maxDepth = 7)
     {
@@ -113,7 +114,7 @@ public static class CandidateGenerator
     public static DataFrame GetMovesFromSquare(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int sourceX,
         int sourceY,
         int turn = 0,
@@ -144,7 +145,7 @@ public static class CandidateGenerator
     public static DataFrame GetMovesToSquare(
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int destX,
         int destY,
         int turn = 0,

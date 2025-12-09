@@ -1,13 +1,13 @@
 using Microsoft.Spark.Sql;
-using static Microsoft.Spark.Sql.Functions;
 using Game.Chess.Policy.Foundation;
 using Game.Chess.Policy.Perspectives;
 using Game.Chess.Policy.Simulation;
 using Game.Chess.Policy.Validation;
 using Game.Chess.Policy.Timeline;
-using static Game.Chess.HistoryB.ChessPolicy;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
+using Game.Chess.Policy.Threats;
 
-namespace Game.Chess.HistoryB;
+namespace Game.Chess.HistoryRefactor;
 
 /// <summary>
 /// Refactored chess policy using clean layered architecture.
@@ -31,7 +31,6 @@ public class ChessPolicyRefactored
     private readonly PatternRepository _patternRepository;
     private readonly PerspectiveEngine _perspectiveEngine;
     private readonly SimulationEngine _simulationEngine;
-    private readonly ChessPolicy.TimelineService _timelineService;
 
     public ChessPolicyRefactored(SparkSession spark)
     {
@@ -40,7 +39,6 @@ public class ChessPolicyRefactored
         _patternRepository = new PatternRepository(_spark);
         _perspectiveEngine = new PerspectiveEngine();
         _simulationEngine = new SimulationEngine();
-        _timelineService = new ChessPolicy.TimelineService();
     }
 
     /// <summary>
@@ -66,7 +64,7 @@ public class ChessPolicyRefactored
         perspectivesDf = _perspectiveEngine.AddPerspectiveId(perspectivesDf);
 
         // Compute threatened cells from opponent's perspective
-        var threatenedCellsDf = ChessPolicy.TimelineService.ComputeThreatenedCells(
+        var threatenedCellsDf = ThreatEngine.ComputeThreatenedCells(
             perspectivesDf,
             patternsDf,
             specificFactions,

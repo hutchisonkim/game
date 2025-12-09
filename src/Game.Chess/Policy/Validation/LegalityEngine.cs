@@ -1,7 +1,7 @@
 using Microsoft.Spark.Sql;
 using static Microsoft.Spark.Sql.Functions;
 using Game.Chess.Policy.Threats;
-using Game.Chess.HistoryB;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Policy.Validation;
 
@@ -50,12 +50,12 @@ public static class LegalityEngine
         DataFrame candidatesDf,
         DataFrame perspectivesDf,
         DataFrame patternsDf,
-        ChessPolicy.Piece[] specificFactions,
+        Piece[] specificFactions,
         int turn = 0,
         bool debug = false)
     {
         var currentFaction = specificFactions[turn % specificFactions.Length];
-        var kingBit = (int)ChessPolicy.Piece.King;
+        var kingBit = (int)Piece.King;
         var factionBit = (int)currentFaction;
 
         // Step 1: Find current king position (Limit(1) to get at most 1 king without materializing)
@@ -171,9 +171,9 @@ public static class LegalityEngine
             .Filter(
                 Col("piece").BitwiseAND(Lit((int)opponentFaction)).NotEqual(Lit(0))
                 .And(
-                    Col("piece").BitwiseAND(Lit((int)ChessPolicy.Piece.Rook)).NotEqual(Lit(0))
-                    .Or(Col("piece").BitwiseAND(Lit((int)ChessPolicy.Piece.Bishop)).NotEqual(Lit(0)))
-                    .Or(Col("piece").BitwiseAND(Lit((int)ChessPolicy.Piece.Queen)).NotEqual(Lit(0)))
+                    Col("piece").BitwiseAND(Lit((int)Piece.Rook)).NotEqual(Lit(0))
+                    .Or(Col("piece").BitwiseAND(Lit((int)Piece.Bishop)).NotEqual(Lit(0)))
+                    .Or(Col("piece").BitwiseAND(Lit((int)Piece.Queen)).NotEqual(Lit(0)))
                 )
                 .And(Col("x").EqualTo(Col("perspective_x")))
                 .And(Col("y").EqualTo(Col("perspective_y")))
@@ -219,14 +219,14 @@ public static class LegalityEngine
                     // Attacker piece type can attack on this line type
                     (Col("is_on_same_file").Or(Col("is_on_same_rank")))
                         .And(
-                            Col("attacker_piece").BitwiseAND(Lit((int)ChessPolicy.Piece.Rook)).NotEqual(Lit(0))
-                            .Or(Col("attacker_piece").BitwiseAND(Lit((int)ChessPolicy.Piece.Queen)).NotEqual(Lit(0)))
+                            Col("attacker_piece").BitwiseAND(Lit((int)Piece.Rook)).NotEqual(Lit(0))
+                            .Or(Col("attacker_piece").BitwiseAND(Lit((int)Piece.Queen)).NotEqual(Lit(0)))
                         )
                     .Or(
                         Col("is_on_same_diagonal")
                         .And(
-                            Col("attacker_piece").BitwiseAND(Lit((int)ChessPolicy.Piece.Bishop)).NotEqual(Lit(0))
-                            .Or(Col("attacker_piece").BitwiseAND(Lit((int)ChessPolicy.Piece.Queen)).NotEqual(Lit(0)))
+                            Col("attacker_piece").BitwiseAND(Lit((int)Piece.Bishop)).NotEqual(Lit(0))
+                            .Or(Col("attacker_piece").BitwiseAND(Lit((int)Piece.Queen)).NotEqual(Lit(0)))
                         )
                     )
                 )
