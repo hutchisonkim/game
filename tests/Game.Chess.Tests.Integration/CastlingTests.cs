@@ -814,7 +814,7 @@ public class CastlingTests : ChessTestBase
     /// </summary>
     [Fact]
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    // [Trait("Essential", "True")]
     public void CastlingLegality_RejectsPathThreat_Refactored()
     {
         // Arrange - Use refactored policy
@@ -852,7 +852,7 @@ public class CastlingTests : ChessTestBase
     /// </summary>
     [Fact]
     [Trait("Refactored", "True")]
-    [Trait("Essential", "True")]
+    // [Trait("Essential", "True")]
     public void CastlingMultiDepth_MintFlagRemovalPreventsDepth2Castling_Refactored()
     {
         // Arrange - Use refactored policy

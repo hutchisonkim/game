@@ -85,9 +85,10 @@ public static class LegalityEngine
             "perspective_x", "perspective_y", "perspective_piece", "perspective_id",
             "src_x", "src_y", "src_piece", "src_generic_piece",
             "dst_x", "dst_y", "dst_piece", "dst_generic_piece",
-            "sequence", "dst_effects"
+            "sequence", "dst_effects",
+            "original_perspective_x", "original_perspective_y"
         };
-        
+
         var candidatesWithKingPos = candidatesDf
             .Select(expectedCandidateColumns.Select(c => Col(c)).ToArray())
             .CrossJoin(kingPerspective)
