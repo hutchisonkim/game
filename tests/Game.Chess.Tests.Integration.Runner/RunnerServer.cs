@@ -72,13 +72,42 @@ namespace Game.Chess.Tests.Integration.Runner
 
                     try
                     {
-                        if (body.StartsWith("RUN", StringComparison.OrdinalIgnoreCase))
+                        if (body.StartsWith("REBUILD", StringComparison.OrdinalIgnoreCase))
                         {
                             _testExecutionComplete.Reset();
                             try
                             {
-                                string filter = body.Length > 3 ? body.Substring(3).Trim() : string.Empty;
-                                string result = TestExecutor.RunTests(_publishDir, filter);
+                                string result = TestExecutor.RebuildTestAssemblies(_publishDir);
+                                try
+                                {
+                                    stream.Flush();
+                                    writer.Write(result);
+                                    stream.Flush();
+                                }
+                                catch (IOException ioEx) when (ioEx.InnerException is TimeoutException)
+                                {
+                                    Console.WriteLine("[RunnerServer] Send timeout (30s exceeded) while writing rebuild results");
+                                }
+                                catch (IOException ioEx)
+                                {
+                                    Console.WriteLine($"[RunnerServer] IO error writing rebuild results: {ioEx.Message}");
+                                }
+                            }
+                            finally
+                            {
+                                _testExecutionComplete.Set();
+                            }
+                        }
+                        else if (body.StartsWith("RUN", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _testExecutionComplete.Reset();
+                            try
+                            {
+                                string commandLine = body.Length > 3 ? body.Substring(3).Trim() : string.Empty;
+                                bool skipBuild = commandLine.Contains("skipBuild", StringComparison.OrdinalIgnoreCase);
+                                // Extract filter by removing skipBuild token
+                                string filter = commandLine.Replace("skipBuild", "", StringComparison.OrdinalIgnoreCase).Trim();
+                                string result = TestExecutor.RunTests(_publishDir, filter, skipBuild);
                                 try
                                 {
                                     stream.Flush();

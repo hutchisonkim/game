@@ -6,6 +6,8 @@ param(
     [switch]$Stop,
     [switch]$Tail,
     [switch]$IncludeSparkLog,
+    [switch]$SkipBuild,
+    [switch]$RebuildOnly,
     [int]$TailLines = 40,
     [int]$TailWaitSeconds = 15,
     [string]$ProjectPath = 'tests/Game.Chess.Tests.Integration.Runner',
@@ -112,8 +114,22 @@ if ($Stop) {
     exit 0
 }
 
+if ($RebuildOnly) {
+    Write-Host "Triggering rebuild and republish of test assemblies..." -ForegroundColor Cyan
+    $resp = Invoke-RunnerSync "REBUILD"
+    Write-Host $resp
+    exit 0
+}
+
+if ($SkipBuild) {
+    Write-Host "Running tests with cached assemblies (skipping rebuild)..." -ForegroundColor Gray
+}
+
 # Default: RUN, optionally with filter text
-$body = if ([string]::IsNullOrWhiteSpace($Filter)) { "RUN" } else { "RUN $Filter" }
+# Format: RUN [skipBuild] [filter]
+$body = "RUN"
+if ($SkipBuild) { $body += " skipBuild" }
+if (-not [string]::IsNullOrWhiteSpace($Filter)) { $body += " $Filter" }
 
 if (-not $Tail) {
     $resp = Invoke-RunnerSync $body

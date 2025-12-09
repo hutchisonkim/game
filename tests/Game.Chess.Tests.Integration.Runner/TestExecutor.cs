@@ -10,7 +10,7 @@ namespace Game.Chess.Tests.Integration.Runner
     {
         // Runs tests from the integration test DLL by invoking the xUnit console runner via dotnet.
         // Returns a concise text summary.
-        public static string RunTests(string publishDir, string filter)
+        public static string RunTests(string publishDir, string filter, bool skipBuild = false)
         {
             // Use a unique log file per run inside a dedicated subfolder
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
@@ -22,11 +22,19 @@ namespace Game.Chess.Tests.Integration.Runner
             Console.WriteLine($"[Runner] Log file: {logPath}");
             File.AppendAllText(logPath, $"[Runner] ===== TEST EXECUTION START at {DateTime.UtcNow:o} =====" + Environment.NewLine);
 
-            // Build the integration test project first to ensure latest binaries
-            var buildResult = BuildIntegrationTestProject(logPath);
-            if (!string.IsNullOrEmpty(buildResult))
+            // Build the integration test project first to ensure latest binaries (unless skipBuild is true)
+            if (!skipBuild)
             {
-                return buildResult;
+                var buildResult = BuildIntegrationTestProject(logPath);
+                if (!string.IsNullOrEmpty(buildResult))
+                {
+                    return buildResult;
+                }
+            }
+            else
+            {
+                Console.WriteLine("[Runner] Skipping build (using cached assemblies)");
+                File.AppendAllText(logPath, "[Runner] Skipping build (using cached assemblies)" + Environment.NewLine);
             }
 
             // Resolve test DLL location
@@ -1247,6 +1255,31 @@ namespace Game.Chess.Tests.Integration.Runner
                 File.AppendAllText(logPath, errMsg + Environment.NewLine);
                 return errMsg;
             }
+        }
+
+        // Rebuild and republish test assemblies without running tests
+        public static string RebuildTestAssemblies(string publishDir)
+        {
+            // Use a temporary log file for the rebuild
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var logDir = Path.Combine(publishDir, "test-logs");
+            Directory.CreateDirectory(logDir);
+            var logPath = Path.Combine(logDir, $"rebuild-{timestamp}.log");
+
+            Console.WriteLine("[Rebuild] ===== REBUILD START =====");
+            Console.WriteLine($"[Rebuild] Log file: {logPath}");
+            File.AppendAllText(logPath, $"[Rebuild] ===== REBUILD START at {DateTime.UtcNow:o} =====" + Environment.NewLine);
+
+            // Build the integration test project
+            var buildResult = BuildIntegrationTestProject(logPath);
+            if (!string.IsNullOrEmpty(buildResult))
+            {
+                return buildResult;
+            }
+
+            Console.WriteLine("[Rebuild] ✓ Rebuild and republish complete");
+            File.AppendAllText(logPath, "[Rebuild] ✓ Rebuild and republish complete" + Environment.NewLine);
+            return "[Rebuild] ✓ Test assemblies rebuilt and republished successfully\n";
         }
     }
 }
