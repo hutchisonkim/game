@@ -193,6 +193,7 @@ try {
         $argsList = @(
             '--conf', 'spark.sql.adaptive.enabled=true',
             '--conf', 'spark.driver.memory=4g',
+            '--conf', 'spark.sql.autoBroadcastJoinThreshold=-1',
             '--class', 'org.apache.spark.deploy.dotnet.DotnetRunner',
             '--master', 'local',
             $jarPath,
