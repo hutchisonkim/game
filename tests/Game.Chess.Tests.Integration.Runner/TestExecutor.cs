@@ -285,8 +285,8 @@ namespace Game.Chess.Tests.Integration.Runner
                                     var testStopwatch = System.Diagnostics.Stopwatch.StartNew();
                                     var singleArgs = new System.Collections.Generic.List<string> { "vstest", '"' + assemblyPath + '"', "--TestCaseFilter:" + '"' + $"FullyQualifiedName={fullyQualified}" + '"', "--UseVsixExtensions:false" };
                                     var safeTestName = fullyQualified.Replace(".", "_").Replace(" ", "_").Replace("<", "_").Replace(">", "_").Replace("|", "_").Replace(":", "_").Replace("*", "_").Replace("?", "_").Replace("\"", "_").Replace("\\", "_").Replace("/", "_");
-                                    var trxPath = Path.Combine(trxDir, $"{safeTestName}.trx");
-                                    singleArgs.Add("--Logger:" + '"' + $"trx;LogFileName={Path.GetFileName(trxPath)}" + '"');
+                                    var perTestTrxPath = Path.Combine(trxDir, $"{safeTestName}.trx");
+                                    singleArgs.Add("--Logger:" + '"' + $"trx;LogFileName={Path.GetFileName(perTestTrxPath)}" + '"');
                                     var psiSingle = new System.Diagnostics.ProcessStartInfo
                                     {
                                         FileName = dotnetExe,
