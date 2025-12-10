@@ -1124,25 +1124,27 @@ namespace Game.Chess.Tests.Integration.Runner
             // Prioritize RELEASE builds over DEBUG since the runner itself is typically Release
             var candidates = new[]
             {
-                @"tests\Game.Chess.Tests.Integration\bin\Release\net8.0\publish\Game.Chess.Tests.Integration.dll",
-                @"..\Game.Chess.Tests.Integration\bin\Release\net8.0\publish\Game.Chess.Tests.Integration.dll",
-                @"tests\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
-                @"..\Game.Chess.Tests.Integration\bin\Release\net8.0\Game.Chess.Tests.Integration.dll",
-                @"tests\Game.Chess.Tests.Integration\bin\Debug\net8.0\publish\Game.Chess.Tests.Integration.dll",
-                @"..\Game.Chess.Tests.Integration\bin\Debug\net8.0\publish\Game.Chess.Tests.Integration.dll",
-                @"tests\Game.Chess.Tests.Integration\bin\Debug\net8.0\Game.Chess.Tests.Integration.dll",
-                @"..\Game.Chess.Tests.Integration\bin\Debug\net8.0\Game.Chess.Tests.Integration.dll",
+                Path.Combine("tests", "Game.Chess.Tests.Integration", "bin", "Release", "net8.0", "publish", "Game.Chess.Tests.Integration.dll"),
+                Path.Combine("..", "Game.Chess.Tests.Integration", "bin", "Release", "net8.0", "publish", "Game.Chess.Tests.Integration.dll"),
+                Path.Combine("tests", "Game.Chess.Tests.Integration", "bin", "Release", "net8.0", "Game.Chess.Tests.Integration.dll"),
+                Path.Combine("..", "Game.Chess.Tests.Integration", "bin", "Release", "net8.0", "Game.Chess.Tests.Integration.dll"),
+                Path.Combine("tests", "Game.Chess.Tests.Integration", "bin", "Debug", "net8.0", "publish", "Game.Chess.Tests.Integration.dll"),
+                Path.Combine("..", "Game.Chess.Tests.Integration", "bin", "Debug", "net8.0", "publish", "Game.Chess.Tests.Integration.dll"),
+                Path.Combine("tests", "Game.Chess.Tests.Integration", "bin", "Debug", "net8.0", "Game.Chess.Tests.Integration.dll"),
+                Path.Combine("..", "Game.Chess.Tests.Integration", "bin", "Debug", "net8.0", "Game.Chess.Tests.Integration.dll"),
             };
 
             var startPath = Directory.GetCurrentDirectory();
+            Console.WriteLine($"[ResolveTestDll] Starting search from: {startPath}");
             while (!string.IsNullOrEmpty(startPath))
             {
                 foreach (var candidate in candidates)
                 {
                     var fullPath = Path.Combine(startPath, candidate);
+                    Console.WriteLine($"[ResolveTestDll] Checking: {fullPath}");
                     if (File.Exists(fullPath))
                     {
-                        Console.WriteLine($"[TestExecutor] Found test DLL: {fullPath}");
+                        Console.WriteLine($"[ResolveTestDll] Found test DLL: {fullPath}");
                         return fullPath;
                     }
                 }
