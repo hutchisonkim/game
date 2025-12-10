@@ -1200,7 +1200,8 @@ namespace Game.Chess.Tests.Integration.Runner
                 File.AppendAllText(logPath, buildMsg + Environment.NewLine);
 
                 var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-                string dotnetExe = string.IsNullOrWhiteSpace(dotnetRoot) ? "dotnet" : Path.Combine(dotnetRoot, "dotnet.exe");
+                string dotnetExeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dotnet.exe" : "dotnet";
+                string dotnetExe = string.IsNullOrWhiteSpace(dotnetRoot) ? "dotnet" : Path.Combine(dotnetRoot, dotnetExeName);
 
                 // Determine publish output directory based on project location
                 var projectDir = Path.GetDirectoryName(projectPath);
