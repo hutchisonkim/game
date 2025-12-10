@@ -155,7 +155,6 @@ public class EssentialTests
             (3, 3, PieceBuilder.Create().White().Pawn().Build()), // White pawn at d4 (3,3)
             (4, 4, PieceBuilder.Create().Black().Pawn().Build())  // Black pawn at e5 (4,4)
         );
-        board.Initialize();
         
         var provider = new BoardStateProvider(_spark);
         var repo = new PatternRepository(_spark);
@@ -191,7 +190,6 @@ public class EssentialTests
         var board = BoardHelpers.CreateBoardWithPieces(
             (4, 3, PieceBuilder.Create().White().Knight().Build())  // White knight at e4
         );
-        board.Initialize();
         
         var provider = new BoardStateProvider(_spark);
         var repo = new PatternRepository(_spark);
@@ -226,7 +224,6 @@ public class EssentialTests
         var board = BoardHelpers.CreateBoardWithPieces(
             (4, 0, PieceBuilder.Create().White().King().Build())    // White king at e1 (4,0)
         );
-        board.Initialize();
         
         var provider = new BoardStateProvider(_spark);
         var repo = new PatternRepository(_spark);
@@ -315,7 +312,6 @@ public class EssentialTests
         var board = BoardHelpers.CreateBoardWithPieces(
             (2, 0, PieceBuilder.Create().White().Bishop().Build())  // White bishop at c1
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var repo = new PatternRepository(_spark);
@@ -337,7 +333,7 @@ public class EssentialTests
         Assert.True(bishopPatterns > 0, "Bishop patterns should be defined");
         
         // Verify we have recursive/multi-step patterns for bishop (InstantRecursive = Instant | Recursive)
-        var instantRecursiveMask = (1 << 16) | (1 << 15); // Instant and Recursive flags
+        var instantRecursiveMask = (1 << 2) | (1 << 3); // Instant and Recursive flags
         var diagonalPatterns = patternsDf
             .Filter($"(src_conditions & {bishopBit}) != 0")
             .Filter($"(sequence & {instantRecursiveMask}) != 0")
@@ -358,7 +354,6 @@ public class EssentialTests
         var board = BoardHelpers.CreateBoardWithPieces(
             (0, 0, PieceBuilder.Create().White().Rook().Build())  // White rook at a1
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var repo = new PatternRepository(_spark);
@@ -380,7 +375,7 @@ public class EssentialTests
         Assert.True(rookPatterns > 0, "Rook patterns should be defined");
         
         // Verify we have recursive/multi-step patterns for rook (cardinal directions)
-        var instantRecursiveMask = (1 << 16) | (1 << 15); // Instant and Recursive flags
+        var instantRecursiveMask = (1 << 2) | (1 << 3); // Instant and Recursive flags
         var cardinalPatterns = patternsDf
             .Filter($"(src_conditions & {rookBit}) != 0")
             .Filter($"(sequence & {instantRecursiveMask}) != 0")
@@ -402,7 +397,6 @@ public class EssentialTests
             (2, 0, PieceBuilder.Create().White().Bishop().Build()),  // Bishop at c1
             (0, 0, PieceBuilder.Create().White().Rook().Build())     // Rook at a1
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var repo = new PatternRepository(_spark);
@@ -487,7 +481,6 @@ public class EssentialTests
             (0, 1, PieceBuilder.Create().White().Pawn().Mint().Build()),   // White pawn at a2 (mint)
             (0, 6, PieceBuilder.Create().Black().Pawn().Mint().Build())    // Black pawn at a7 (mint)
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -538,7 +531,6 @@ public class EssentialTests
             (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1
             (3, 1, PieceBuilder.Create().Black().Pawn().Build())     // Black pawn at d2 (threatens e1)
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -586,7 +578,6 @@ public class EssentialTests
             (4, 7, PieceBuilder.Create().Black().King().Mint().Build()),     // Black king at e8 (mint)
             (0, 7, PieceBuilder.Create().Black().Rook().Mint().Build())      // Black rook at a8 (mint)
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -628,7 +619,6 @@ public class EssentialTests
             (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1
             (4, 4, PieceBuilder.Create().Black().Rook().Build())     // Black rook at e5 (threatens king's column)
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -675,7 +665,6 @@ public class EssentialTests
             (5, 1, PieceBuilder.Create().White().Rook().Build()),    // White rook at f2 (pinned)
             (5, 7, PieceBuilder.Create().Black().Bishop().Build())   // Black bishop at f8 (pinning)
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -725,7 +714,6 @@ public class EssentialTests
             (4, 3, PieceBuilder.Create().White().Rook().Build()),    // White rook at e4 (blocks bishop)
             (4, 7, PieceBuilder.Create().Black().Bishop().Build())   // Black bishop at e8 (would attack if rook moves)
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -848,7 +836,6 @@ public class EssentialTests
             (2, 0, PieceBuilder.Create().White().Bishop().Build()),  // White bishop at c1
             (0, 0, PieceBuilder.Create().White().Rook().Build())     // White rook at a1
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -896,7 +883,6 @@ public class EssentialTests
             (4, 7, PieceBuilder.Create().Black().King().Mint().Build()),     // Black king at e8 (mint)
             (0, 7, PieceBuilder.Create().Black().Rook().Mint().Build())      // Black rook at a8 (mint)
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -947,7 +933,6 @@ public class EssentialTests
             (4, 3, whitePawn),              // White pawn at e4
             (3, 3, blackPawnWithPassing)    // Black pawn at d4 (with Passing flag)
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -990,7 +975,6 @@ public class EssentialTests
             (4, 6, PieceBuilder.Create().White().Pawn().Build()),   // White pawn at e7 (one move from promotion)
             (4, 0, PieceBuilder.Create().Black().Pawn().Build())    // Black pawn at e2 (one move from promotion)
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
