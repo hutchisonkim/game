@@ -40,27 +40,17 @@ jobs:
       DOTNET_WORKER_SPARK_VERSION: "2.3.0"
 
     steps:
-      - name: Install PowerShell
-        run: |
-          apt-get update -qq && apt-get install -y -qq wget apt-transport-https software-properties-common
-          wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
-          dpkg -i packages-microsoft-prod.deb 2>&1 | grep -v "^Selecting\|^(Reading\|^Unpacking\|^Setting" || true
-          apt-get update -qq
-          apt-get install -y -qq powershell
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
-      - name: Clear and prepare NuGet caches
+      - name: Restore Test Project Packages (Spark DLL fix - 1 of 3)
         run: |
-          dotnet nuget locals all --clear
-          mkdir -p "$NUGET_PACKAGES"
-          chmod -R 777 "$NUGET_PACKAGES"
-
-      - name: Restore Spark tests
-        run: |
+          echo "=== Restoring Project Packages ==="
           set -e
-          cd tests/Game.Chess.Tests.Integration.Runner
-          dotnet restore Game.Chess.Tests.Integration.Runner.csproj --runtime linux-x64
+          cd tests/Game.Chess.Tests.Integration
+          dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
 
-      - name: Fix Windows-style paths in NuGet cache
+      - name: Fix Windows-style paths in NuGet cache (Spark DLL fix - 2 of 3)
         shell: bash
         run: |
           echo "=== Checking for Windows-style paths in NuGet packages ==="
@@ -93,40 +83,19 @@ jobs:
             exit 1
           fi
 
-      - name: Install system dependencies
+      - name: Build Test Project (Spark DLL fix - 3 of 3)
         run: |
-          apt-get install -y -qq netcat-openbsd zip net-tools
+          set -e
+          cd tests/Game.Chess.Tests.Integration
+          dotnet build Game.Chess.Tests.Integration.csproj -c Release -v d
 
-      - name: Build test project
+      - name: Build Spark Runner
         run: |
+          set -e
           cd tests/Game.Chess.Tests.Integration.Runner
-          dotnet build -f net8.0 -r linux-x64
-          dotnet publish -f net8.0 -r linux-x64 -c Release --self-contained true
+          dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
 
       - name: Start Spark Runner
         shell: pwsh
         run: pwsh ./scripts/spark-runner-start.ps1
 
-      - name: Verify Spark environment
-        run: |
-          test -f "$SPARK_HOME/bin/spark-submit" && echo "✅ Spark ready" || echo "❌ Spark not found"
-          test -d "$DOTNET_WORKER_DIR" && echo "✅ Worker ready" || echo "❌ Worker not found"
-          
-      - name: Environment ready for tests
-        run: |
-          echo "✅ Environment ready. Run tests with: pwsh ./scripts/run-tests-with-dependencies.ps1 -Filter 'Essential=true'"
-
-      - name: Cleanup Spark Runner
-        if: always()
-        shell: pwsh
-        run: |
-          $stopJob = Start-Job -ScriptBlock { pwsh scripts/spark-testctl.ps1 -Stop }
-          if (-not (Wait-Job -Job $stopJob -Timeout 10)) {
-            Stop-Job -Job $stopJob
-          } else {
-            $stopJob | Receive-Job | Out-Null
-          }
-          Start-Sleep -Seconds 2
-          pwsh scripts/force-kill-runners.ps1 | Out-Null
-          Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          Write-Host '✓ Cleanup complete'

@@ -31,20 +31,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Spark Runner
-        run: |
-          set -e
-          cd tests/Game.Chess.Tests.Integration.Runner
-          dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
-
-      - name: Restore Test Project Packages (Diagnostics - 1 of 3)
+      - name: Restore Test Project Packages (Spark DLL fix - 1 of 3)
         run: |
           echo "=== Restoring Project Packages ==="
           set -e
           cd tests/Game.Chess.Tests.Integration
           dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
 
-      - name: Fix Windows-style paths in NuGet cache (Diagnostics - 2 of 3)
+      - name: Fix Windows-style paths in NuGet cache (Spark DLL fix - 2 of 3)
         shell: bash
         run: |
           echo "=== Checking for Windows-style paths in NuGet packages ==="
@@ -77,11 +71,17 @@ jobs:
             exit 1
           fi
 
-      - name: Build Test Project (Diagnostics - 3 of 3)
+      - name: Build Test Project (Spark DLL fix - 3 of 3)
         run: |
           set -e
           cd tests/Game.Chess.Tests.Integration
           dotnet build Game.Chess.Tests.Integration.csproj -c Release -v d
+
+      - name: Build Spark Runner
+        run: |
+          set -e
+          cd tests/Game.Chess.Tests.Integration.Runner
+          dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
 
       - name: Start Spark Runner
         shell: pwsh
