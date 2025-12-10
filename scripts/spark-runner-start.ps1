@@ -51,7 +51,12 @@ foreach ($r in $recommended) {
 if (-not $env:DOTNETBACKEND_PORT) { $env:DOTNETBACKEND_PORT = '5000' }
 if (-not $env:DOTNET_WORKER_SPARK_VERSION) { $env:DOTNET_WORKER_SPARK_VERSION = '3.5.3' }
 if (-not $env:PYTHON_WORKER_FACTORY_PORT) { $env:PYTHON_WORKER_FACTORY_PORT = '5001' }
-if (-not $env:HADOOP_HOME) { $env:HADOOP_HOME = 'C:\hadoop\cdarlint\winutils\hadoop-3.3.6' }
+if (-not $env:HADOOP_HOME) { 
+    if ($IsWindows) {
+        $env:HADOOP_HOME = 'C:\hadoop\cdarlint\winutils\hadoop-3.3.6'
+    }
+    # On Linux, HADOOP_HOME is optional and not needed for local mode
+}
 
 Write-Host "Environment variables check OK. SPARK_HOME=$env:SPARK_HOME"
 
@@ -159,16 +164,20 @@ try {
     $sparkBin = Join-Path $env:SPARK_HOME 'bin'
     if (-not (Test-Path $sparkBin)) { Fail("SPARK_HOME/bin not found: $sparkBin") }
     $sparkSubmit = $null
-    $candidates = @('spark-submit.cmd', 'spark-submit.ps1', 'spark-submit')
+    # Prefer platform-specific executables first
+    if ($IsWindows) {
+        $candidates = @('spark-submit.cmd', 'spark-submit.ps1', 'spark-submit')
+    } else {
+        $candidates = @('spark-submit', 'spark-submit.sh')
+    }
     foreach ($c in $candidates) {
         $p = Join-Path $sparkBin $c
         if (Test-Path $p) { $sparkSubmit = $p; break }
     }
     if (-not $sparkSubmit) { Fail("spark-submit not found under SPARK_HOME/bin.") }
 
-    # Ensure DOTNET env points to system dotnet
-    $env:DOTNET_ROOT = "C:\Program Files\dotnet"
-    $env:DOTNET_WORKER_DIR = "C:\Program Files\dotnet"
+    # DOTNET_WORKER_DIR should already be set via environment
+    # Don't override it here - trust the environment configuration
 
     # Echo key envs for diagnostics
     Write-Host "DOTNETBACKEND_PORT=$env:DOTNETBACKEND_PORT"
@@ -195,7 +204,11 @@ try {
         New-Item -ItemType File -Path $sparkLogPath -Force | Out-Null
 
         Write-Host "Invoking spark-submit (detached) to start runner: $sparkSubmit"
-        $proc = Start-Process -FilePath $sparkSubmit -ArgumentList ($argsList -join ' ') -WindowStyle Hidden -PassThru
+        if ($IsWindows) {
+            $proc = Start-Process -FilePath $sparkSubmit -ArgumentList ($argsList -join ' ') -WindowStyle Hidden -PassThru
+        } else {
+            $proc = Start-Process -FilePath $sparkSubmit -ArgumentList ($argsList -join ' ') -PassThru
+        }
         if (-not $proc) { Fail("Failed to start spark-submit process") }
         Write-Host "spark-submit started (PID=$($proc.Id)). Runner will initialize shortly."
         Write-Host "Logs: $sparkLogPath (will be populated by spark)"
