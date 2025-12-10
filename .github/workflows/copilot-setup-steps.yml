@@ -43,6 +43,41 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Download cached Spark dependencies
+        run: |
+          echo "=== Downloading cached dependencies from GitHub release ==="
+          set -e
+          mkdir -p /cache/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1
+          cd /cache
+          
+          # Download Spark distribution
+          echo "Downloading spark-3.5.3-bin-hadoop3.tgz..."
+          curl -fSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://github.com/${{ github.repository }}/releases/download/spark-cache-v1.0/spark-3.5.3-bin-hadoop3.tgz" \
+            -o spark-3.5.3-bin-hadoop3.tgz
+          
+          # Download Microsoft.Spark.Worker
+          echo "Downloading Microsoft.Spark.Worker..."
+          curl -fSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://github.com/${{ github.repository }}/releases/download/spark-cache-v1.0/Microsoft.Spark.Worker.net8.0.linux-x64-2.3.0.tar.gz" \
+            -o Microsoft.Spark.Worker.net8.0.linux-x64-2.3.0.tar.gz
+          
+          # Download microsoft-spark JAR
+          echo "Downloading microsoft-spark JAR..."
+          curl -fSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://github.com/${{ github.repository }}/releases/download/spark-cache-v1.0/microsoft-spark-3-5_2.12-2.3.0.jar" \
+            -o .nuget/packages/microsoft.spark/2.3.0/microsoft-spark-3-5_2.12-2.3.0.jar
+          
+          # Download Microsoft.Spark.dll
+          echo "Downloading Microsoft.Spark.dll..."
+          curl -fSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://github.com/${{ github.repository }}/releases/download/spark-cache-v1.0/Microsoft.Spark.dll" \
+            -o .nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll
+          
+          echo "✅ All cached dependencies downloaded successfully"
+          ls -lh /cache/
+          ls -lh /cache/.nuget/packages/microsoft.spark/2.3.0/
+
       - name: Restore Test Project Packages (Spark DLL fix - 1 of 3)
         run: |
           echo "=== Restoring Project Packages ==="
