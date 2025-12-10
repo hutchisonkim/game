@@ -141,9 +141,11 @@ try {
     $searchDirs = @($publishDir, $env:SPARK_HOME, $dockerCachePath) | Where-Object { $_ -and (Test-Path $_) }
 
     $pref = $null
-    if ($env:SPARK_HOME -and ($env:SPARK_HOME -match '(\d+)\.(\d+)')) {
+    # Try SPARK_VERSION env var first, then fall back to SPARK_HOME path
+    $sparkVersionSource = $env:SPARK_VERSION ?? $env:SPARK_HOME
+    if ($sparkVersionSource -and ($sparkVersionSource -match '(\d+)\.(\d+)')) {
         $pref = "microsoft-spark-$($Matches[1])-$($Matches[2])"
-        Write-Host "Looking for jar prefixed with: $pref"
+        Write-Host "Looking for jar prefixed with: $pref (from $sparkVersionSource)"
     }
 
     $foundJars = @()
