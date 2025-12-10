@@ -101,41 +101,68 @@ jobs:
           PYTHON_WORKER_FACTORY_PORT: "5567"
         run: pwsh ./scripts/run-tests-with-dependencies.ps1 -Filter "Essential=true"
 
+      - name: Find TRX file (diagnostic)
+        if: always()
+        shell: bash
+        run: |
+          echo "Searching for TRX files..."
+          find . -name "*.trx" -type f 2>/dev/null || echo "No TRX files found"
+          echo "Searching for TestResults directories..."
+          find . -name "TestResults" -type d 2>/dev/null || echo "No TestResults directories found"
+
       - name: Upload xUnit TRX logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xunit-trx-logs
-          path: tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults/TestResults.trx
+          path: "**/*.trx"
           
       - name: Summarize TRX Results
         if: always()
         shell: bash
         run: |
-          TRX="tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults/TestResults.trx"
+          # Find all TRX files
+          TRX_FILES=$(find . -name "*.trx" -type f 2>/dev/null)
           
-          if [ ! -f "$TRX" ]; then
+          if [ -z "$TRX_FILES" ]; then
             echo "⚠️ No test results found"
             exit 0
           fi
-
-          # Strip BOM (xmllint pre-installed in Docker image)
-          perl -pe 's/\xEF\xBB\xBF// if $. == 1' "$TRX" > /tmp/clean.trx
-
-          # Parse results
-          PASS=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Passed'])" /tmp/clean.trx 2>/dev/null || echo 0)
-          FAIL=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Failed'])" /tmp/clean.trx 2>/dev/null || echo 0)
-
+          
+          echo "Found TRX files:"
+          echo "$TRX_FILES"
+          
+          # Initialize counters
+          TOTAL_PASS=0
+          TOTAL_FAIL=0
+          FAILURES=""
+          
+          for TRX in $TRX_FILES; do
+            # Strip BOM (xmllint pre-installed in Docker image)
+            perl -pe 's/\xEF\xBB\xBF// if $. == 1' "$TRX" > /tmp/clean.trx
+            
+            # Parse results
+            PASS=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Passed'])" /tmp/clean.trx 2>/dev/null || echo 0)
+            FAIL=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Failed'])" /tmp/clean.trx 2>/dev/null || echo 0)
+            
+            TOTAL_PASS=$((TOTAL_PASS + PASS))
+            TOTAL_FAIL=$((TOTAL_FAIL + FAIL))
+            
+            if [ "$FAIL" -gt 0 ]; then
+              TEST_NAME=$(xmllint --xpath "//*[local-name()='UnitTestResult' and @outcome='Failed']/@testName" /tmp/clean.trx 2>/dev/null | grep -o 'testName="[^"]*"' | cut -d'"' -f2 | head -1)
+              FAILURES="${FAILURES}* $TEST_NAME\n"
+            fi
+          done
+          
           # Write summary
           {
             echo "## Test Results"
-            echo "**Passed:** $PASS | **Failed:** $FAIL"
+            echo "**Passed:** $TOTAL_PASS | **Failed:** $TOTAL_FAIL"
             
-            if [ "$FAIL" -gt 0 ]; then
+            if [ "$TOTAL_FAIL" -gt 0 ]; then
               echo ""
               echo "### Failures"
-              xmllint --xpath "//*[local-name()='UnitTestResult' and @outcome='Failed']/@testName" /tmp/clean.trx 2>/dev/null \
-                | grep -o 'testName="[^"]*"' | cut -d'"' -f2 | sed 's/^/* /' || true
+              echo -e "$FAILURES"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
