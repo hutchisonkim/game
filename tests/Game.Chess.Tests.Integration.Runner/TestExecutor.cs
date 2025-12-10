@@ -1214,7 +1214,7 @@ namespace Game.Chess.Tests.Integration.Runner
                 var psi = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = dotnetExe,
-                    Arguments = $"publish \"{projectPath}\" -c Release --no-restore",
+                    Arguments = $"publish \"{projectPath}\" -c Release",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
