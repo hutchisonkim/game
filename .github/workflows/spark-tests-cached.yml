@@ -37,7 +37,47 @@ jobs:
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
 
-      - name: Build Test Project (Diagnostics)
+      - name: Restore Test Project Packages (Diagnostics - 1 of 3)
+        run: |
+          echo "=== Restoring Project Packages ==="
+          set -e
+          cd tests/Game.Chess.Tests.Integration
+          dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
+
+      - name: Fix Windows-style paths in NuGet cache (Diagnostics - 2 of 3)
+        shell: bash
+        run: |
+          echo "=== Checking for Windows-style paths in NuGet packages ==="
+
+          # Depth-first, handle files/dirs with backslashes
+          find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
+            # Convert backslashes to forward slashes
+            NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
+            # Strip trailing slashes so Linux handles files correctly
+            NEW_PATH="${NEW_PATH%/}"
+
+            if [ -d "$f" ]; then
+              mkdir -p "$NEW_PATH"
+              mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
+              rmdir "$f" 2>/dev/null || true
+              echo "Fixed directory: $f -> $NEW_PATH"
+            else
+              mkdir -p "$(dirname "$NEW_PATH")"
+              mv "$f" "$NEW_PATH"
+              echo "Fixed file: $f -> $NEW_PATH"
+            fi
+          done
+
+          # Verify Microsoft.Spark.dll exists after fixing paths
+          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
+          if [ -f "$SPARK_DLL" ]; then
+            echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
+          else
+            echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
+            exit 1
+          fi
+
+      - name: Build Test Project (Diagnostics - 3 of 3)
         run: |
           set -e
           cd tests/Game.Chess.Tests.Integration
