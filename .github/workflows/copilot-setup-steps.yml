@@ -94,9 +94,3 @@ jobs:
           set -e
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
-
-      - name: Start Spark Runner
-        run: |
-          pwsh ./scripts/spark-runner-start.ps1
-          sleep infinity
-
