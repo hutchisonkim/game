@@ -328,8 +328,8 @@ $total = $passedCount + $failedCount + $skippedCount
 $percent = if ($total -gt 0) { [int]($passedCount * 100 / $total) } else { 0 }
 
 Write-Host "  Passed:  $passedCount/$total" -ForegroundColor Green
-Write-Host "  Failed:  $failedCount/$total" -ForegroundColor $(if ($failedCount -gt 0) { 'Red' } else { 'Green' })
-Write-Host "  Skipped: $skippedCount/$total" -ForegroundColor Yellow
+Write-Host "  Failed:  $failedCount/$total" -ForegroundColor $(if ($failedCount -gt 0) { 'Red' } else { 'DarkGray' })
+Write-Host "  Skipped: $skippedCount/$total" -ForegroundColor $(if ($skippedCount -gt 0) { 'Yellow' } else { 'DarkGray' })
 Write-Host "  Success: $percent%" -ForegroundColor $(if ($percent -ge 80) { 'Green' } elseif ($percent -ge 50) { 'Yellow' } else { 'Red' })
 
 # Exit with appropriate code
