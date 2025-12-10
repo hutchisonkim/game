@@ -40,6 +40,15 @@ jobs:
       DOTNET_WORKER_SPARK_VERSION: "2.3.0"
 
     steps:
+      - name: Install PowerShell
+        run: |
+          echo "Installing PowerShell..."
+          apt-get update -qq && apt-get install -y -qq wget apt-transport-https software-properties-common
+          wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
+          dpkg -i packages-microsoft-prod.deb
+          apt-get update -qq
+          apt-get install -y -qq powershell
+
       - name: Clear and prepare NuGet caches
         run: |
           echo "=== Clearing NuGet caches ==="
@@ -88,12 +97,24 @@ jobs:
             exit 1
           fi
 
+      - name: Install system dependencies
+        run: |
+          echo "=== Installing system dependencies ==="
+          apt-get update -qq
+          apt-get install -y -qq netcat-openbsd zip net-tools
+
       - name: Build test project
         run: |
           echo "=== Building test project ==="
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet build -f net8.0 -r linux-x64
           dotnet publish -f net8.0 -r linux-x64 -c Release --self-contained true
+
+      - name: Start Spark Runner
+        shell: pwsh
+        run: |
+          Write-Host "Starting Spark runner..."
+          pwsh ./scripts/spark-runner-start.ps1
 
       - name: Verify Spark environment
         run: |
@@ -106,5 +127,31 @@ jobs:
       - name: Environment ready for tests
         run: |
           echo "=== Environment configured for Copilot agent ==="
-          echo "The agent can now run tests using ./scripts/run-tests-with-dependencies.ps1"
-          echo "Note: Convert PowerShell script calls to bash equivalents or use pwsh if available"
+          echo "Spark runner is active and ready"
+          echo "The agent can now run tests using: pwsh ./scripts/run-tests-with-dependencies.ps1 -Filter 'Essential=true'"
+
+      - name: Cleanup Spark Runner
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "=== Cleaning up Spark runner ==="
+          $stopJob = Start-Job -ScriptBlock { pwsh scripts/spark-testctl.ps1 -Stop }
+          if (-not (Wait-Job -Job $stopJob -Timeout 10)) {
+            Stop-Job -Job $stopJob
+            Write-Warning 'Stop command timed out after 10s, proceeding with aggressive cleanup...'
+          } else {
+            $stopJob | Receive-Job
+          }
+          Start-Sleep -Seconds 2
+          
+          Write-Host 'Calling force-kill-runners...'
+          pwsh scripts/force-kill-runners.ps1
+          Start-Sleep -Seconds 1
+          
+          Write-Host 'Killing any remaining Java processes...'
+          Get-Process java -ErrorAction SilentlyContinue | ForEach-Object { 
+            Write-Host "Killing Java process: $($_.Id)"
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+          }
+          Start-Sleep -Seconds 1
+          Write-Host 'Cleanup complete'

@@ -88,7 +88,13 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq powershell
 
-      - name: Start Spark Backend + Run Tests
+      - name: Install system dependencies
+        run: |
+          echo "Installing dependencies..."
+          apt-get update -qq
+          apt-get install -y -qq netcat-openbsd zip net-tools
+
+      - name: Start Spark Runner
         shell: pwsh
         env:
           DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
@@ -96,10 +102,17 @@ jobs:
           DOTNET_WORKER_SPARK_VERSION: "2.3.0"
           PYTHON_WORKER_FACTORY_PORT: "5567"
         run: |
-          Write-Host "Installing dependencies..."
-          apt-get update -qq
-          apt-get install -y -qq netcat-openbsd zip net-tools
+          Write-Host "Starting Spark runner..."
+          pwsh ./scripts/spark-runner-start.ps1
 
+      - name: Run Tests
+        shell: pwsh
+        env:
+          DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+          DOTNETBACKEND_PORT: "5567"
+          DOTNET_WORKER_SPARK_VERSION: "2.3.0"
+          PYTHON_WORKER_FACTORY_PORT: "5567"
+        run: |
           Write-Host "Running tests with dependency management..."
           pwsh ./scripts/run-tests-with-dependencies.ps1 -Filter "Essential=true" -ShowDetails
 
@@ -185,5 +198,31 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "=== DEBUG: Done ==="
+
+      - name: Cleanup Spark Runner
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "=== Cleaning up Spark runner ==="
+          $stopJob = Start-Job -ScriptBlock { pwsh scripts/spark-testctl.ps1 -Stop }
+          if (-not (Wait-Job -Job $stopJob -Timeout 10)) {
+            Stop-Job -Job $stopJob
+            Write-Warning 'Stop command timed out after 10s, proceeding with aggressive cleanup...'
+          } else {
+            $stopJob | Receive-Job
+          }
+          Start-Sleep -Seconds 2
+          
+          Write-Host 'Calling force-kill-runners...'
+          pwsh scripts/force-kill-runners.ps1
+          Start-Sleep -Seconds 1
+          
+          Write-Host 'Killing any remaining Java processes...'
+          Get-Process java -ErrorAction SilentlyContinue | ForEach-Object { 
+            Write-Host "Killing Java process: $($_.Id)"
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+          }
+          Start-Sleep -Seconds 1
+          Write-Host 'Cleanup complete'
 
 
