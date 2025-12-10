@@ -204,7 +204,9 @@ namespace Game.Chess.Tests.Integration.Runner
                         }
                     }
 
-                    var trxPath = Path.Combine(publishDir, "spark-vstest.trx");
+                    var trxDir = Path.Combine(publishDir, "TestResults");
+                    Directory.CreateDirectory(trxDir);
+                    var trxPath = Path.Combine(trxDir, "TestResults.trx");
                     var vsArgs = new System.Collections.Generic.List<string> { "vstest", '"' + testDll + '"' };
                     if (!string.IsNullOrWhiteSpace(testCaseFilter)) vsArgs.Add("--TestCaseFilter:" + '"' + testCaseFilter + '"');
                     vsArgs.Add("--Logger:" + '"' + $"trx;LogFileName={Path.GetFileName(trxPath)}" + '"');

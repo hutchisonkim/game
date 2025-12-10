@@ -26,6 +26,24 @@ Write-Host "Pattern: $Pattern"
 Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" 
 Write-Host ""
 
+if (-not $IsWindows) {
+    Write-Host "Running on non-Windows; using cross-platform cleanup." -ForegroundColor Cyan
+    foreach ($name in @('dotnet', 'java')) {
+        $procs = Get-Process -Name $name -ErrorAction SilentlyContinue
+        foreach ($p in $procs) {
+            try {
+                Stop-Process -Id $p.Id -Force -ErrorAction Stop
+                Write-Host " - Stopped $name (PID $($p.Id))" -ForegroundColor Green
+            }
+            catch {
+                Write-Warning " - Failed to stop $name (PID $($p.Id)): $($_.Exception.Message)"
+            }
+        }
+    }
+    Write-Host "Cleanup complete." -ForegroundColor Cyan
+    return
+}
+
 # Gather dotnet processes that match pattern
 # Exclude VS Code dotnet processes (CPS/BuildHost)
 $dotnetProcs = Get-CimInstance Win32_Process | Where-Object {
