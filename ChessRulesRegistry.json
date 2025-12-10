@@ -1,0 +1,405 @@
+{
+  "name": "Chess Rules Registry",
+  "version": "1.0.0",
+  "date": "2025-12-09",
+  "description": "Complete mapping of chess rules to their conditions and responsible policy services",
+  "categories": {
+    "A": {
+      "name": "Basic Movement Rules",
+      "rules": {
+        "A1": {
+          "name": "Pawn Forward (Normal Move)",
+          "sourceCondition": "Piece.Self | Piece.Pawn & ~Piece.Mint",
+          "destinationCondition": "Piece.Empty",
+          "pattern": "(0, 1) forward",
+          "behavior": "single-step, non-recursive",
+          "responsibleServices": [
+            "PatternRepository",
+            "PatternMatcher",
+            "CandidateGenerator"
+          ],
+          "dependencies": [],
+          "testId": "L1_PatternMatcher_Pawn"
+        },
+        "A2": {
+          "name": "Pawn Initial Move (Double Step)",
+          "sourceCondition": "Piece.Self | Piece.MintPawn",
+          "destinationCondition": "Piece.Empty",
+          "pattern": "(0, 2) forward",
+          "behavior": "single-step, special case, sets Passing flag",
+          "responsibleServices": [
+            "PatternRepository",
+            "PatternMatcher",
+            "CandidateGenerator",
+            "SimulationEngine"
+          ],
+          "dependencies": ["A1"],
+          "testId": "L3_SimulationEngine_FlagUpdates"
+        },
+        "A3": {
+          "name": "Pawn Capture (Diagonal)",
+          "sourceCondition": "Piece.Self | Piece.Pawn",
+          "destinationCondition": "Piece.Foe",
+          "pattern": "(1, 1) forward diagonal, both Q1 and Q2",
+          "behavior": "non-repeating, capture-only",
+          "responsibleServices": [
+            "PatternRepository",
+            "PatternMatcher",
+            "CandidateGenerator"
+          ],
+          "dependencies": [],
+          "testId": "L1_PatternMatcher_Pawn"
+        },
+        "A4": {
+          "name": "Bishop Movement (All Directions)",
+          "sourceCondition": "Piece.Self | Piece.Bishop",
+          "destinationCondition": "Piece.Empty (recursive OutF) + Piece.Foe (capture InF)",
+          "pattern": "(1, 1) in all 4 quadrants; 4 Empty OutF + 4 Foe InF patterns",
+          "behavior": "sliding, must not jump pieces, recursive",
+          "implementation": "Empty patterns with InstantRecursive, Foe patterns with Public flag",
+          "responsibleServices": [
+            "PatternRepository",
+            "SequenceEngine",
+            "CandidateGenerator"
+          ],
+          "dependencies": [],
+          "testId": "L2_SequenceEngine_BishopSliding"
+        },
+        "A5": {
+          "name": "Rook Movement (Cardinal Directions)",
+          "sourceCondition": "Piece.Self | Piece.Rook",
+          "destinationCondition": "Piece.Empty (recursive OutI) + Piece.Foe (capture InI)",
+          "pattern": "(1, 0) and (0, 1) in all 4 directions; 4 Empty OutI + 4 Foe InI patterns",
+          "behavior": "sliding, must not jump pieces, recursive",
+          "implementation": "Empty patterns with InstantRecursive and ~Piece.Mint effect, Foe patterns with Public flag and ~Piece.Mint effect",
+          "responsibleServices": [
+            "PatternRepository",
+            "SequenceEngine",
+            "CandidateGenerator"
+          ],
+          "dependencies": [],
+          "testId": "L2_SequenceEngine_RookSliding"
+        },
+        "A6": {
+          "name": "Queen Movement (Bishop + Rook)",
+          "sourceCondition": "Piece.Self | Piece.Queen",
+          "destinationCondition": "Piece.Empty (recursive OutG/OutH) + Piece.Foe (capture InG/InH)",
+          "pattern": "4 OutG (bishop) + 4 OutH (rook) Empty; 4 InG (bishop) + 4 InH (rook) Foe; 16 patterns total",
+          "behavior": "sliding, both diagonal and cardinal",
+          "implementation": "OutG/InG for bishop moves, OutH/InH for rook moves; same recursion/capture logic as A4 and A5",
+          "responsibleServices": [
+            "PatternRepository",
+            "SequenceEngine",
+            "CandidateGenerator"
+          ],
+          "dependencies": ["A4", "A5"],
+          "testId": "L2_CandidateGenerator_SlidingMoves"
+        },
+        "A7": {
+          "name": "Knight Movement (L-Shape)",
+          "sourceCondition": "Piece.Self | Piece.Knight",
+          "destinationCondition": "Piece.Empty (move) + Piece.Foe (capture)",
+          "pattern": "(2, 1) and (1, 2) in all quadrants; 8 Empty + 8 Foe patterns (16 total)",
+          "behavior": "non-sliding (atomic), ignores intermediate cells",
+          "implementation": "Both Empty and Foe patterns use Sequence.None; single-step direct move or capture",
+          "responsibleServices": [
+            "PatternRepository",
+            "PatternMatcher",
+            "CandidateGenerator"
+          ],
+          "dependencies": [],
+          "testId": "L1_PatternMatcher_Knight"
+        },
+        "A8": {
+          "name": "King Movement (One Square)",
+          "sourceCondition": "Piece.Self | Piece.King",
+          "destinationCondition": "Piece.Empty (move) + Piece.Foe (capture), both must be safe (~Threatened)",
+          "pattern": "All 8 directions (cardinal + diagonal), distance 1; 8 Empty + 8 Foe patterns (16 total)",
+          "behavior": "atomic, single-step, cannot move to threatened square",
+          "implementation": "4 Empty rook-like + 4 Empty bishop-like with ~Piece.Mint; 4 Foe rook-like + 4 Foe bishop-like with ~Piece.Mint",
+          "responsibleServices": [
+            "PatternRepository",
+            "PatternMatcher",
+            "CandidateGenerator",
+            "LegalityEngine",
+            "ThreatEngine"
+          ],
+          "dependencies": ["C1"],
+          "testId": "L1_PatternMatcher_King"
+        }
+      }
+    },
+    "B": {
+      "name": "Special Move Rules",
+      "rules": {
+        "B1": {
+          "name": "Pawn Promotion",
+          "sourceCondition": "Pawn reaches opposite edge",
+          "destinationCondition": "One of 4 promotion pieces (N, B, R, Q)",
+          "pattern": "Row 7 (white) or Row 0 (black) trigger with 4 result patterns",
+          "behavior": "sequence phase: detect trigger, instant mandatory: execute",
+          "responsibleServices": [
+            "PatternRepository",
+            "SequenceEngine",
+            "SimulationEngine"
+          ],
+          "dependencies": ["A1", "A3"],
+          "testId": "L5_SpecialMoves_PawnPromotion"
+        },
+        "B2": {
+          "name": "Castling (Kingside)",
+          "sourceCondition": "MintKing + MintRook, no pieces between, not in check, not moving through check",
+          "destinationCondition": "King (6,y), Rook (5,y)",
+          "pattern": "Variant2 parallel sequence patterns",
+          "behavior": "parallel movement, must validate intermediate cells safe",
+          "responsibleServices": [
+            "PatternRepository",
+            "SequenceEngine",
+            "SimulationEngine",
+            "LegalityEngine"
+          ],
+          "dependencies": ["A8", "C1"],
+          "testId": "L5_SpecialMoves_Castling"
+        },
+        "B3": {
+          "name": "Castling (Queenside)",
+          "sourceCondition": "MintKing + MintRook, no pieces between, not in check, not moving through check",
+          "destinationCondition": "King (2,y), Rook (3,y)",
+          "pattern": "Variant1 parallel sequence patterns",
+          "behavior": "parallel movement, must validate intermediate cells safe",
+          "responsibleServices": [
+            "PatternRepository",
+            "SequenceEngine",
+            "SimulationEngine",
+            "LegalityEngine"
+          ],
+          "dependencies": ["B2"],
+          "testId": "L5_SpecialMoves_Castling"
+        },
+        "B4": {
+          "name": "En Passant",
+          "sourceCondition": "Pawn at row 4 (white) or 3 (black), adjacent PassingFoe",
+          "destinationCondition": "Empty diagonal forward",
+          "pattern": "Pair sequence: OutE (detect) + InE (move)",
+          "behavior": "removes foe from side, not forward",
+          "responsibleServices": [
+            "PatternRepository",
+            "SequenceEngine",
+            "SimulationEngine",
+            "LegalityEngine"
+          ],
+          "dependencies": ["A2"],
+          "testId": "L5_SpecialMoves_EnPassant"
+        },
+        "B5": {
+          "name": "Passing Flag Reset",
+          "sourceCondition": "Any piece with Passing flag",
+          "destinationCondition": "Remove Passing flag",
+          "pattern": "(0, 0) special pattern",
+          "behavior": "instant mandatory, not a real move",
+          "responsibleServices": [
+            "PatternRepository",
+            "SequenceEngine",
+            "SimulationEngine"
+          ],
+          "dependencies": ["B4"],
+          "testId": "L3_SimulationEngine_FlagUpdates"
+        }
+      }
+    },
+    "C": {
+      "name": "Legality & Constraint Rules",
+      "rules": {
+        "C1": {
+          "name": "King Safety (Cannot Move Into Check)",
+          "sourceCondition": "Any move candidate",
+          "destinationCondition": "After move, king must not be in threatened square",
+          "pattern": "N/A (meta-rule)",
+          "behavior": "simulate move, compute threats, reject if king threatened",
+          "responsibleServices": [
+            "SimulationEngine",
+            "ThreatEngine",
+            "LegalityEngine"
+          ],
+          "dependencies": [],
+          "testId": "L6_Legality_KingSafety"
+        },
+        "C2": {
+          "name": "Pin Detection (Indirect King Attack)",
+          "sourceCondition": "Piece that blocks attack on king",
+          "destinationCondition": "Cannot move away from pinning line",
+          "pattern": "N/A (meta-rule)",
+          "behavior": "simulate move, check if king becomes threatened",
+          "responsibleServices": [
+            "ThreatEngine",
+            "SimulationEngine",
+            "LegalityEngine"
+          ],
+          "dependencies": ["C1"],
+          "testId": "L6_Legality_PinDetection"
+        },
+        "C3": {
+          "name": "Discovered Check (Moving Exposes King)",
+          "sourceCondition": "Piece blocking attack on king",
+          "destinationCondition": "Cannot move if it exposes king to that attack",
+          "pattern": "N/A (meta-rule)",
+          "behavior": "similar to pin detection",
+          "responsibleServices": [
+            "ThreatEngine",
+            "SimulationEngine",
+            "LegalityEngine"
+          ],
+          "dependencies": ["C1"],
+          "testId": "L6_Legality_DiscoveredCheck"
+        },
+        "C4": {
+          "name": "No Friendly Fire",
+          "sourceCondition": "Piece trying to capture ally",
+          "destinationCondition": "Rejected in normal play",
+          "pattern": "N/A (pattern filter)",
+          "behavior": "dst_conditions filter with Piece.Foe",
+          "responsibleServices": [
+            "PatternMatcher",
+            "CandidateGenerator"
+          ],
+          "dependencies": [],
+          "testId": "L1_CandidateGenerator_SimpleMoves"
+        },
+        "C5": {
+          "name": "Board Boundaries",
+          "sourceCondition": "Any move with position computation",
+          "destinationCondition": "Position must be within 0-7 for both x,y",
+          "pattern": "N/A (position validation)",
+          "behavior": "validate dst_x/dst_y and break sliding on edge",
+          "responsibleServices": [
+            "PatternMatcher",
+            "SequenceEngine"
+          ],
+          "dependencies": [],
+          "testId": "L1_PatternMatcher_Pawn"
+        }
+      }
+    },
+    "D": {
+      "name": "Terminal Conditions",
+      "rules": {
+        "D1": {
+          "name": "Checkmate",
+          "sourceCondition": "King in check",
+          "destinationCondition": "No legal moves exist that leave king safe",
+          "pattern": "N/A (game-end rule)",
+          "behavior": "compute all candidates, filter legality, check if empty",
+          "responsibleServices": [
+            "CandidateGenerator",
+            "LegalityEngine",
+            "GameStateAnalyzer"
+          ],
+          "dependencies": ["C1", "C2", "C3"],
+          "testId": "L8_Terminal_Checkmate"
+        },
+        "D2": {
+          "name": "Stalemate",
+          "sourceCondition": "King NOT in check",
+          "destinationCondition": "No legal moves exist",
+          "pattern": "N/A (game-end rule)",
+          "behavior": "verify king safe, then check if no moves available",
+          "responsibleServices": [
+            "CandidateGenerator",
+            "LegalityEngine",
+            "GameStateAnalyzer"
+          ],
+          "dependencies": ["C1", "C2", "C3"],
+          "testId": "L8_Terminal_Stalemate"
+        },
+        "D3": {
+          "name": "Three-Fold Repetition",
+          "sourceCondition": "Same board position occurs 3 times",
+          "destinationCondition": "Game drawn",
+          "pattern": "N/A (game history rule)",
+          "behavior": "track board history, compare hashes",
+          "responsibleServices": ["GameStateAnalyzer"],
+          "dependencies": [],
+          "testId": "Optional"
+        },
+        "D4": {
+          "name": "50-Move Rule",
+          "sourceCondition": "50 moves without pawn move or capture",
+          "destinationCondition": "Game drawn",
+          "pattern": "N/A (move counter rule)",
+          "behavior": "track move counter, reset on pawn/capture",
+          "responsibleServices": ["GameStateAnalyzer"],
+          "dependencies": [],
+          "testId": "Optional"
+        }
+      }
+    }
+  },
+  "serviceMap": {
+    "BoardStateProvider": {
+      "layer": 0,
+      "responsibility": "Convert board array → DataFrame with position/piece/color",
+      "supportsRules": [],
+      "dependencies": []
+    },
+    "PatternRepository": {
+      "layer": 0,
+      "responsibility": "Load & cache all 60+ movement patterns",
+      "supportsRules": ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "B1", "B2", "B3", "B4", "B5"],
+      "dependencies": []
+    },
+    "PerspectiveEngine": {
+      "layer": 0,
+      "responsibility": "Convert pieces → Self/Ally/Foe views, apply threat masks",
+      "supportsRules": ["A1", "A3", "A7", "A8", "C1"],
+      "dependencies": ["BoardStateProvider"]
+    },
+    "PatternMatcher": {
+      "layer": 1,
+      "responsibility": "Apply one pattern to one piece → candidates (atomic)",
+      "supportsRules": ["A1", "A3", "A7", "A8", "C4", "C5"],
+      "dependencies": ["PatternRepository", "PerspectiveEngine"]
+    },
+    "CandidateGenerator": {
+      "layer": 1.5,
+      "responsibility": "Collect all candidates: atomic + sliding, all pieces",
+      "supportsRules": ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"],
+      "dependencies": ["PatternMatcher", "SequenceEngine"]
+    },
+    "SequenceEngine": {
+      "layer": 2,
+      "responsibility": "Expand patterns recursively, handle multi-phase sequences",
+      "supportsRules": ["A4", "A5", "A6", "B1", "B2", "B3", "B4", "B5"],
+      "dependencies": ["PatternMatcher"]
+    },
+    "SimulationEngine": {
+      "layer": 3,
+      "responsibility": "Apply a move → new board state (pieces + flags)",
+      "supportsRules": ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "B1", "B2", "B3", "B4", "B5"],
+      "dependencies": ["CandidateGenerator"]
+    },
+    "ThreatEngine": {
+      "layer": 4,
+      "responsibility": "Compute all cells threatened by opponent",
+      "supportsRules": ["A8", "C1", "C2", "C3"],
+      "dependencies": ["CandidateGenerator", "SimulationEngine"]
+    },
+    "LegalityEngine": {
+      "layer": 6,
+      "responsibility": "Filter moves that leave king in check, detect pins/discovered checks",
+      "supportsRules": ["C1", "C2", "C3"],
+      "dependencies": ["SimulationEngine", "ThreatEngine", "CandidateGenerator"]
+    },
+    "TimelineEngine": {
+      "layer": 7,
+      "responsibility": "Orchestrate game tree: Candidates → Legality → Simulation → Threats",
+      "supportsRules": ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "B1", "B2", "B3", "B4", "B5", "C1", "C2", "C3"],
+      "dependencies": ["CandidateGenerator", "LegalityEngine", "SimulationEngine", "ThreatEngine"]
+    },
+    "GameStateAnalyzer": {
+      "layer": 8,
+      "responsibility": "Detect checkmate, stalemate, draw conditions",
+      "supportsRules": ["D1", "D2", "D3", "D4"],
+      "dependencies": ["CandidateGenerator", "LegalityEngine"]
+    }
+  }
+}

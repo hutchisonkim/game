@@ -1,0 +1,101 @@
+name: "Copilot Setup Steps"
+
+# Automatically run the setup steps when they are changed to allow for easy validation, and
+# allow manual testing through the repository's "Actions" tab
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    # Set the permissions to the lowest permissions possible needed for your steps.
+    # Copilot will be given its own token for its operations.
+    permissions:
+      contents: read
+
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/spark-dotnet:3.5.3-2.3.0
+      options: --init
+      credentials:
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PAT }}
+
+    env:
+      SPARK_HOME: /opt/spark
+      SPARK_VERSION: "3.5.3"
+      DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_CLI_HOME: /github/home
+      NUGET_PACKAGES: /github/home/.nuget
+      DOTNETBACKEND_PORT: "5567"
+      PYTHON_WORKER_FACTORY_PORT: "5567"
+      DOTNET_WORKER_SPARK_VERSION: "2.3.0"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Restore Test Project Packages (Spark DLL fix - 1 of 3)
+        run: |
+          echo "=== Restoring Project Packages ==="
+          set -e
+          cd tests/Game.Chess.Tests.Integration
+          dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
+
+      - name: Fix Windows-style paths in NuGet cache (Spark DLL fix - 2 of 3)
+        shell: bash
+        run: |
+          echo "=== Checking for Windows-style paths in NuGet packages ==="
+
+          # Depth-first, handle files/dirs with backslashes
+          find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
+            # Convert backslashes to forward slashes
+            NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
+            # Strip trailing slashes so Linux handles files correctly
+            NEW_PATH="${NEW_PATH%/}"
+
+            if [ -d "$f" ]; then
+              mkdir -p "$NEW_PATH"
+              mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
+              rmdir "$f" 2>/dev/null || true
+              echo "Fixed directory: $f -> $NEW_PATH"
+            else
+              mkdir -p "$(dirname "$NEW_PATH")"
+              mv "$f" "$NEW_PATH"
+              echo "Fixed file: $f -> $NEW_PATH"
+            fi
+          done
+
+          # Verify Microsoft.Spark.dll exists after fixing paths
+          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
+          if [ -f "$SPARK_DLL" ]; then
+            echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
+          else
+            echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
+            exit 1
+          fi
+
+      - name: Build Test Project (Spark DLL fix - 3 of 3)
+        run: |
+          set -e
+          cd tests/Game.Chess.Tests.Integration
+          dotnet build Game.Chess.Tests.Integration.csproj -c Release -v d
+
+      - name: Build Spark Runner
+        run: |
+          set -e
+          cd tests/Game.Chess.Tests.Integration.Runner
+          dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
+
+      - name: Start Spark Runner
+        shell: pwsh
+        run: pwsh ./scripts/spark-runner-start.ps1
+

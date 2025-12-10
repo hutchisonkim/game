@@ -1,6 +1,7 @@
 using Microsoft.Spark.Sql;
 using Xunit;
-using Game.Chess.HistoryB;
+using Game.Chess.HistoryRefactor;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Tests.Integration.Helpers;
 
@@ -142,7 +143,7 @@ public static class MoveAssertions
     /// <summary>
     /// Asserts that all moves have the specified sequence flags set.
     /// </summary>
-    public static void AllMovesHaveSequence(IEnumerable<Row> moves, ChessPolicy.Sequence expectedFlags)
+    public static void AllMovesHaveSequence(IEnumerable<Row> moves, Sequence expectedFlags)
     {
         int flagsInt = (int)expectedFlags;
         

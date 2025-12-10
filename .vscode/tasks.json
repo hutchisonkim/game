@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run Spark Tests (local)",
+      "label": "Spark: Start Runner",
       "type": "shell",
       "command": "pwsh.exe",
       "args": [
@@ -10,7 +10,36 @@
         "-ExecutionPolicy",
         "Bypass",
         "-File",
-        "${workspaceFolder}/scripts/run-spark-tests-local.ps1"
+        "${workspaceFolder}/scripts/spark-runner-start.ps1"
+      ],
+      "options": {
+        "env": {
+          "DOTNETBACKEND_PORT": "5000",
+          "DOTNET_WORKER_SPARK_VERSION": "3.5.3",
+          "PYTHON_WORKER_FACTORY_PORT": "5001",
+          "HADOOP_HOME": "C:\\hadoop\\cdarlint\\winutils\\hadoop-3.3.6"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Spark: Start (if needed) + Test (Essential)",
+      "type": "shell",
+      "command": "pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/spark-start-and-test-essential.ps1"
       ],
       "options": {
         "env": {
@@ -33,6 +62,49 @@
         "kind": "test",
         "isDefault": true
       }
+    },
+    {
+      "label": "Spark: Stop Runner",
+      "type": "shell",
+      "command": "pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/spark-testctl.ps1",
+        "-Stop"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Cleanup",
+      "type": "shell",
+      "command": "pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$stopJob = Start-Job -ScriptBlock { pwsh scripts/spark-testctl.ps1 -Stop }; if (-not (Wait-Job -Job $stopJob -Timeout 10)) { Stop-Job -Job $stopJob; Write-Warning 'Stop command timed out after 10s, proceeding with aggressive cleanup...' } else { $stopJob | Receive-Job }; Start-Sleep -Seconds 2; Write-Host 'Calling force-kill-runners...'; pwsh scripts/force-kill-runners.ps1; Start-Sleep -Seconds 1; Get-Process java -ErrorAction SilentlyContinue | ForEach-Object { taskkill /PID $_.Id /F }; Start-Sleep -Seconds 1; Write-Host 'Cleanup complete'"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
     }
   ]
 }

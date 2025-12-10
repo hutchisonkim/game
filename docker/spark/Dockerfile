@@ -16,12 +16,6 @@ ENV PATH=$SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH
 # ---- Cache directory (CI can drop pre-downloaded files here) -------
 COPY .docker_cache /cache
 
-# ---- Base tools -----------------------------------------------------
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      curl ca-certificates tar procps bash wget gnupg apt-transport-https libxml2-utils netcat-openbsd zip net-tools && \
-    rm -rf /var/lib/apt/lists/*
-
 # ---- Spark ----------------------------------------------------------
 RUN mkdir -p /opt && \
     if [ -f /cache/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz ]; then \
@@ -58,16 +52,40 @@ RUN mkdir -p ${DOTNET_WORKER_DIR} && \
        ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker && \
     chmod +x ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker
 
-# ---- .NET 8 SDK -----------------------------------------------------
-RUN wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
-      -O /tmp/ms.deb && \
-    dpkg -i /tmp/ms.deb && rm /tmp/ms.deb && \
-    apt-get update && \
-    apt-get install -y dotnet-sdk-8.0 && \
-    rm -rf /var/lib/apt/lists/*
+# ---- Microsoft.Spark jar (needed by runner) -----------------------
+RUN mkdir -p ${SPARK_HOME}/jars && \
+    if [ -f /cache/.nuget/packages/microsoft.spark/2.3.0/microsoft-spark-3-5_2.12-2.3.0.jar ]; then \
+      echo "Copying cached microsoft-spark-3-5 jar" && \
+      cp /cache/.nuget/packages/microsoft.spark/2.3.0/microsoft-spark-3-5_2.12-2.3.0.jar ${SPARK_HOME}/jars/; \
+    else \
+      echo "Missing cached microsoft-spark-3-5 jar under /cache/.nuget/packages" && exit 1; \
+    fi
+
+# ---- Pre-populate NuGet global cache with Microsoft.Spark ---------
+ENV NUGET_PACKAGES=/root/.nuget/packages
+RUN mkdir -p ${NUGET_PACKAGES} && \
+    if [ -d /cache/.nuget/packages ]; then \
+      echo "Copying pre-cached NuGet packages to global cache" && \
+      cp -r /cache/.nuget/packages/* ${NUGET_PACKAGES}/ && \
+      chmod -R 755 ${NUGET_PACKAGES}; \
+    else \
+      echo "No pre-cached NuGet packages found in /cache/.nuget/packages"; \
+    fi
 
 # ---- Expose Spark UI ports (optional, useful for local dev) --------
 EXPOSE 7077 8080 4040
+
+# ---- Install base tools + .NET SDK + PowerShell at the end (reduces layer churn) ----
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      curl ca-certificates tar procps bash wget gnupg apt-transport-https libxml2-utils netcat-openbsd zip net-tools software-properties-common && \
+    rm -rf /var/lib/apt/lists/* && \
+    wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
+      -O /tmp/ms.deb && \
+    dpkg -i /tmp/ms.deb && rm /tmp/ms.deb && \
+    apt-get update && \
+    apt-get install -y dotnet-sdk-8.0 powershell && \
+    rm -rf /var/lib/apt/lists/*
 
 # ---- Default command – just a shell (CI starts the worker) --------
 CMD ["bash"]
