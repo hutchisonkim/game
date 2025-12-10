@@ -216,7 +216,7 @@ try {
         Write-Host "Logs: $sparkLogPath (will be populated by spark)"
 
         # Wait for runner TCP endpoint to be ready
-        $maxWaitSec = 3
+        $maxWaitSec = 10
         $elapsed = 0
         Write-Host "Waiting for runner to respond at 127.0.0.1:7009 (max ${maxWaitSec}s)"
         while ($elapsed -lt $maxWaitSec) {
