@@ -51,6 +51,16 @@ public class EssentialTests
         // Assert
         Assert.NotNull(piecesDf);
         Assert.Equal(64, piecesDf.Count()); // 8x8 board = 64 cells
+        
+        // Verify schema: should have x, y, piece columns
+        var columns = piecesDf.Columns();
+        Assert.Contains("x", columns);
+        Assert.Contains("y", columns);
+        Assert.Contains("piece", columns);
+        
+        // Verify coordinate ranges: all x,y should be 0-7
+        var outOfBounds = piecesDf.Filter("x < 0 OR x > 7 OR y < 0 OR y > 7").Count();
+        Assert.Equal(0, outOfBounds);
     }
 
     [Fact]
@@ -69,11 +79,21 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(patternsDf);
-        Assert.NotEqual(0, patternsDf.Count()); // Must have patterns
+        var patternCount = patternsDf.Count();
+        Assert.NotEqual(0, patternCount); // Must have patterns
+        
+        // Verify schema has required pattern columns
+        var columns = patternsDf.Columns();
+        Assert.Contains("src_conditions", columns);
+        Assert.Contains("dst_conditions", columns);
+        Assert.Contains("delta_x", columns);
+        Assert.Contains("delta_y", columns);
+        Assert.Contains("sequence", columns);
         
         // Verify caching works (second call returns same object)
         var patternsDf2 = repo.GetPatterns();
         Assert.Same(patternsDf, patternsDf2);
+        Assert.Equal(patternCount, patternsDf2.Count());
     }
 
     [Fact]
@@ -98,7 +118,23 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Perspectives is cross-join: 32 pieces (default board) × 64 cells = 2048 rows
+        Assert.Equal(32 * 64, perspectiveCount);
+        
+        // Verify schema includes perspective columns
+        var columns = perspectivesDf.Columns();
+        Assert.Contains("perspective_x", columns);
+        Assert.Contains("perspective_y", columns);
+        Assert.Contains("perspective_piece", columns);
+        Assert.Contains("generic_piece", columns);
+        
+        // Verify Self/Ally/Foe bits are set correctly
+        var selfBit = (int)Piece.Self;
+        var selfMarked = perspectivesDf.Filter($"(generic_piece & {selfBit}) != 0").Count();
+        Assert.True(selfMarked > 0, "Some cells should be marked Self");
     }
 
     #endregion
@@ -131,13 +167,14 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
 
         // Assert
-        // Verify perspectives DataFrame is created with cross join (2 white pieces × 64 cells = 128 rows)
         Assert.NotNull(perspectivesDf);
         var perspectiveCount = perspectivesDf.Count();
         Assert.True(perspectiveCount > 0, $"Expected perspectives to exist, got {perspectiveCount} rows");
         
-        // Verify it has the expected columns by checking count
-        Assert.True(perspectiveCount > 0);
+        // Verify pawn patterns exist in repository
+        var pawnBit = (int)Piece.Pawn;
+        var pawnPatterns = patternsDf.Filter($"(src_conditions & {pawnBit}) != 0").Count();
+        Assert.True(pawnPatterns > 0, "Pawn patterns should be defined");
     }
 
 
@@ -166,11 +203,14 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
 
         // Assert
-        // Verify knight perspective is created
         Assert.NotNull(perspectivesDf);
-        // Perspectives DataFrame should have rows (cross-join of 1 piece × 64 cells)
         var perspectiveCount = perspectivesDf.Count();
         Assert.True(perspectiveCount > 0, $"Expected perspectives to exist, got {perspectiveCount} rows");
+        
+        // Verify knight patterns exist in repository (L-shaped moves: ±2,±1 or ±1,±2)
+        var knightBit = (int)Piece.Knight;
+        var knightPatterns = patternsDf.Filter($"(src_conditions & {knightBit}) != 0").Count();
+        Assert.True(knightPatterns > 0, "Knight patterns should be defined");
     }
 
     [Fact]
@@ -198,11 +238,14 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
 
         // Assert
-        // Verify king perspective is created
         Assert.NotNull(perspectivesDf);
-        // Perspectives DataFrame should have rows (cross-join of 1 piece × 64 cells)
         var perspectiveCount = perspectivesDf.Count();
         Assert.True(perspectiveCount > 0, $"Expected perspectives to exist, got {perspectiveCount} rows");
+        
+        // Verify king patterns exist in repository (1-square moves in all 8 directions)
+        var kingBit = (int)Piece.King;
+        var kingPatterns = patternsDf.Filter($"(src_conditions & {kingBit}) != 0").Count();
+        Assert.True(kingPatterns > 0, "King patterns should be defined");
     }
 
     [Fact]
@@ -221,7 +264,6 @@ public class EssentialTests
             (4, 0, PieceBuilder.Create().White().King().Build()),   // White king
             (0, 7, PieceBuilder.Create().Black().Pawn().Build())    // Black pawn
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var repo = new PatternRepository(_spark);
@@ -235,11 +277,25 @@ public class EssentialTests
         // Assert
         // All pieces should be recognized in perspectives
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
         
-        // Should have at least the pieces we created
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        // Perspectives should have 4 white pieces × 64 cells = 256 rows (1 black pawn not included in white faction)
+        Assert.Equal(3 * 64, perspectiveCount);
+        
+        // Verify perspectives contains correct piece types
+        var pawnBit = (int)Piece.Pawn;
+        var knightBit = (int)Piece.Knight;
+        var kingBit = (int)Piece.King;
+        var whiteBit = (int)Piece.White;
+        
+        var whitePawns = perspectivesDf.Filter($"(perspective_piece & {pawnBit}) != 0 AND (perspective_piece & {whiteBit}) != 0").Count();
+        var whiteKnights = perspectivesDf.Filter($"(perspective_piece & {knightBit}) != 0 AND (perspective_piece & {whiteBit}) != 0").Count();
+        var whiteKings = perspectivesDf.Filter($"(perspective_piece & {kingBit}) != 0 AND (perspective_piece & {whiteBit}) != 0").Count();
+        
+        Assert.True(whitePawns > 0, "White pawn should be present");
+        Assert.True(whiteKnights > 0, "White knight should be present");
+        Assert.True(whiteKings > 0, "White king should be present");
     }
 
     #endregion
@@ -271,10 +327,22 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
 
         // Assert
-        // Verify bishop is recognized
         Assert.NotNull(perspectivesDf);
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify bishop patterns exist and include sliding sequences
+        var bishopBit = (int)Piece.Bishop;
+        var bishopPatterns = patternsDf.Filter($"(src_conditions & {bishopBit}) != 0").Count();
+        Assert.True(bishopPatterns > 0, "Bishop patterns should be defined");
+        
+        // Verify we have recursive/multi-step patterns for bishop (InstantRecursive = Instant | Recursive)
+        var instantRecursiveMask = (1 << 16) | (1 << 15); // Instant and Recursive flags
+        var diagonalPatterns = patternsDf
+            .Filter($"(src_conditions & {bishopBit}) != 0")
+            .Filter($"(sequence & {instantRecursiveMask}) != 0")
+            .Count();
+        Assert.True(diagonalPatterns > 0, "Bishop should have recursive diagonal patterns");
     }
 
     [Fact]
@@ -302,10 +370,22 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
 
         // Assert
-        // Verify rook is recognized
         Assert.NotNull(perspectivesDf);
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify rook patterns exist and include sliding sequences
+        var rookBit = (int)Piece.Rook;
+        var rookPatterns = patternsDf.Filter($"(src_conditions & {rookBit}) != 0").Count();
+        Assert.True(rookPatterns > 0, "Rook patterns should be defined");
+        
+        // Verify we have recursive/multi-step patterns for rook (cardinal directions)
+        var instantRecursiveMask = (1 << 16) | (1 << 15); // Instant and Recursive flags
+        var cardinalPatterns = patternsDf
+            .Filter($"(src_conditions & {rookBit}) != 0")
+            .Filter($"(sequence & {instantRecursiveMask}) != 0")
+            .Count();
+        Assert.True(cardinalPatterns > 0, "Rook should have recursive cardinal patterns");
     }
 
     [Fact]
@@ -334,10 +414,23 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
 
         // Assert
-        // Both pieces should be recognized
         Assert.NotNull(perspectivesDf);
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Should have 2 pieces × 64 cells = 128 perspectives
+        Assert.Equal(2 * 64, perspectiveCount);
+        
+        // Verify both bishop and rook are in perspectives
+        var bishopBit = (int)Piece.Bishop;
+        var rookBit = (int)Piece.Rook;
+        var whiteBit = (int)Piece.White;
+        
+        var bishops = perspectivesDf.Filter($"(perspective_piece & {bishopBit}) != 0 AND (perspective_piece & {whiteBit}) != 0").Count();
+        var rooks = perspectivesDf.Filter($"(perspective_piece & {rookBit}) != 0 AND (perspective_piece & {whiteBit}) != 0").Count();
+        
+        Assert.True(bishops > 0, "Bishop should be present in perspectives");
+        Assert.True(rooks > 0, "Rook should be present in perspectives");
     }
 
     #endregion
@@ -366,13 +459,18 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
 
         // Assert
-        // Verify board state is recognized
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
         
         // Count total pieces on default board (should be 32: 16 white + 16 black)
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var allPieces = piecesDf.Filter("piece != 0").Count();
+        Assert.Equal(32, allPieces);
+        
+        // Verify default board has pieces in starting positions
+        // White pawns should be on rank 2 (y=1)
+        var whitePawns = piecesDf.Filter($"y = 1 AND (piece & {(int)Piece.White}) != 0 AND (piece & {(int)Piece.Pawn}) != 0").Count();
+        Assert.Equal(8, whitePawns);
     }
 
     [Fact]
@@ -399,10 +497,27 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
 
         // Assert
-        // Verify both pawns exist
         Assert.NotNull(perspectivesDf);
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify mint flag is set correctly on pawns
+        var mintBit = (int)Piece.Mint;
+        var pawnBit = (int)Piece.Pawn;
+        var whiteBit = (int)Piece.White;
+        var blackBit = (int)Piece.Black;
+        
+        // Check white mint pawn exists
+        var whiteMintPawns = piecesDf
+            .Filter($"(piece & {whiteBit}) != 0 AND (piece & {pawnBit}) != 0 AND (piece & {mintBit}) != 0")
+            .Count();
+        Assert.True(whiteMintPawns > 0, "White mint pawn should exist");
+        
+        // Check black mint pawn exists
+        var blackMintPawns = piecesDf
+            .Filter($"(piece & {blackBit}) != 0 AND (piece & {pawnBit}) != 0 AND (piece & {mintBit}) != 0")
+            .Count();
+        Assert.True(blackMintPawns > 0, "Black mint pawn should exist");
     }
 
     #endregion
@@ -433,10 +548,22 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
 
         // Assert
-        // Verify both pieces are recognized
         Assert.NotNull(perspectivesDf);
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify we have 2 pieces on the board
+        var allPieces = piecesDf.Filter("piece != 0").Count();
+        Assert.Equal(2, allPieces);
+        
+        // Verify king and black pawn are recognized
+        var kingBit = (int)Piece.King;
+        var pawnBit = (int)Piece.Pawn;
+        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
+        var pawns = piecesDf.Filter($"(piece & {pawnBit}) != 0").Count();
+        
+        Assert.True(kings > 0, "King should be present");
+        Assert.True(pawns > 0, "Pawn should be present");
     }
 
     #endregion
@@ -469,10 +596,18 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
 
         // Assert
-        // Verify all pieces are recognized (2 kings + 2 rooks = 4 pieces)
         Assert.NotNull(perspectivesDf);
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify all pieces are recognized (2 kings + 2 rooks = 4 pieces)
+        var allPieces = piecesDf.Filter("piece != 0").Count();
+        Assert.Equal(4, allPieces);
+        
+        // Verify all pieces have Mint flag (important for castling)
+        var mintBit = (int)Piece.Mint;
+        var mintPieces = piecesDf.Filter($"piece != 0 AND (piece & {mintBit}) != 0").Count();
+        Assert.Equal(4, mintPieces);
     }
 
     #endregion
@@ -503,10 +638,22 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
 
         // Assert
-        // Verify both pieces are recognized
         Assert.NotNull(perspectivesDf);
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify both pieces exist
+        var allPieces = piecesDf.Filter("piece != 0").Count();
+        Assert.Equal(2, allPieces);
+        
+        // Verify king and rook are present
+        var kingBit = (int)Piece.King;
+        var rookBit = (int)Piece.Rook;
+        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
+        var rooks = piecesDf.Filter($"(piece & {rookBit}) != 0").Count();
+        
+        Assert.Equal(1, kings);
+        Assert.Equal(1, rooks);
     }
 
     #endregion
@@ -539,7 +686,24 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify all three pieces exist
+        var allPieces = piecesDf.Filter("piece != 0").Count();
+        Assert.Equal(3, allPieces);
+        
+        // Verify king, rook, and bishop present
+        var kingBit = (int)Piece.King;
+        var rookBit = (int)Piece.Rook;
+        var bishopBit = (int)Piece.Bishop;
+        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
+        var rooks = piecesDf.Filter($"(piece & {rookBit}) != 0").Count();
+        var bishops = piecesDf.Filter($"(piece & {bishopBit}) != 0").Count();
+        
+        Assert.Equal(1, kings);
+        Assert.Equal(1, rooks);
+        Assert.Equal(1, bishops);
     }
 
     #endregion
@@ -572,7 +736,21 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify all three pieces on vertical line (e-file)
+        var efile = piecesDf.Filter("x = 4 AND piece != 0").Count();
+        Assert.Equal(3, efile);
+        
+        // Verify pieces form correct alignment for discovered check
+        var king_e1 = piecesDf.Filter("x = 4 AND y = 0 AND (piece & 16384) != 0").Count(); // King
+        var rook_e4 = piecesDf.Filter("x = 4 AND y = 3 AND (piece & 1024) != 0").Count();  // Rook
+        var bishop_e8 = piecesDf.Filter("x = 4 AND y = 7 AND (piece & 4096) != 0").Count(); // Bishop
+        
+        Assert.Equal(1, king_e1);
+        Assert.Equal(1, rook_e4);
+        Assert.Equal(1, bishop_e8);
     }
 
     #endregion
@@ -600,10 +778,22 @@ public class EssentialTests
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
 
         // Assert
-        // Verify all default pieces are recognized (32 total)
         Assert.NotNull(perspectivesDf);
-        // Just verify that perspectives were created (contains data)
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Perspectives should include both factions' pieces
+        // 32 pieces × 64 cells = 2048 perspectives total
+        Assert.Equal(32 * 64, perspectiveCount);
+        
+        // Verify we have both white and black pieces in perspectives
+        var whiteBit = (int)Piece.White;
+        var blackBit = (int)Piece.Black;
+        var whitePieces = perspectivesDf.Filter($"(perspective_piece & {whiteBit}) != 0").Count();
+        var blackPieces = perspectivesDf.Filter($"(perspective_piece & {blackBit}) != 0").Count();
+        
+        Assert.True(whitePieces > 0, "White pieces should be in perspectives");
+        Assert.True(blackPieces > 0, "Black pieces should be in perspectives");
     }
 
     #endregion
@@ -669,7 +859,21 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify both sliding pieces present
+        var allPieces = piecesDf.Filter("piece != 0").Count();
+        Assert.Equal(2, allPieces);
+        
+        // Verify bishop and rook
+        var bishopBit = (int)Piece.Bishop;
+        var rookBit = (int)Piece.Rook;
+        var bishops = piecesDf.Filter($"(piece & {bishopBit}) != 0").Count();
+        var rooks = piecesDf.Filter($"(piece & {rookBit}) != 0").Count();
+        
+        Assert.Equal(1, bishops);
+        Assert.Equal(1, rooks);
     }
 
     #endregion
@@ -703,7 +907,23 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify 4 pieces all with Mint flag for castling eligibility
+        var mintBit = (int)Piece.Mint;
+        var mintPieces = piecesDf.Filter($"piece != 0 AND (piece & {mintBit}) != 0").Count();
+        Assert.Equal(4, mintPieces);
+        
+        // Verify kings at starting positions
+        var kingBit = (int)Piece.King;
+        var whiteBit = (int)Piece.White;
+        var blackBit = (int)Piece.Black;
+        var whiteKing_e1 = piecesDf.Filter($"x = 4 AND y = 0 AND (piece & {kingBit}) != 0 AND (piece & {whiteBit}) != 0").Count();
+        var blackKing_e8 = piecesDf.Filter($"x = 4 AND y = 7 AND (piece & {kingBit}) != 0 AND (piece & {blackBit}) != 0").Count();
+        
+        Assert.Equal(1, whiteKing_e1);
+        Assert.Equal(1, blackKing_e8);
     }
 
     #endregion
@@ -738,7 +958,18 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify both pawns present
+        var pawnBit = (int)Piece.Pawn;
+        var pawns = piecesDf.Filter($"(piece & {pawnBit}) != 0").Count();
+        Assert.Equal(2, pawns);
+        
+        // Verify passing flag on black pawn
+        var passingBit = (int)Piece.Passing;
+        var passingPawns = piecesDf.Filter($"(piece & {passingBit}) != 0").Count();
+        Assert.True(passingPawns > 0, "Black pawn should have Passing flag");
     }
 
     #endregion
@@ -770,7 +1001,19 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify both pawns at promotion-eligible positions
+        var pawnBit = (int)Piece.Pawn;
+        var whiteBit = (int)Piece.White;
+        var blackBit = (int)Piece.Black;
+        
+        var whitePawn_e7 = piecesDf.Filter($"x = 4 AND y = 6 AND (piece & {pawnBit}) != 0 AND (piece & {whiteBit}) != 0").Count();
+        var blackPawn_e2 = piecesDf.Filter($"x = 4 AND y = 0 AND (piece & {pawnBit}) != 0 AND (piece & {blackBit}) != 0").Count();
+        
+        Assert.Equal(1, whitePawn_e7);
+        Assert.Equal(1, blackPawn_e2);
     }
 
     #endregion
@@ -799,7 +1042,15 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify all 32 pieces on default board
+        var allPieces = piecesDf.Filter("piece != 0").Count();
+        Assert.Equal(32, allPieces);
+        
+        // Verify 16 white pieces × 64 cells = 1024 perspectives for white turn
+        Assert.Equal(16 * 64, perspectiveCount);
     }
 
     #endregion
@@ -834,7 +1085,24 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Verify 5 pieces on board
+        var allPieces = piecesDf.Filter("piece != 0").Count();
+        Assert.Equal(5, allPieces);
+        
+        // Verify presence of king, queen, and pawns
+        var kingBit = (int)Piece.King;
+        var queenBit = (int)Piece.Queen;
+        var pawnBit = (int)Piece.Pawn;
+        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
+        var queens = piecesDf.Filter($"(piece & {queenBit}) != 0").Count();
+        var pawns = piecesDf.Filter($"(piece & {pawnBit}) != 0").Count();
+        
+        Assert.Equal(2, kings);
+        Assert.Equal(1, queens);
+        Assert.Equal(2, pawns);
     }
 
     #endregion
@@ -866,7 +1134,24 @@ public class EssentialTests
 
         // Assert
         Assert.NotNull(perspectivesDf);
-        Assert.NotEqual(0, perspectivesDf.Count());
+        var perspectiveCount = perspectivesDf.Count();
+        Assert.NotEqual(0, perspectiveCount);
+        
+        // Only 2 kings on board (stalemate condition - no other pieces)
+        var allPieces = piecesDf.Filter("piece != 0").Count();
+        Assert.Equal(2, allPieces);
+        
+        // Both should be kings
+        var kingBit = (int)Piece.King;
+        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
+        Assert.Equal(2, kings);
+        
+        // Verify they're at opposite ends (e1 and e8)
+        var whiteKing = piecesDf.Filter($"x = 4 AND y = 0 AND (piece & {kingBit}) != 0").Count();
+        var blackKing = piecesDf.Filter($"x = 4 AND y = 7 AND (piece & {kingBit}) != 0").Count();
+        
+        Assert.Equal(1, whiteKing);
+        Assert.Equal(1, blackKing);
     }
 
     #endregion
