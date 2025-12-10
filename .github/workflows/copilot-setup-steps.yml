@@ -21,13 +21,6 @@ jobs:
     permissions:
       contents: read
 
-    container:
-      image: ghcr.io/${{ github.repository_owner }}/spark-dotnet:3.5.3-2.3.0
-      options: --init
-      credentials:
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PAT }}
-
     env:
       SPARK_HOME: /opt/spark
       SPARK_VERSION: "3.5.3"
