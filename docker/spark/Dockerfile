@@ -52,6 +52,15 @@ RUN mkdir -p ${DOTNET_WORKER_DIR} && \
        ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker && \
     chmod +x ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker
 
+# ---- Microsoft.Spark jar (needed by runner) -----------------------
+RUN mkdir -p ${SPARK_HOME}/jars && \
+    if [ -f /cache/.nuget/packages/microsoft.spark/2.3.0/microsoft-spark-3-5_2.12-2.3.0.jar ]; then \
+      echo "Copying cached microsoft-spark-3-5 jar" && \
+      cp /cache/.nuget/packages/microsoft.spark/2.3.0/microsoft-spark-3-5_2.12-2.3.0.jar ${SPARK_HOME}/jars/; \
+    else \
+      echo "Missing cached microsoft-spark-3-5 jar under /cache/.nuget/packages" && exit 1; \
+    fi
+
 # ---- Pre-populate NuGet global cache with Microsoft.Spark ---------
 ENV NUGET_PACKAGES=/root/.nuget/packages
 RUN mkdir -p ${NUGET_PACKAGES} && \
