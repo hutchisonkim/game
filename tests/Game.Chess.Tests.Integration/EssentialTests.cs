@@ -3,6 +3,11 @@ using Microsoft.Spark.Sql;
 using Game.Chess.Policy.Foundation;
 using Game.Chess.Policy.Perspectives;
 using Game.Chess.Policy.Simulation;
+using Game.Chess.Policy.Patterns;
+using Game.Chess.Policy.Sequences;
+using Game.Chess.Policy.Threats;
+using Game.Chess.Policy.Candidates;
+using Game.Chess.Policy.Validation;
 using System.Linq;
 using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 using Game.Chess.Tests.Integration.Helpers;
@@ -150,10 +155,9 @@ public class EssentialTests
     [Trait("TestId", "L1_PatternMatcher_Pawn")]
     public void L1_PatternMatcher_Pawn_MatchesPawnMovementPatterns()
     {
-        // Arrange: Board with white pawn on d4, black pawn on e5
+        // Arrange: Board with white pawn on e2 (starting position)
         var board = BoardHelpers.CreateBoardWithPieces(
-            (3, 3, PieceBuilder.Create().White().Pawn().Build()), // White pawn at d4 (3,3)
-            (4, 4, PieceBuilder.Create().Black().Pawn().Build())  // Black pawn at e5 (4,4)
+            (4, 1, PieceBuilder.Create().White().Pawn().Mint().Build())  // White pawn at e2 (4,1) - mint for 2-square move
         );
         
         var provider = new BoardStateProvider(_spark);
@@ -164,16 +168,29 @@ public class EssentialTests
         var piecesDf = provider.GetPieces(board);
         var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
+        var matchesDf = PatternMatcher.MatchAtomicPatterns(perspectivesDf, patternsDf, new[] { Piece.White }, turn: 0);
 
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.True(perspectiveCount > 0, $"Expected perspectives to exist, got {perspectiveCount} rows");
+        // Assert - Verify pawn generates forward moves
+        var moves = matchesDf.Collect();
+        var pawnMoves = moves.Where(r => r.GetAs<int>("src_x") == 4 && r.GetAs<int>("src_y") == 1).ToList();
         
-        // Verify pawn patterns exist in repository
+        // Pawn at e2 should have forward moves (at least 1-2 depending on mint status)
+        Assert.True(pawnMoves.Count >= 1, $"Pawn at e2 should have at least 1 forward move, got {pawnMoves.Count}");
+        
+        // Verify all pawn moves are forward (dy > 0, dx = 0)
+        var allForward = pawnMoves.All(r => {
+            var srcY = r.GetAs<int>("src_y");
+            var dstY = r.GetAs<int>("dst_y");
+            var srcX = r.GetAs<int>("src_x");
+            var dstX = r.GetAs<int>("dst_x");
+            return dstY > srcY && srcX == dstX;
+        });
+        Assert.True(allForward, "All pawn moves should be forward (same file, higher rank)");
+        
+        // Verify delta_x and delta_y match expected pawn forward movement in patterns
         var pawnBit = (int)Piece.Pawn;
-        var pawnPatterns = patternsDf.Filter($"(src_conditions & {pawnBit}) != 0").Count();
-        Assert.True(pawnPatterns > 0, "Pawn patterns should be defined");
+        var forwardPatterns = patternsDf.Filter($"(src_conditions & {pawnBit}) != 0 AND delta_x = 0 AND delta_y > 0").Count();
+        Assert.True(forwardPatterns > 0, "Pawn patterns should include forward movement (dx=0, dy>0)");
     }
 
 
@@ -186,9 +203,9 @@ public class EssentialTests
     [Trait("TestId", "L1_PatternMatcher_Knight")]
     public void L1_PatternMatcher_Knight_MatchesKnightLShapePattern()
     {
-        // Arrange: Board with white knight on e4
+        // Arrange: Board with white knight on e4 (center of board for maximum moves)
         var board = BoardHelpers.CreateBoardWithPieces(
-            (4, 3, PieceBuilder.Create().White().Knight().Build())  // White knight at e4
+            (4, 3, PieceBuilder.Create().White().Knight().Build())  // White knight at e4 (4,3)
         );
         
         var provider = new BoardStateProvider(_spark);
@@ -199,16 +216,23 @@ public class EssentialTests
         var piecesDf = provider.GetPieces(board);
         var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
+        var matchesDf = PatternMatcher.MatchAtomicPatterns(perspectivesDf, patternsDf, new[] { Piece.White }, turn: 0);
 
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.True(perspectiveCount > 0, $"Expected perspectives to exist, got {perspectiveCount} rows");
+        // Assert - Knight at e4 should have 8 L-shaped moves
+        var moves = matchesDf.Collect();
+        var knightMoves = moves.Where(r => r.GetAs<int>("src_x") == 4 && r.GetAs<int>("src_y") == 3).ToList();
         
-        // Verify knight patterns exist in repository (L-shaped moves: ±2,±1 or ±1,±2)
+        // Verify knight generates 8 L-shaped moves from center position
+        // Expected destinations: d2, f2, c3, g3, c5, g5, d6, f6
+        Assert.True(knightMoves.Count >= 8, $"Knight at e4 should have 8 possible moves, got {knightMoves.Count}");
+        
+        // Verify knight patterns match L-shape (±2,±1 or ±1,±2)
         var knightBit = (int)Piece.Knight;
-        var knightPatterns = patternsDf.Filter($"(src_conditions & {knightBit}) != 0").Count();
-        Assert.True(knightPatterns > 0, "Knight patterns should be defined");
+        var lShapePatterns = patternsDf
+            .Filter($"(src_conditions & {knightBit}) != 0")
+            .Filter("(ABS(delta_x) = 2 AND ABS(delta_y) = 1) OR (ABS(delta_x) = 1 AND ABS(delta_y) = 2)")
+            .Count();
+        Assert.True(lShapePatterns >= 8, $"Knight should have at least 8 L-shaped patterns, got {lShapePatterns}");
     }
 
     [Fact]
@@ -220,9 +244,9 @@ public class EssentialTests
     [Trait("TestId", "L1_PatternMatcher_King")]
     public void L1_PatternMatcher_King_MatchesKingOneSquarePattern()
     {
-        // Arrange: Board with white king on e1
+        // Arrange: Board with white king on e4 (center for all 8 directions)
         var board = BoardHelpers.CreateBoardWithPieces(
-            (4, 0, PieceBuilder.Create().White().King().Build())    // White king at e1 (4,0)
+            (4, 3, PieceBuilder.Create().White().King().Build())    // White king at e4 (4,3)
         );
         
         var provider = new BoardStateProvider(_spark);
@@ -233,16 +257,22 @@ public class EssentialTests
         var piecesDf = provider.GetPieces(board);
         var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
+        var matchesDf = PatternMatcher.MatchAtomicPatterns(perspectivesDf, patternsDf, new[] { Piece.White }, turn: 0);
 
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.True(perspectiveCount > 0, $"Expected perspectives to exist, got {perspectiveCount} rows");
+        // Assert - King at e4 should have 8 one-square moves in all directions
+        var moves = matchesDf.Collect();
+        var kingMoves = moves.Where(r => r.GetAs<int>("src_x") == 4 && r.GetAs<int>("src_y") == 3).ToList();
         
-        // Verify king patterns exist in repository (1-square moves in all 8 directions)
+        // Verify king generates 8 moves (one in each direction)
+        Assert.Equal(8, kingMoves.Count);
+        
+        // Verify king patterns have max distance of 1 (±1 in x and/or y) for basic moves
         var kingBit = (int)Piece.King;
-        var kingPatterns = patternsDf.Filter($"(src_conditions & {kingBit}) != 0").Count();
-        Assert.True(kingPatterns > 0, "King patterns should be defined");
+        var oneSquarePatterns = patternsDf
+            .Filter($"(src_conditions & {kingBit}) != 0")
+            .Filter("ABS(delta_x) <= 1 AND ABS(delta_y) <= 1 AND NOT (delta_x = 0 AND delta_y = 0)")
+            .Count();
+        Assert.True(oneSquarePatterns >= 8, $"King should have at least 8 one-square patterns, got {oneSquarePatterns}");
     }
 
     [Fact]
@@ -308,9 +338,9 @@ public class EssentialTests
     [Trait("TestId", "L2_SequenceEngine_BishopSliding")]
     public void L2_SequenceEngine_BishopSliding_ExpandsMultiStepPattern()
     {
-        // Arrange: Board with white bishop on c1, no blocking pieces
+        // Arrange: Board with white bishop on c1, no blocking pieces (empty board)
         var board = BoardHelpers.CreateBoardWithPieces(
-            (2, 0, PieceBuilder.Create().White().Bishop().Build())  // White bishop at c1
+            (2, 0, PieceBuilder.Create().White().Bishop().Build())  // White bishop at c1 (2,0)
         );
 
         var provider = new BoardStateProvider(_spark);
@@ -321,24 +351,23 @@ public class EssentialTests
         var piecesDf = provider.GetPieces(board);
         var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
+        var allMoves = CandidateGenerator.GetMoves(perspectivesDf, patternsDf, new[] { Piece.White }, turn: 0, maxDepth: 7);
 
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.NotEqual(0, perspectiveCount);
+        // Assert - Bishop at c1 can slide diagonally up-right: d2, e3, f4, g5, h6 (5 squares)
+        var moves = allMoves.Collect();
+        var bishopMoves = moves.Where(r => r.GetAs<int>("src_x") == 2 && r.GetAs<int>("src_y") == 0).ToList();
         
-        // Verify bishop patterns exist and include sliding sequences
+        // Verify bishop generates diagonal sliding moves (at least 5 in the longest diagonal from c1)
+        Assert.True(bishopMoves.Count >= 5, $"Bishop at c1 should slide diagonally (at least 5 moves), got {bishopMoves.Count}");
+        
+        // Verify InstantRecursive sequence flag exists in patterns
         var bishopBit = (int)Piece.Bishop;
-        var bishopPatterns = patternsDf.Filter($"(src_conditions & {bishopBit}) != 0").Count();
-        Assert.True(bishopPatterns > 0, "Bishop patterns should be defined");
-        
-        // Verify we have recursive/multi-step patterns for bishop (InstantRecursive = Instant | Recursive)
-        var instantRecursiveMask = (1 << 2) | (1 << 3); // Instant and Recursive flags
+        var instantRecursiveMask = (1 << 2) | (1 << 3); // Instant=4 + Recursive=8
         var diagonalPatterns = patternsDf
             .Filter($"(src_conditions & {bishopBit}) != 0")
-            .Filter($"(sequence & {instantRecursiveMask}) != 0")
+            .Filter($"(sequence & {instantRecursiveMask}) = {instantRecursiveMask}")
             .Count();
-        Assert.True(diagonalPatterns > 0, "Bishop should have recursive diagonal patterns");
+        Assert.True(diagonalPatterns > 0, "Bishop should have InstantRecursive diagonal patterns");
     }
 
     [Fact]
@@ -350,9 +379,9 @@ public class EssentialTests
     [Trait("TestId", "L2_SequenceEngine_RookSliding")]
     public void L2_SequenceEngine_RookSliding_ExpandsCardinalPattern()
     {
-        // Arrange: Board with white rook on a1, no blocking pieces
+        // Arrange: Board with white rook on e4 (center for max cardinal moves)
         var board = BoardHelpers.CreateBoardWithPieces(
-            (0, 0, PieceBuilder.Create().White().Rook().Build())  // White rook at a1
+            (4, 3, PieceBuilder.Create().White().Rook().Build())  // White rook at e4 (4,3)
         );
 
         var provider = new BoardStateProvider(_spark);
@@ -363,24 +392,25 @@ public class EssentialTests
         var piecesDf = provider.GetPieces(board);
         var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
+        var allMoves = CandidateGenerator.GetMoves(perspectivesDf, patternsDf, new[] { Piece.White }, turn: 0, maxDepth: 7);
 
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.NotEqual(0, perspectiveCount);
+        // Assert - Rook at e4 can slide: up (4 squares to e8), down (3 to e1), left (4 to a4), right (3 to h4)
+        // Total: 4+3+4+3 = 14 cardinal moves
+        var moves = allMoves.Collect();
+        var rookMoves = moves.Where(r => r.GetAs<int>("src_x") == 4 && r.GetAs<int>("src_y") == 3).ToList();
         
-        // Verify rook patterns exist and include sliding sequences
-        var rookBit = (int)Piece.Rook;
-        var rookPatterns = patternsDf.Filter($"(src_conditions & {rookBit}) != 0").Count();
-        Assert.True(rookPatterns > 0, "Rook patterns should be defined");
+        // Verify rook generates 14 cardinal sliding moves from e4
+        Assert.Equal(14, rookMoves.Count);
         
-        // Verify we have recursive/multi-step patterns for rook (cardinal directions)
-        var instantRecursiveMask = (1 << 2) | (1 << 3); // Instant and Recursive flags
-        var cardinalPatterns = patternsDf
-            .Filter($"(src_conditions & {rookBit}) != 0")
-            .Filter($"(sequence & {instantRecursiveMask}) != 0")
-            .Count();
-        Assert.True(cardinalPatterns > 0, "Rook should have recursive cardinal patterns");
+        // Verify moves are in cardinal directions only (dx=0 OR dy=0, but not both)
+        var allCardinal = rookMoves.All(r => {
+            var srcX = r.GetAs<int>("src_x");
+            var srcY = r.GetAs<int>("src_y");
+            var dstX = r.GetAs<int>("dst_x");
+            var dstY = r.GetAs<int>("dst_y");
+            return (srcX == dstX) != (srcY == dstY); // XOR: exactly one coordinate changes
+        });
+        Assert.True(allCardinal, "All rook moves should be cardinal (horizontal or vertical only)");
     }
 
     [Fact]
@@ -527,37 +557,38 @@ public class EssentialTests
     [Trait("TestId", "L4_ThreatEngine_BasicThreats")]
     public void L4_ThreatEngine_BasicThreats_ComputesThreatenedCells()
     {
-        // Arrange: Board with white king and black pawn that can threaten
+        // Arrange: Board with white king at e1 and black queen at h8 (threatens along diagonal)
         var board = BoardHelpers.CreateBoardWithPieces(
-            (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1
-            (3, 1, PieceBuilder.Create().Black().Pawn().Build())     // Black pawn at d2 (threatens e1)
+            (0, 0, PieceBuilder.Create().White().King().Build()),    // White king at a1 (0,0)
+            (7, 7, PieceBuilder.Create().Black().Queen().Build())    // Black queen at h8 (7,7) threatens a1 diagonally
         );
 
         var provider = new BoardStateProvider(_spark);
+        var repo = new PatternRepository(_spark);
         var perspectiveEngine = new PerspectiveEngine();
 
         // Act
         var piecesDf = provider.GetPieces(board);
+        var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
+        
+        // Compute threatened cells from black's perspective (turn=0 means white, so opponent=black at turn+1)
+        var threatenedCells = ThreatEngine.ComputeThreatenedCells(perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
 
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.NotEqual(0, perspectiveCount);
+        // Assert - Verify king at a1 is threatened by queen at h8
+        var threats = threatenedCells.Collect();
+        var kingThreatened = threats.Any(r => r.GetAs<int>("threatened_x") == 0 && r.GetAs<int>("threatened_y") == 0);
         
-        // Verify we have 2 pieces on the board
-        var emptyBit = (int)Piece.Empty;
-        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
-        Assert.Equal(2, allPieces);
+        Assert.True(kingThreatened, "White king at a1 should be threatened by black queen at h8 along diagonal");
         
-        // Verify king and black pawn are recognized
-        var kingBit = (int)Piece.King;
-        var pawnBit = (int)Piece.Pawn;
-        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
-        var pawns = piecesDf.Filter($"(piece & {pawnBit}) != 0").Count();
+        // Verify queen threatens multiple squares along the diagonal (a1, b2, c3, d4, e5, f6, g7)
+        var diagonalThreats = threats.Where(r => {
+            var x = r.GetAs<int>("threatened_x");
+            var y = r.GetAs<int>("threatened_y");
+            return x == y && x >= 0 && x < 7; // diagonal from a1 to g7
+        }).Count();
         
-        Assert.True(kings > 0, "King should be present");
-        Assert.True(pawns > 0, "Pawn should be present");
+        Assert.True(diagonalThreats >= 7, $"Queen should threaten at least 7 diagonal squares, got {diagonalThreats}");
     }
 
     #endregion
@@ -617,37 +648,34 @@ public class EssentialTests
     [Trait("TestId", "L6_Legality_KingSafety")]
     public void L6_Legality_KingSafety_FiltersMovesLeavingKingInCheck()
     {
-        // Arrange: Board with white king threatened by black rook
+        // Arrange: Board with white king at d4 surrounded by black rooks threatening all escape squares
+        // Rooks at d1, d7, a4, g4 create a cross pattern that threatens all adjacent squares
         var board = BoardHelpers.CreateBoardWithPieces(
-            (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1
-            (4, 4, PieceBuilder.Create().Black().Rook().Build())     // Black rook at e5 (threatens king's column)
+            (3, 3, PieceBuilder.Create().White().King().Build()),    // White king at d4 (3,3)
+            (3, 0, PieceBuilder.Create().Black().Rook().Build()),    // Black rook at d1 (threatens d-file)
+            (3, 7, PieceBuilder.Create().Black().Rook().Build()),    // Black rook at d8 (threatens d-file)
+            (0, 3, PieceBuilder.Create().Black().Rook().Build()),    // Black rook at a4 (threatens rank 4)
+            (6, 3, PieceBuilder.Create().Black().Rook().Build())     // Black rook at g4 (threatens rank 4)
         );
 
         var provider = new BoardStateProvider(_spark);
+        var repo = new PatternRepository(_spark);
         var perspectiveEngine = new PerspectiveEngine();
 
         // Act
         var piecesDf = provider.GetPieces(board);
+        var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
+        
+        // Generate all candidate moves for white king
+        var candidateMoves = CandidateGenerator.GetMoves(perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
+        
+        // Filter for legal moves (king safety)
+        var legalMoves = LegalityEngine.FilterMovesLeavingKingInCheck(candidateMoves, perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
 
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.NotEqual(0, perspectiveCount);
-        
-        // Verify both pieces exist
-        var emptyBit = (int)Piece.Empty;
-        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
-        Assert.Equal(2, allPieces);
-        
-        // Verify king and rook are present
-        var kingBit = (int)Piece.King;
-        var rookBit = (int)Piece.Rook;
-        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
-        var rooks = piecesDf.Filter($"(piece & {rookBit}) != 0").Count();
-        
-        Assert.Equal(1, kings);
-        Assert.Equal(1, rooks);
+        // Assert - King surrounded by attacked squares should have zero legal moves
+        var kingMoves = legalMoves.Filter("src_x = 3 AND src_y = 3").Count();
+        Assert.Equal(0, kingMoves);
     }
 
     #endregion
@@ -663,41 +691,37 @@ public class EssentialTests
     [Trait("TestId", "L6_Legality_PinDetection")]
     public void L6_Legality_PinDetection_ConstrainsPinnedPieces()
     {
-        // Arrange: Board with pinned piece (bishop pinning rook to king)
+        // Arrange: Board with white rook pinned by black rook along the file (king, white rook, black rook on e-file)
         var board = BoardHelpers.CreateBoardWithPieces(
-            (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1
-            (5, 1, PieceBuilder.Create().White().Rook().Build()),    // White rook at f2 (pinned)
-            (5, 7, PieceBuilder.Create().Black().Bishop().Build())   // Black bishop at f8 (pinning)
+            (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1 (4,0)
+            (4, 3, PieceBuilder.Create().White().Rook().Build()),    // White rook at e4 (4,3) - pinned
+            (4, 7, PieceBuilder.Create().Black().Rook().Build())     // Black rook at e8 (4,7) - pinning piece
         );
 
         var provider = new BoardStateProvider(_spark);
+        var repo = new PatternRepository(_spark);
         var perspectiveEngine = new PerspectiveEngine();
 
         // Act
         var piecesDf = provider.GetPieces(board);
+        var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
+        
+        // Generate all candidate moves for white
+        var candidateMoves = CandidateGenerator.GetMoves(perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
+        
+        // Filter for legal moves
+        var legalMoves = LegalityEngine.FilterMovesLeavingKingInCheck(candidateMoves, perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
 
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.NotEqual(0, perspectiveCount);
+        // Assert - Pinned rook at e4 cannot move away from e-file (would expose king to check)
+        var rookMoves = legalMoves.Filter("src_x = 4 AND src_y = 3").Collect();
         
-        // Verify all three pieces exist
-        var emptyBit = (int)Piece.Empty;
-        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
-        Assert.Equal(3, allPieces);
+        // Rook can only move along the pin line (e-file): up/down but not sideways
+        var allOnEFile = rookMoves.All(r => r.GetAs<int>("dst_x") == 4);
+        Assert.True(allOnEFile, "Pinned rook should only be able to move along the e-file (pin line)");
         
-        // Verify king, rook, and bishop present
-        var kingBit = (int)Piece.King;
-        var rookBit = (int)Piece.Rook;
-        var bishopBit = (int)Piece.Bishop;
-        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
-        var rooks = piecesDf.Filter($"(piece & {rookBit}) != 0").Count();
-        var bishops = piecesDf.Filter($"(piece & {bishopBit}) != 0").Count();
-        
-        Assert.Equal(1, kings);
-        Assert.Equal(1, rooks);
-        Assert.Equal(1, bishops);
+        // Verify rook has some legal moves (can capture attacker or block)
+        Assert.True(rookMoves.Count() > 0, "Pinned rook should still have moves along the pin line");
     }
 
     #endregion
@@ -836,37 +860,43 @@ public class EssentialTests
     [Trait("TestId", "L4_ThreatEngine_SlidingThreats")]
     public void L4_ThreatEngine_SlidingThreats_ComputesSlidingThreats()
     {
-        // Arrange: Board with bishop and rook for sliding threats
+        // Arrange: Board with black bishop at c1 and black rook at a1 (threatening white)
         var board = BoardHelpers.CreateBoardWithPieces(
-            (2, 0, PieceBuilder.Create().White().Bishop().Build()),  // White bishop at c1
-            (0, 0, PieceBuilder.Create().White().Rook().Build())     // White rook at a1
+            (2, 0, PieceBuilder.Create().Black().Bishop().Build()),  // Black bishop at c1 (2,0)
+            (0, 0, PieceBuilder.Create().Black().Rook().Build())     // Black rook at a1 (0,0)
         );
 
         var provider = new BoardStateProvider(_spark);
+        var repo = new PatternRepository(_spark);
         var perspectiveEngine = new PerspectiveEngine();
 
         // Act
         var piecesDf = provider.GetPieces(board);
-        var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White });
+        var patternsDf = repo.GetPatterns();
+        var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
+        
+        // Compute threats from black pieces (turn=0 means white, opponent black threatens)
+        var threatenedCells = ThreatEngine.ComputeThreatenedCells(perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
 
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.NotEqual(0, perspectiveCount);
+        // Assert - Bishop at c1 threatens diagonal: d2, e3, f4, g5, h6 (5 squares)
+        var threats = threatenedCells.Collect();
+        var bishopDiagonalThreats = threats.Where(r => {
+            var x = r.GetAs<int>("threatened_x");
+            var y = r.GetAs<int>("threatened_y");
+            // Diagonal from c1: x-2 == y (d2=3-1, e3=4-2, f4=5-3, g5=6-4, h6=7-5)
+            return x > 2 && y > 0 && (x - y) == 2;
+        }).Count();
         
-        // Verify both sliding pieces present
-        var emptyBit = (int)Piece.Empty;
-        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
-        Assert.Equal(2, allPieces);
+        Assert.True(bishopDiagonalThreats >= 5, $"Bishop at c1 should threaten 5 diagonal squares (d2-h6), got {bishopDiagonalThreats}");
         
-        // Verify bishop and rook
-        var bishopBit = (int)Piece.Bishop;
-        var rookBit = (int)Piece.Rook;
-        var bishops = piecesDf.Filter($"(piece & {bishopBit}) != 0").Count();
-        var rooks = piecesDf.Filter($"(piece & {rookBit}) != 0").Count();
+        // Rook at a1 threatens horizontal: b1-h1 (7 squares) + vertical: a2-a8 (7 squares) = 14 total
+        var rookCardinalThreats = threats.Where(r => {
+            var x = r.GetAs<int>("threatened_x");
+            var y = r.GetAs<int>("threatened_y");
+            return (x == 0 && y > 0) || (y == 0 && x > 0); // Same file or rank as a1
+        }).Count();
         
-        Assert.Equal(1, bishops);
-        Assert.Equal(1, rooks);
+        Assert.True(rookCardinalThreats >= 14, $"Rook at a1 should threaten 14 cardinal squares, got {rookCardinalThreats}");
     }
 
     #endregion
@@ -1057,43 +1087,37 @@ public class EssentialTests
     [Trait("TestId", "L8_Terminal_Checkmate")]
     public void L8_Terminal_Checkmate_DetectsCheckmate()
     {
-        // Arrange: Board in checkmate position (fool's mate example)
+        // Arrange: Board in checkmate position - white king at h1 trapped by black rooks
         var board = BoardHelpers.CreateBoardWithPieces(
-            (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1
-            (5, 1, PieceBuilder.Create().White().Pawn().Build()),     // White pawn at f2
-            (5, 6, PieceBuilder.Create().Black().Pawn().Build()),     // Black pawn at f7
-            (3, 7, PieceBuilder.Create().Black().Queen().Build()),    // Black queen at d8 (for threat)
-            (4, 7, PieceBuilder.Create().Black().King().Build())      // Black king at e8
+            (7, 0, PieceBuilder.Create().White().King().Build()),    // White king at h1 (corner)
+            (7, 2, PieceBuilder.Create().Black().Rook().Build()),    // Black rook at h3 (blocks escape)
+            (6, 1, PieceBuilder.Create().Black().Rook().Build())     // Black rook at g2 (delivers check)
         );
 
         var provider = new BoardStateProvider(_spark);
+        var repo = new PatternRepository(_spark);
         var perspectiveEngine = new PerspectiveEngine();
 
         // Act
         var piecesDf = provider.GetPieces(board);
+        var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
-
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.NotEqual(0, perspectiveCount);
         
-        // Verify 5 pieces on board
-        var emptyBit = (int)Piece.Empty;
-        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
-        Assert.Equal(5, allPieces);
+        // Step 1: Verify king IS in check
+        var threatenedCells = ThreatEngine.ComputeThreatenedCells(perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
+        var kingInCheck = threatenedCells.Filter("threatened_x = 7 AND threatened_y = 0").Count() > 0;
+        Assert.True(kingInCheck, "White king at h1 should be in check from black rook");
         
-        // Verify presence of king, queen, and pawns
-        var kingBit = (int)Piece.King;
-        var queenBit = (int)Piece.Queen;
-        var pawnBit = (int)Piece.Pawn;
-        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
-        var queens = piecesDf.Filter($"(piece & {queenBit}) != 0").Count();
-        var pawns = piecesDf.Filter($"(piece & {pawnBit}) != 0").Count();
+        // Step 2: Generate all candidate moves and filter for legal moves
+        var candidateMoves = CandidateGenerator.GetMoves(perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
+        var legalMoves = LegalityEngine.FilterMovesLeavingKingInCheck(candidateMoves, perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
         
-        Assert.Equal(2, kings);
-        Assert.Equal(1, queens);
-        Assert.Equal(2, pawns);
+        // Step 3: Verify king has ZERO legal moves (checkmate condition)
+        var kingMoves = legalMoves.Filter("src_x = 7 AND src_y = 0").Count();
+        Assert.Equal(0, kingMoves);
+        
+        // Checkmate = king in check + zero legal moves
+        Assert.True(kingInCheck && kingMoves == 0, "Checkmate: king in check with no legal moves");
     }
 
     #endregion
@@ -1109,40 +1133,38 @@ public class EssentialTests
     [Trait("TestId", "L8_Terminal_Stalemate")]
     public void L8_Terminal_Stalemate_DetectsStalemate()
     {
-        // Arrange: Board with only kings (stalemate condition)
+        // Arrange: Board in stalemate position - white king at a1 trapped but not in check
+        // Black queen at b3 and black king at c1 control all escape squares without giving check
         var board = BoardHelpers.CreateBoardWithPieces(
-            (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1
-            (4, 7, PieceBuilder.Create().Black().King().Build())     // Black king at e8
+            (0, 0, PieceBuilder.Create().White().King().Build()),    // White king at a1 (0,0)
+            (1, 2, PieceBuilder.Create().Black().Queen().Build()),   // Black queen at b3 (1,2) - controls a2, b2, b1
+            (2, 0, PieceBuilder.Create().Black().King().Build())     // Black king at c1 (2,0) - controls b1, b2
         );
 
         var provider = new BoardStateProvider(_spark);
+        var repo = new PatternRepository(_spark);
         var perspectiveEngine = new PerspectiveEngine();
 
         // Act
         var piecesDf = provider.GetPieces(board);
+        var patternsDf = repo.GetPatterns();
         var perspectivesDf = perspectiveEngine.BuildPerspectives(piecesDf, new[] { Piece.White, Piece.Black });
-
-        // Assert
-        Assert.NotNull(perspectivesDf);
-        var perspectiveCount = perspectivesDf.Count();
-        Assert.NotEqual(0, perspectiveCount);
         
-        // Only 2 kings on board (stalemate condition - no other pieces)
-        var emptyBit = (int)Piece.Empty;
-        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
-        Assert.Equal(2, allPieces);
+        // Step 1: Verify king is NOT in check
+        var threatenedCells = ThreatEngine.ComputeThreatenedCells(perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
+        var kingInCheck = threatenedCells.Filter("threatened_x = 0 AND threatened_y = 0").Count() > 0;
+        Assert.False(kingInCheck, "White king at a1 should NOT be in check (stalemate condition)");
         
-        // Both should be kings
-        var kingBit = (int)Piece.King;
-        var kings = piecesDf.Filter($"(piece & {kingBit}) != 0").Count();
-        Assert.Equal(2, kings);
+        // Step 2: Generate all candidate moves and filter for legal moves
+        var candidateMoves = CandidateGenerator.GetMoves(perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
+        var legalMoves = LegalityEngine.FilterMovesLeavingKingInCheck(candidateMoves, perspectivesDf, patternsDf, new[] { Piece.White, Piece.Black }, turn: 0);
         
-        // Verify they're at opposite ends (e1 and e8)
-        var whiteKing = piecesDf.Filter($"x = 4 AND y = 0 AND (piece & {kingBit}) != 0").Count();
-        var blackKing = piecesDf.Filter($"x = 4 AND y = 7 AND (piece & {kingBit}) != 0").Count();
+        // Step 3: Verify king has ZERO legal moves (but not in check = stalemate)
+        var kingMoves = legalMoves.Filter("src_x = 0 AND src_y = 0").Count();
+        Assert.Equal(0, kingMoves);
         
-        Assert.Equal(1, whiteKing);
-        Assert.Equal(1, blackKing);
+        // Stalemate = king NOT in check + zero legal moves
+        Assert.True(!kingInCheck && kingMoves == 0, "Stalemate: king not in check but has no legal moves");
     }
 
     #endregion
