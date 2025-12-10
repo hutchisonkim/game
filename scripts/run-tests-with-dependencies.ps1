@@ -126,6 +126,9 @@ function Test-MatchesFilter {
                 }
                 if (-not $hasMatch) { return $false }
             }
+            "TestId" {
+                if ($values -notcontains $Test.testId) { return $false }
+            }
         }
     }
     
