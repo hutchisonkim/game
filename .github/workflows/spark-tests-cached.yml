@@ -33,15 +33,12 @@ jobs:
 
       - name: Clear and prepare NuGet caches
         run: |
-          echo "=== Clearing NuGet caches ==="
           dotnet nuget locals all --clear
           mkdir -p "$NUGET_PACKAGES"
           chmod -R 777 "$NUGET_PACKAGES"
-          dotnet nuget locals all --list
 
       - name: Restore Spark tests
         run: |
-          echo "=== Restoring Project Packages ==="
           set -e
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet restore Game.Chess.Tests.Integration.Runner.csproj --runtime linux-x64
@@ -81,17 +78,14 @@ jobs:
 
       - name: Install PowerShell
         run: |
-          echo "Installing PowerShell..."
           apt-get update -qq && apt-get install -y -qq wget apt-transport-https software-properties-common
           wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
-          dpkg -i packages-microsoft-prod.deb
+          dpkg -i packages-microsoft-prod.deb 2>&1 | grep -v "^Selecting\|^(Reading\|^Unpacking\|^Setting" || true
           apt-get update -qq
           apt-get install -y -qq powershell
 
       - name: Install system dependencies
         run: |
-          echo "Installing dependencies..."
-          apt-get update -qq
           apt-get install -y -qq netcat-openbsd zip net-tools
 
       - name: Start Spark Runner
@@ -101,9 +95,7 @@ jobs:
           DOTNETBACKEND_PORT: "5567"
           DOTNET_WORKER_SPARK_VERSION: "2.3.0"
           PYTHON_WORKER_FACTORY_PORT: "5567"
-        run: |
-          Write-Host "Starting Spark runner..."
-          pwsh ./scripts/spark-runner-start.ps1
+        run: pwsh ./scripts/spark-runner-start.ps1
 
       - name: Run Tests
         shell: pwsh
@@ -112,9 +104,7 @@ jobs:
           DOTNETBACKEND_PORT: "5567"
           DOTNET_WORKER_SPARK_VERSION: "2.3.0"
           PYTHON_WORKER_FACTORY_PORT: "5567"
-        run: |
-          Write-Host "Running tests with dependency management..."
-          pwsh ./scripts/run-tests-with-dependencies.ps1 -Filter "Essential=true" -ShowDetails
+        run: pwsh ./scripts/run-tests-with-dependencies.ps1 -Filter "Essential=true"
 
       - name: Upload xUnit TRX logs
         if: always()
@@ -123,106 +113,51 @@ jobs:
           name: xunit-trx-logs
           path: tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults/TestResults.trx
           
-      - name: Summarize TRX Results (Debug)
+      - name: Summarize TRX Results
         if: always()
         shell: bash
         run: |
-          set -euo pipefail
-          echo "=== DEBUG: Starting TRX summary step ==="
-
           TRX="tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish/TestResults/TestResults.trx"
-          echo "DEBUG: TRX path: $TRX"
-
-          echo "DEBUG: Listing directory:"
-          ls -R "$(dirname "$TRX")" || echo "DEBUG: Directory not found!"
-
-          if [ -f "$TRX" ]; then
-            echo "DEBUG: TRX file found."
-
-            echo "DEBUG: Stripping BOM if present..."
-            CLEAN_TRX="/tmp/clean.trx"
-
-            # Method 1: sed (very reliable)
-            # sed '1s/^\xEF\xBB\xBF//' "$TRX" > "$CLEAN_TRX"
-
-            # Or Method 2: use a small perl one-liner (also common in CI)
-            perl -pe 's/\xEF\xBB\xBF// if $. == 1' "$TRX" > "$CLEAN_TRX"
-
-            TRX="$CLEAN_TRX"
-          else
-            echo "ERROR: TRX FILE NOT FOUND"
+          
+          if [ ! -f "$TRX" ]; then
+            echo "⚠️ No test results found"
+            exit 0
           fi
 
-          # Ensure xmllint is available
-          if ! command -v xmllint >/dev/null; then
-            echo "DEBUG: xmllint not found, installing..."
-            apt-get update -qq && apt-get install -y -qq libxml2-utils
-          else
-            echo "DEBUG: xmllint already installed."
-          fi
+          # Strip BOM and install xmllint if needed
+          perl -pe 's/\xEF\xBB\xBF// if $. == 1' "$TRX" > /tmp/clean.trx
+          command -v xmllint >/dev/null || apt-get install -y -qq libxml2-utils
 
-          echo "DEBUG: Dump first 20 lines of TRX:"
-          head -n 20 "$TRX" || echo "DEBUG: Could not read TRX"
+          # Parse results
+          PASS=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Passed'])" /tmp/clean.trx 2>/dev/null || echo 0)
+          FAIL=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Failed'])" /tmp/clean.trx 2>/dev/null || echo 0)
 
-          NS="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"
-          echo "DEBUG: Using namespace: $NS"
-
-          echo "DEBUG: Extracting all UnitTestResult nodes:"
-          xmllint --xpath "//*[local-name()='UnitTestResult']" "$TRX" 2>/dev/null \
-            | sed 's/></>\n</g' || echo "DEBUG: No UnitTestResult elements found."
-
-          PASS=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Passed'])" "$TRX" 2>/dev/null || echo 0)
-          FAIL=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Failed'])" "$TRX" 2>/dev/null || echo 0)
-          NOT_EXECUTED=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='NotExecuted'])" "$TRX" 2>/dev/null || echo 0)
-
-          echo "DEBUG: PASS = $PASS, FAIL = $FAIL, NOT_EXECUTED = $NOT_EXECUTED"
-
-          echo "=== DEBUG: Writing summary ==="
+          # Write summary
           {
             echo "## Test Results"
-            echo ""
-            echo "**Passed:** $PASS"
-            echo "**Failed:** $FAIL"
-            echo ""
-
+            echo "**Passed:** $PASS | **Failed:** $FAIL"
+            
             if [ "$FAIL" -gt 0 ]; then
+              echo ""
               echo "### Failures"
-              xmllint --xpath "//ns:UnitTestResult[@outcome='Failed']" \
-                --xpath-ns ns="$NS" "$TRX" \
-                | sed 's/></>\n</g' \
-                | awk -F'"' '
-                    /testName=/ {name=$2}
-                    /message=/ {msg=$2; print "* **" name "** — " msg}
-                  '
+              xmllint --xpath "//*[local-name()='UnitTestResult' and @outcome='Failed']/@testName" /tmp/clean.trx 2>/dev/null \
+                | grep -o 'testName="[^"]*"' | cut -d'"' -f2 | sed 's/^/* /' || true
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-
-          echo "=== DEBUG: Done ==="
 
       - name: Cleanup Spark Runner
         if: always()
         shell: pwsh
         run: |
-          Write-Host "=== Cleaning up Spark runner ==="
           $stopJob = Start-Job -ScriptBlock { pwsh scripts/spark-testctl.ps1 -Stop }
           if (-not (Wait-Job -Job $stopJob -Timeout 10)) {
             Stop-Job -Job $stopJob
-            Write-Warning 'Stop command timed out after 10s, proceeding with aggressive cleanup...'
           } else {
-            $stopJob | Receive-Job
+            $stopJob | Receive-Job | Out-Null
           }
           Start-Sleep -Seconds 2
-          
-          Write-Host 'Calling force-kill-runners...'
-          pwsh scripts/force-kill-runners.ps1
-          Start-Sleep -Seconds 1
-          
-          Write-Host 'Killing any remaining Java processes...'
-          Get-Process java -ErrorAction SilentlyContinue | ForEach-Object { 
-            Write-Host "Killing Java process: $($_.Id)"
-            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
-          }
-          Start-Sleep -Seconds 1
-          Write-Host 'Cleanup complete'
+          pwsh scripts/force-kill-runners.ps1 | Out-Null
+          Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Write-Host '✓ Cleanup complete'
 
 

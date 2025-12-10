@@ -42,24 +42,20 @@ jobs:
     steps:
       - name: Install PowerShell
         run: |
-          echo "Installing PowerShell..."
           apt-get update -qq && apt-get install -y -qq wget apt-transport-https software-properties-common
           wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
-          dpkg -i packages-microsoft-prod.deb
+          dpkg -i packages-microsoft-prod.deb 2>&1 | grep -v "^Selecting\|^(Reading\|^Unpacking\|^Setting" || true
           apt-get update -qq
           apt-get install -y -qq powershell
 
       - name: Clear and prepare NuGet caches
         run: |
-          echo "=== Clearing NuGet caches ==="
           dotnet nuget locals all --clear
           mkdir -p "$NUGET_PACKAGES"
           chmod -R 777 "$NUGET_PACKAGES"
-          dotnet nuget locals all --list
 
       - name: Restore Spark tests
         run: |
-          echo "=== Restoring Project Packages ==="
           set -e
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet restore Game.Chess.Tests.Integration.Runner.csproj --runtime linux-x64
@@ -99,59 +95,38 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          echo "=== Installing system dependencies ==="
-          apt-get update -qq
           apt-get install -y -qq netcat-openbsd zip net-tools
 
       - name: Build test project
         run: |
-          echo "=== Building test project ==="
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet build -f net8.0 -r linux-x64
           dotnet publish -f net8.0 -r linux-x64 -c Release --self-contained true
 
       - name: Start Spark Runner
         shell: pwsh
-        run: |
-          Write-Host "Starting Spark runner..."
-          pwsh ./scripts/spark-runner-start.ps1
+        run: pwsh ./scripts/spark-runner-start.ps1
 
       - name: Verify Spark environment
         run: |
-          echo "=== Verifying Spark environment ==="
-          echo "SPARK_HOME: $SPARK_HOME"
-          echo "DOTNET_WORKER_DIR: $DOTNET_WORKER_DIR"
-          ls -la "$SPARK_HOME/bin/spark-submit" || echo "spark-submit not found"
-          ls -la "$DOTNET_WORKER_DIR" || echo "DOTNET_WORKER_DIR not found"
+          test -f "$SPARK_HOME/bin/spark-submit" && echo "✅ Spark ready" || echo "❌ Spark not found"
+          test -d "$DOTNET_WORKER_DIR" && echo "✅ Worker ready" || echo "❌ Worker not found"
           
       - name: Environment ready for tests
         run: |
-          echo "=== Environment configured for Copilot agent ==="
-          echo "Spark runner is active and ready"
-          echo "The agent can now run tests using: pwsh ./scripts/run-tests-with-dependencies.ps1 -Filter 'Essential=true'"
+          echo "✅ Environment ready. Run tests with: pwsh ./scripts/run-tests-with-dependencies.ps1 -Filter 'Essential=true'"
 
       - name: Cleanup Spark Runner
         if: always()
         shell: pwsh
         run: |
-          Write-Host "=== Cleaning up Spark runner ==="
           $stopJob = Start-Job -ScriptBlock { pwsh scripts/spark-testctl.ps1 -Stop }
           if (-not (Wait-Job -Job $stopJob -Timeout 10)) {
             Stop-Job -Job $stopJob
-            Write-Warning 'Stop command timed out after 10s, proceeding with aggressive cleanup...'
           } else {
-            $stopJob | Receive-Job
+            $stopJob | Receive-Job | Out-Null
           }
           Start-Sleep -Seconds 2
-          
-          Write-Host 'Calling force-kill-runners...'
-          pwsh scripts/force-kill-runners.ps1
-          Start-Sleep -Seconds 1
-          
-          Write-Host 'Killing any remaining Java processes...'
-          Get-Process java -ErrorAction SilentlyContinue | ForEach-Object { 
-            Write-Host "Killing Java process: $($_.Id)"
-            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
-          }
-          Start-Sleep -Seconds 1
-          Write-Host 'Cleanup complete'
+          pwsh scripts/force-kill-runners.ps1 | Out-Null
+          Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Write-Host '✓ Cleanup complete'
