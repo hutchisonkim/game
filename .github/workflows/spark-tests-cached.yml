@@ -37,6 +37,12 @@ jobs:
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
 
+      - name: Build Test Project (Diagnostics)
+        run: |
+          set -e
+          cd tests/Game.Chess.Tests.Integration
+          dotnet build Game.Chess.Tests.Integration.csproj -c Release -v d
+
       - name: Start Spark Runner
         shell: pwsh
         env:
