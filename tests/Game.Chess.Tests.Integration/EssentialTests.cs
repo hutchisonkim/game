@@ -458,7 +458,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Count total pieces on default board (should be 32: 16 white + 16 black)
-        var allPieces = piecesDf.Filter("piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(32, allPieces);
         
         // Verify default board has pieces in starting positions
@@ -545,7 +546,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Verify we have 2 pieces on the board
-        var allPieces = piecesDf.Filter("piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(2, allPieces);
         
         // Verify king and black pawn are recognized
@@ -592,7 +594,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Verify all pieces are recognized (2 kings + 2 rooks = 4 pieces)
-        var allPieces = piecesDf.Filter("piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(4, allPieces);
         
         // Verify all pieces have Mint flag (important for castling)
@@ -633,7 +636,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Verify both pieces exist
-        var allPieces = piecesDf.Filter("piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(2, allPieces);
         
         // Verify king and rook are present
@@ -679,7 +683,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Verify all three pieces exist
-        var allPieces = piecesDf.Filter("piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(3, allPieces);
         
         // Verify king, rook, and bishop present
@@ -728,7 +733,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Verify all three pieces on vertical line (e-file)
-        var efile = piecesDf.Filter("x = 4 AND piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var efile = piecesDf.Filter($"x = 4 AND (piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(3, efile);
         
         // Verify pieces form correct alignment for discovered check
@@ -802,7 +808,6 @@ public class EssentialTests
             (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1
             (4, 7, PieceBuilder.Create().Black().King().Build())     // Black king at e8
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -850,7 +855,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Verify both sliding pieces present
-        var allPieces = piecesDf.Filter("piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(2, allPieces);
         
         // Verify bishop and rook
@@ -1030,7 +1036,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Verify all 32 pieces on default board
-        var allPieces = piecesDf.Filter("piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(32, allPieces);
         
         // Verify 16 white pieces × 64 cells = 1024 perspectives for white turn
@@ -1058,7 +1065,6 @@ public class EssentialTests
             (3, 7, PieceBuilder.Create().Black().Queen().Build()),    // Black queen at d8 (for threat)
             (4, 7, PieceBuilder.Create().Black().King().Build())      // Black king at e8
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -1073,7 +1079,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Verify 5 pieces on board
-        var allPieces = piecesDf.Filter("piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(5, allPieces);
         
         // Verify presence of king, queen, and pawns
@@ -1107,7 +1114,6 @@ public class EssentialTests
             (4, 0, PieceBuilder.Create().White().King().Build()),    // White king at e1
             (4, 7, PieceBuilder.Create().Black().King().Build())     // Black king at e8
         );
-        board.Initialize();
 
         var provider = new BoardStateProvider(_spark);
         var perspectiveEngine = new PerspectiveEngine();
@@ -1122,7 +1128,8 @@ public class EssentialTests
         Assert.NotEqual(0, perspectiveCount);
         
         // Only 2 kings on board (stalemate condition - no other pieces)
-        var allPieces = piecesDf.Filter("piece != 0").Count();
+        var emptyBit = (int)Piece.Empty;
+        var allPieces = piecesDf.Filter($"(piece & {emptyBit}) == 0 AND piece != 0").Count();
         Assert.Equal(2, allPieces);
         
         // Both should be kings
