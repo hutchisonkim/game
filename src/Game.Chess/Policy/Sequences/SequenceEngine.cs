@@ -94,7 +94,11 @@ public static class SequenceEngine
             Col("dst_effects"),
             Col("src_x").Alias("frontier_x"),
             Col("src_y").Alias("frontier_y"),
-            Col("sequence").BitwiseAND(Lit(variantMask)).Alias("direction_key")
+            Col("sequence").BitwiseAND(Lit(variantMask)).Alias("direction_key"),
+            When(Col("original_perspective_x").IsNull(), Col("src_x"))
+                .Otherwise(Col("original_perspective_x")).Alias("original_perspective_x"),
+            When(Col("original_perspective_y").IsNull(), Col("src_y"))
+                .Otherwise(Col("original_perspective_y")).Alias("original_perspective_y")
         );
 
         // Step 4: Filter for empty destinations to continue sliding
@@ -113,7 +117,6 @@ public static class SequenceEngine
                 Col("dst_generic_piece"),
                 Col("src_piece"),
                 Col("src_generic_piece"),
-                Col("sequence"),
                 Col("dst_effects"),
                 Col("sequence").BitwiseAND(Lit(variantMask)).Alias("direction_key"),
                 When(Col("original_perspective_x").IsNull(), Col("src_x"))
@@ -158,7 +161,9 @@ public static class SequenceEngine
                 Col("dst_effects"),
                 Col("frontier_x"),
                 Col("frontier_y"),
-                Col("direction_key")
+                Col("direction_key"),
+                Col("original_perspective_x"),
+                Col("original_perspective_y")
             );
 
             allSequencedMoves = allSequencedMoves.Union(continuationFormatted);
@@ -242,6 +247,7 @@ public static class SequenceEngine
                 Col("generic_piece"),
                 Col("perspective_x"),
                 Col("perspective_y"),
+                Col("perspective_piece"),
                 Col("perspective_id"),
                 Col("src_x"),
                 Col("src_y"),
@@ -277,13 +283,14 @@ public static class SequenceEngine
                 Col("generic_piece"),
                 Col("perspective_x"),
                 Col("perspective_y"),
+                Col("perspective_piece"),
                 Col("perspective_id"),
                 Col("src_x"),
                 Col("src_y"),
                 Col("src_piece"),
                 Col("src_generic_piece"),
                 Col("pat.sequence").Alias("sequence"),
-                Col("dst_effects"),
+                Col("pat.dst_effects").Alias("dst_effects"),
                 Col("direction_key"),
                 Col("original_perspective_x"),
                 Col("original_perspective_y"),
@@ -319,6 +326,7 @@ public static class SequenceEngine
                 Col("generic_piece"),
                 Col("perspective_x"),
                 Col("perspective_y"),
+                Col("perspective_piece"),
                 Col("perspective_id"),
                 Col("src_x"),
                 Col("src_y"),
@@ -338,7 +346,26 @@ public static class SequenceEngine
                 Col("lookup_generic_piece") != Lit((int)Piece.OutOfBounds)
             )
             .WithColumnRenamed("lookup_piece", "dst_piece")
-            .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece");
+            .WithColumnRenamed("lookup_generic_piece", "dst_generic_piece")
+            .Select(
+                Col("perspective_x"),
+                Col("perspective_y"),
+                Col("perspective_piece"),
+                Col("perspective_id"),
+                Col("src_x"),
+                Col("src_y"),
+                Col("src_piece"),
+                Col("src_generic_piece"),
+                Col("dst_x"),
+                Col("dst_y"),
+                Col("dst_piece"),
+                Col("dst_generic_piece"),
+                Col("sequence"),
+                Col("dst_effects"),
+                Col("direction_key"),
+                Col("original_perspective_x"),
+                Col("original_perspective_y")
+            );
 
         return withDestination.Select(
             Col("perspective_x"),
@@ -357,7 +384,9 @@ public static class SequenceEngine
             Col("dst_effects"),
             Col("src_x").Alias("frontier_x"),
             Col("src_y").Alias("frontier_y"),
-            Col("direction_key")
+            Col("direction_key"),
+            Col("original_perspective_x"),
+            Col("original_perspective_y")
         );
     }
 
