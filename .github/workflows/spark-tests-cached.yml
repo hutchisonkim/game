@@ -31,63 +31,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Clear and prepare NuGet caches
-        run: |
-          dotnet nuget locals all --clear
-          mkdir -p "$NUGET_PACKAGES"
-          chmod -R 777 "$NUGET_PACKAGES"
-
-      - name: Restore Spark tests
+      - name: Build Spark Runner
         run: |
           set -e
           cd tests/Game.Chess.Tests.Integration.Runner
-          dotnet restore Game.Chess.Tests.Integration.Runner.csproj --runtime linux-x64
-
-      - name: Fix Windows-style paths in NuGet cache
-        shell: bash
-        run: |
-          echo "=== Checking for Windows-style paths in NuGet packages ==="
-
-          # Depth-first, handle files/dirs with backslashes
-          find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
-            # Convert backslashes to forward slashes
-            NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
-            # Strip trailing slashes so Linux handles files correctly
-            NEW_PATH="${NEW_PATH%/}"
-
-            if [ -d "$f" ]; then
-              mkdir -p "$NEW_PATH"
-              mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
-              rmdir "$f" 2>/dev/null || true
-              echo "Fixed directory: $f -> $NEW_PATH"
-            else
-              mkdir -p "$(dirname "$NEW_PATH")"
-              mv "$f" "$NEW_PATH"
-              echo "Fixed file: $f -> $NEW_PATH"
-            fi
-          done
-
-          # Verify Microsoft.Spark.dll exists after fixing paths
-          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
-          if [ -f "$SPARK_DLL" ]; then
-            echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
-          else
-            echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
-            exit 1
-          fi
-
-      # PowerShell and system dependencies now pre-installed in Docker image
-      # - name: Install PowerShell
-      #   run: |
-      #     apt-get update -qq && apt-get install -y -qq wget apt-transport-https software-properties-common
-      #     wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
-      #     dpkg -i packages-microsoft-prod.deb 2>&1 | grep -v "^Selecting\|^(Reading\|^Unpacking\|^Setting" || true
-      #     apt-get update -qq
-      #     apt-get install -y -qq powershell
-
-      # - name: Install system dependencies
-      #   run: |
-      #     apt-get install -y -qq netcat-openbsd zip net-tools
+          dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
 
       - name: Start Spark Runner
         shell: pwsh

@@ -52,19 +52,30 @@ RUN mkdir -p ${DOTNET_WORKER_DIR} && \
        ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker && \
     chmod +x ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker
 
+# ---- Pre-populate NuGet global cache with Microsoft.Spark ---------
+ENV NUGET_PACKAGES=/root/.nuget/packages
+RUN mkdir -p ${NUGET_PACKAGES} && \
+    if [ -d /cache/.nuget/packages ]; then \
+      echo "Copying pre-cached NuGet packages to global cache" && \
+      cp -r /cache/.nuget/packages/* ${NUGET_PACKAGES}/ && \
+      chmod -R 755 ${NUGET_PACKAGES}; \
+    else \
+      echo "No pre-cached NuGet packages found in /cache/.nuget/packages"; \
+    fi
+
 # ---- Expose Spark UI ports (optional, useful for local dev) --------
 EXPOSE 7077 8080 4040
 
-# ---- Install base tools + .NET SDK at the end (reduces layer churn) ----
+# ---- Install base tools + .NET SDK + PowerShell at the end (reduces layer churn) ----
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      curl ca-certificates tar procps bash wget gnupg apt-transport-https libxml2-utils netcat-openbsd zip net-tools && \
+      curl ca-certificates tar procps bash wget gnupg apt-transport-https libxml2-utils netcat-openbsd zip net-tools software-properties-common && \
     rm -rf /var/lib/apt/lists/* && \
     wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
       -O /tmp/ms.deb && \
     dpkg -i /tmp/ms.deb && rm /tmp/ms.deb && \
     apt-get update && \
-    apt-get install -y dotnet-sdk-8.0 && \
+    apt-get install -y dotnet-sdk-8.0 powershell && \
     rm -rf /var/lib/apt/lists/*
 
 # ---- Default command – just a shell (CI starts the worker) --------
