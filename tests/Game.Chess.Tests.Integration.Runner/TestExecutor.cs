@@ -1158,11 +1158,11 @@ namespace Game.Chess.Tests.Integration.Runner
         {
             try
             {
-                // Find the integration test project file
+                // Find the integration test project file (using Path.Combine for cross-platform)
                 var projectCandidates = new[]
                 {
-                    @"tests\Game.Chess.Tests.Integration\Game.Chess.Tests.Integration.csproj",
-                    @"..\Game.Chess.Tests.Integration\Game.Chess.Tests.Integration.csproj",
+                    Path.Combine("tests", "Game.Chess.Tests.Integration", "Game.Chess.Tests.Integration.csproj"),
+                    Path.Combine("..", "Game.Chess.Tests.Integration", "Game.Chess.Tests.Integration.csproj"),
                 };
 
                 string projectPath = null;
