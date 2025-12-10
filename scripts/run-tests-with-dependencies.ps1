@@ -72,6 +72,86 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 Write-Host "Workspace: $workspaceRoot" -ForegroundColor Gray
 Write-Host "Filter: $Filter" -ForegroundColor Gray
 
+# Spinner setup
+$green = "`e[32m"; $brightGreen = "`e[92m"; $yellow = "`e[33m"; $magenta = "`e[35m"; $cyan = "`e[36m"; $reset = "`e[0m"
+# Hide cursor
+Write-Host -NoNewline "`e[?25l"
+$accumulator = ""
+$spinnerFrames = @(
+    "${yellow}-${reset}",
+    "${yellow}/${reset}",
+    "${yellow}|${reset}",
+    "${yellow}\\${reset}",
+    "${green}=${reset}${yellow}-${reset}",
+    "${green}=${reset}${yellow}/${reset}",
+    "${green}=${reset}${yellow}|${reset}",
+    "${green}=${reset}${yellow}\\${reset}",
+    "${green}==${reset}${yellow}-${reset}",
+    "${green}==${reset}${yellow}/${reset}",
+    "${green}==${reset}${yellow}|${reset}",
+    "${green}==${reset}${yellow}\\${reset}",
+    "${green}===${reset}${yellow}-${reset}",
+    "${green}===${reset}${yellow}/${reset}",
+    "${green}===${reset}${yellow}|${reset}",
+    "${green}===${reset}${yellow}\\${reset}",
+    "${brightGreen}====${reset}${yellow}-${reset}",
+    "${brightGreen}====${reset}${yellow}/${reset}",
+    "${brightGreen}====${reset}${yellow}|${reset}",
+    "${brightGreen}====${reset}${yellow}\\${reset}",
+    "${brightGreen}=====${reset}${yellow}-${reset}",
+    "${brightGreen}=====${reset}${yellow}/${reset}",
+    "${brightGreen}=====${reset}${yellow}|${reset}",
+    "${brightGreen}=====${reset}${yellow}\\${reset}",
+    "${cyan}======${reset}${yellow}-${reset}",
+    "${cyan}======${reset}${yellow}/${reset}",
+    "${cyan}======${reset}${yellow}|${reset}",
+    "${cyan}======${reset}${yellow}\\${reset}",
+    "${cyan}=======${reset}${magenta}-${reset}",
+    "${cyan}=======${reset}${magenta}/${reset}",
+    "${cyan}=======${reset}${magenta}|${reset}",
+    "${cyan}=======${reset}${magenta}\\${reset}"
+)
+$spinIndex = 0
+$spinnerActive = $false
+$spinnerClear = ' '.PadRight(80)
+
+function Invoke-CommandWithSpinner {
+    param([string]$Command, [string]$Label = "running")
+    
+    $job = Start-Job -ScriptBlock {
+        param($Cmd)
+        try {
+            Invoke-Expression $Cmd 2>&1
+        } catch {
+            "ERROR: $_"
+        }
+    } -ArgumentList $Command
+    
+    $script:spinIndex = 0
+    $script:accumulator = ""
+    $script:spinnerActive = $false
+    
+    while ($true) {
+        $jobState = (Get-Job -Id $job.Id).State
+        if ($jobState -ne 'Running') { break }
+        
+        $spin = $spinnerFrames[$script:spinIndex % $spinnerFrames.Count]
+        $script:spinIndex++
+        if ($script:spinIndex % $spinnerFrames.Count -eq 0) { $script:accumulator += "${cyan}*${reset}" }
+        Write-Host -NoNewline "`r$spinnerClear`r[$Label] $script:accumulator$spin"
+        $script:spinnerActive = $true
+        
+        Start-Sleep -Milliseconds 300
+    }
+    
+    if ($script:spinnerActive) { Write-Host -NoNewline "`r       `r"; $script:spinnerActive = $false }
+    Write-Host "`r$spinnerClear`r"
+    
+    $result = Receive-Job $job
+    Remove-Job $job -Force -ErrorAction SilentlyContinue
+    return $result
+}
+
 # Parse filter into key-value pairs
 function Parse-Filter {
     param([string]$FilterString)
@@ -233,7 +313,8 @@ Write-Host ""
 Write-Host "🔨 Preparing test assemblies (rebuild once, then reuse)" -ForegroundColor Yellow
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
 try {
-    $rebuildResult = pwsh -NoProfile -ExecutionPolicy Bypass -File "$workspaceRoot/scripts/spark-testctl.ps1" -RebuildOnly 2>&1
+    $rebuildCommand = "pwsh -NoProfile -ExecutionPolicy Bypass -File `"$workspaceRoot/scripts/spark-testctl.ps1`" -RebuildOnly"
+    $rebuildResult = Invoke-CommandWithSpinner -Command $rebuildCommand -Label "rebuild"
     $rebuildOutput = $rebuildResult | Out-String
     
     # Check if rebuild succeeded
@@ -290,7 +371,8 @@ foreach ($test in $sortedTests) {
     
     # Run test through spark-testctl.ps1 with -SkipBuild to use cached assemblies
     try {
-        $result = pwsh -NoProfile -ExecutionPolicy Bypass -File "$workspaceRoot/scripts/spark-testctl.ps1" -Filter $testFilter -SkipBuild 2>&1
+        $testCommand = "pwsh -NoProfile -ExecutionPolicy Bypass -File `"$workspaceRoot/scripts/spark-testctl.ps1`" -Filter $testFilter -SkipBuild"
+        $result = Invoke-CommandWithSpinner -Command $testCommand -Label "test $($test.testId)"
         $resultStr = $result | Out-String
         
         # Check if this specific test passed (look for PASSED line with test method name)
@@ -331,6 +413,9 @@ Write-Host "  Passed:  $passedCount/$total" -ForegroundColor Green
 Write-Host "  Failed:  $failedCount/$total" -ForegroundColor $(if ($failedCount -gt 0) { 'Red' } else { 'DarkGray' })
 Write-Host "  Skipped: $skippedCount/$total" -ForegroundColor $(if ($skippedCount -gt 0) { 'Yellow' } else { 'DarkGray' })
 Write-Host "  Success: $percent%" -ForegroundColor $(if ($percent -ge 80) { 'Green' } elseif ($percent -ge 50) { 'Yellow' } else { 'Red' })
+
+# Show cursor
+Write-Host -NoNewline "`e[?25h"
 
 # Exit with appropriate code
 exit $(if ($failedCount -gt 0) { 1 } else { 0 })
