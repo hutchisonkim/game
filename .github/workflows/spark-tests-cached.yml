@@ -76,17 +76,18 @@ jobs:
             exit 1
           fi
 
-      - name: Install PowerShell
-        run: |
-          apt-get update -qq && apt-get install -y -qq wget apt-transport-https software-properties-common
-          wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
-          dpkg -i packages-microsoft-prod.deb 2>&1 | grep -v "^Selecting\|^(Reading\|^Unpacking\|^Setting" || true
-          apt-get update -qq
-          apt-get install -y -qq powershell
+      # PowerShell and system dependencies now pre-installed in Docker image
+      # - name: Install PowerShell
+      #   run: |
+      #     apt-get update -qq && apt-get install -y -qq wget apt-transport-https software-properties-common
+      #     wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
+      #     dpkg -i packages-microsoft-prod.deb 2>&1 | grep -v "^Selecting\|^(Reading\|^Unpacking\|^Setting" || true
+      #     apt-get update -qq
+      #     apt-get install -y -qq powershell
 
-      - name: Install system dependencies
-        run: |
-          apt-get install -y -qq netcat-openbsd zip net-tools
+      # - name: Install system dependencies
+      #   run: |
+      #     apt-get install -y -qq netcat-openbsd zip net-tools
 
       - name: Start Spark Runner
         shell: pwsh
@@ -124,9 +125,8 @@ jobs:
             exit 0
           fi
 
-          # Strip BOM and install xmllint if needed
+          # Strip BOM (xmllint pre-installed in Docker image)
           perl -pe 's/\xEF\xBB\xBF// if $. == 1' "$TRX" > /tmp/clean.trx
-          command -v xmllint >/dev/null || apt-get install -y -qq libxml2-utils
 
           # Parse results
           PASS=$(xmllint --xpath "count(//*[local-name()='UnitTestResult' and @outcome='Passed'])" /tmp/clean.trx 2>/dev/null || echo 0)

@@ -16,12 +16,6 @@ ENV PATH=$SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH
 # ---- Cache directory (CI can drop pre-downloaded files here) -------
 COPY .docker_cache /cache
 
-# ---- Base tools -----------------------------------------------------
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      curl ca-certificates tar procps bash wget gnupg apt-transport-https libxml2-utils netcat-openbsd zip net-tools && \
-    rm -rf /var/lib/apt/lists/*
-
 # ---- Spark ----------------------------------------------------------
 RUN mkdir -p /opt && \
     if [ -f /cache/spark-${SPARK_VERSION}-bin-${HADOOP_PROFILE}.tgz ]; then \
@@ -58,16 +52,20 @@ RUN mkdir -p ${DOTNET_WORKER_DIR} && \
        ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker && \
     chmod +x ${DOTNET_WORKER_DIR}/Microsoft.Spark.Worker
 
-# ---- .NET 8 SDK -----------------------------------------------------
-RUN wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
+# ---- Expose Spark UI ports (optional, useful for local dev) --------
+EXPOSE 7077 8080 4040
+
+# ---- Install base tools + .NET SDK at the end (reduces layer churn) ----
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      curl ca-certificates tar procps bash wget gnupg apt-transport-https libxml2-utils netcat-openbsd zip net-tools && \
+    rm -rf /var/lib/apt/lists/* && \
+    wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
       -O /tmp/ms.deb && \
     dpkg -i /tmp/ms.deb && rm /tmp/ms.deb && \
     apt-get update && \
     apt-get install -y dotnet-sdk-8.0 && \
     rm -rf /var/lib/apt/lists/*
-
-# ---- Expose Spark UI ports (optional, useful for local dev) --------
-EXPOSE 7077 8080 4040
 
 # ---- Default command – just a shell (CI starts the worker) --------
 CMD ["bash"]
