@@ -382,8 +382,8 @@ public static class SequenceEngine
             Col("dst_generic_piece"),
             Col("sequence"),
             Col("dst_effects"),
-            Col("src_x").Alias("frontier_x"),
-            Col("src_y").Alias("frontier_y"),
+            Col("x").Alias("frontier_x"),
+            Col("y").Alias("frontier_y"),
             Col("direction_key"),
             Col("original_perspective_x"),
             Col("original_perspective_y")
