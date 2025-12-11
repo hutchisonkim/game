@@ -103,29 +103,45 @@ jobs:
           echo "✅ Microsoft.Spark.Worker extracted to /opt/microsoft-spark-worker"
           ls -lh /opt/microsoft-spark-worker/
 
-      - name: Restore Test Project Packages (Spark DLL fix - 1 of 3)
+      - name: Setup Microsoft.Spark Package (Spark DLL fix - 2 of 3)
+        run: |
+          echo "=== Setting up Microsoft.Spark package ==="
+          set -e
+          
+          # Copy the downloaded Microsoft.Spark package to the NuGet cache
+          mkdir -p "$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1"
+          cp "$SPARK_CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll" "$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/"
+          
+          # Create basic package metadata that NuGet expects
+          mkdir -p "$NUGET_PACKAGES/microsoft.spark/2.3.0"
+          cat > "$NUGET_PACKAGES/microsoft.spark/2.3.0/microsoft.spark.nuspec" << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+            <metadata>
+              <id>Microsoft.Spark</id>
+              <version>2.3.0</version>
+              <title>Microsoft.Spark</title>
+              <authors>Microsoft</authors>
+              <description>.NET for Apache Spark</description>
+            </metadata>
+          </package>
+          EOF
+
+      - name: Restore Test Project Packages (Spark DLL fix - 3 of 3)
         run: |
           echo "=== Restoring Project Packages ==="
           set -e
           
-          # Copy cached NuGet packages to the global cache
-          CACHE_DIR="${HOME}/.cache/spark-dependencies"
-          NUGET_PKG_DIR="/home/runner/.nuget/packages"
-          mkdir -p "$NUGET_PKG_DIR"
-          cp -r "$CACHE_DIR/.nuget/packages/microsoft.spark" "$NUGET_PKG_DIR/" || true
-          
           cd tests/Game.Chess.Tests.Integration
           dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
 
-      - name: Fix Windows-style paths in NuGet cache (Spark DLL fix - 2 of 3)
+      - name: Fix Windows-style paths in NuGet cache (Spark DLL fix - 4 of 3)
         shell: bash
         run: |
           echo "=== Checking for Windows-style paths in NuGet packages ==="
-          
-          NUGET_PKG_DIR="/home/runner/.nuget/packages"
 
           # Depth-first, handle files/dirs with backslashes
-          find "$NUGET_PKG_DIR" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
+          find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
             # Convert backslashes to forward slashes
             NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
             # Strip trailing slashes so Linux handles files correctly
@@ -144,8 +160,7 @@ jobs:
           done
 
           # Verify Microsoft.Spark.dll exists after fixing paths
-          NUGET_PKG_DIR="/home/runner/.nuget/packages"
-          SPARK_DLL="$NUGET_PKG_DIR/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
+          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
           if [ -f "$SPARK_DLL" ]; then
             echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
           else
@@ -153,7 +168,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build Test Project (Spark DLL fix - 3 of 3)
+      - name: Build Test Project (Spark DLL fix - 5 of 3)
         run: |
           set -e
           cd tests/Game.Chess.Tests.Integration
@@ -164,8 +179,20 @@ jobs:
           set -e
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
+          
+          # Copy the Microsoft.Spark JAR to the publish directory for the runner
+          CACHE_DIR="${HOME}/.cache/spark-dependencies"
+          PUBLISH_DIR="tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish"
+          mkdir -p "$PUBLISH_DIR"
+          cp "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/microsoft-spark-3-5_2.12-2.3.0.jar" "$PUBLISH_DIR/" || true
 
       - name: Start Spark Runner
         shell: pwsh
-        run: pwsh ./scripts/spark-runner-start.ps1
+        run: |
+          $env:SPARK_HOME = "/opt/spark"
+          $env:DOTNET_WORKER_DIR = "/opt/microsoft-spark-worker"
+          $env:DOTNETBACKEND_PORT = "5567"
+          $env:PYTHON_WORKER_FACTORY_PORT = "5567"
+          $env:DOTNET_WORKER_SPARK_VERSION = "2.3.0"
+          pwsh ./scripts/spark-runner-start.ps1
 
