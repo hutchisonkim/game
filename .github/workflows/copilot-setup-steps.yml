@@ -103,62 +103,56 @@ jobs:
           echo "✅ Microsoft.Spark.Worker extracted to /opt/microsoft-spark-worker"
           ls -lh /opt/microsoft-spark-worker/
 
-      - name: Restore Test Project Packages (Spark DLL fix - 1 of 3)
+      - name: Create Local NuGet Package for Microsoft.Spark
+        run: |
+          echo "=== Creating Local NuGet Package for Microsoft.Spark ==="
+          set -e
+          
+          CACHE_DIR="${HOME}/.cache/spark-dependencies"
+          LOCAL_NUGET_DIR="${HOME}/.local-nuget"
+          mkdir -p "$LOCAL_NUGET_DIR"
+          
+          # Create package structure
+          PKG_DIR="$LOCAL_NUGET_DIR/microsoft.spark/2.3.0"
+          mkdir -p "$PKG_DIR/lib/netstandard2.1"
+          
+          # Copy the DLL to the package structure
+          cp "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll" "$PKG_DIR/lib/netstandard2.1/"
+          
+          # Create a basic .nuspec file
+          echo '<?xml version="1.0" encoding="utf-8"?>' > "$PKG_DIR/microsoft.spark.nuspec"
+          echo '<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '  <metadata>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '    <id>Microsoft.Spark</id>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '    <version>2.3.0</version>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '    <authors>Microsoft</authors>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '    <description>Microsoft.Spark</description>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '    <dependencies>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '      <group targetFramework=".NETStandard2.1" />' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '    </dependencies>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '  </metadata>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '  <files>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '    <file src="lib/netstandard2.1/Microsoft.Spark.dll" target="lib/netstandard2.1/Microsoft.Spark.dll" />' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '  </files>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          echo '</package>' >> "$PKG_DIR/microsoft.spark.nuspec"
+          
+          # Create the .nupkg file using dotnet nuget pack
+          dotnet nuget pack "$PKG_DIR/microsoft.spark.nuspec" --output "$LOCAL_NUGET_DIR"
+          
+          # Add local NuGet source
+          dotnet nuget add source "$LOCAL_NUGET_DIR" --name LocalSparkPackages
+          
+          echo "✅ Local NuGet package created and source added"
+
+      - name: Restore Test Project Packages
         run: |
           echo "=== Restoring Project Packages ==="
           set -e
           
-          # Copy cached NuGet packages to the global cache
-          CACHE_DIR="${HOME}/.cache/spark-dependencies"
-          NUGET_PKG_DIR="/home/runner/.nuget/packages"
-          mkdir -p "$NUGET_PKG_DIR"
-          cp -r "$CACHE_DIR/.nuget/packages/microsoft.spark" "$NUGET_PKG_DIR/" || true
-          
-          # Also copy to the old NuGet cache structure for compatibility
-          OLD_NUGET_DIR="/home/runner/.nuget"
-          mkdir -p "$OLD_NUGET_DIR/microsoft.spark/2.3.0/lib/netstandard2.1"
-          cp "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll" "$OLD_NUGET_DIR/microsoft.spark/2.3.0/lib/netstandard2.1/" || true
-          
           cd tests/Game.Chess.Tests.Integration
           dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
 
-      - name: Fix Windows-style paths in NuGet cache (Spark DLL fix - 2 of 3)
-        shell: bash
-        run: |
-          echo "=== Checking for Windows-style paths in NuGet packages ==="
-          
-          NUGET_PKG_DIR="/home/runner/.nuget/packages"
-
-          # Depth-first, handle files/dirs with backslashes
-          find "$NUGET_PKG_DIR" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
-            # Convert backslashes to forward slashes
-            NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
-            # Strip trailing slashes so Linux handles files correctly
-            NEW_PATH="${NEW_PATH%/}"
-
-            if [ -d "$f" ]; then
-              mkdir -p "$NEW_PATH"
-              mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
-              rmdir "$f" 2>/dev/null || true
-              echo "Fixed directory: $f -> $NEW_PATH"
-            else
-              mkdir -p "$(dirname "$NEW_PATH")"
-              mv "$f" "$NEW_PATH"
-              echo "Fixed file: $f -> $NEW_PATH"
-            fi
-          done
-
-          # Verify Microsoft.Spark.dll exists after fixing paths
-          NUGET_PKG_DIR="/home/runner/.nuget/packages"
-          SPARK_DLL="$NUGET_PKG_DIR/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
-          if [ -f "$SPARK_DLL" ]; then
-            echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
-          else
-            echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
-            exit 1
-          fi
-
-      - name: Build Test Project (Spark DLL fix - 3 of 3)
+      - name: Build Test Project
         run: |
           set -e
           cd tests/Game.Chess.Tests.Integration
