@@ -228,6 +228,158 @@
       ]
     },
     {
+      "testId": "L2_SequenceEngine_RecursiveDepthTest",
+      "name": "Sliding: Recursive Depth Expansion",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A4"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding"],
+      "blocksTests": [],
+      "description": "Verify bishop/rook expand up to 8 steps on empty board",
+      "assertions": [
+        "Bishop expands to at least 5 steps in longest diagonal",
+        "Rook expands to at least 7 steps to opposite side",
+        "Multi-step sequences work correctly",
+        "No infinite loops or excessive expansion"
+      ]
+    },
+    {
+      "testId": "L2_SequenceEngine_InOutFlagsTest",
+      "name": "Sliding: In/Out Sequence Flags",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A4, A5"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding"],
+      "blocksTests": [],
+      "description": "Verify pawn promotion and castling sequences with In/Out flags",
+      "assertions": [
+        "Promotion sequences have OutX/InX pairs",
+        "Castling sequences have OutY/InY pairs",
+        "Sequences trigger correctly",
+        "Multi-step sequences work"
+      ]
+    },
+    {
+      "testId": "L2_SequenceEngine_VariantRespectTest",
+      "name": "Sliding: Variant Consistency",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A4"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding"],
+      "blocksTests": [],
+      "description": "Ensure bishop only continues in same diagonal variant",
+      "assertions": [
+        "Bishop stays in same diagonal direction",
+        "No variant switching during expansion",
+        "All 4 diagonal variants respected",
+        "Variant masks work correctly"
+      ]
+    },
+    {
+      "testId": "L2_SequenceEngine_PublicFlagTest",
+      "name": "Sliding: Public Flag Filtering",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A4"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding"],
+      "blocksTests": [],
+      "description": "Verify only sequences with Public flag in final step are included",
+      "assertions": [
+        "Only final Public steps in candidates",
+        "Intermediate steps filtered out",
+        "Public flag propagation works",
+        "Candidate set is clean"
+      ]
+    },
+    {
+      "testId": "L2_SequenceEngine_ParallelFlagTest",
+      "name": "Sliding: Parallel Multi-Piece Moves",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A4, A5"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding"],
+      "blocksTests": [],
+      "description": "Verify multi-piece moves collected together",
+      "assertions": [
+        "Castling moves king and rook simultaneously",
+        "Parallel flag triggers multi-piece collection",
+        "Single candidate contains all pieces",
+        "No duplicate or missing moves"
+      ]
+    },
+    {
+      "testId": "L2_SequenceEngine_SrcDstConditionsTest",
+      "name": "Sliding: Source/Destination Conditions",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A4, A5"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding"],
+      "blocksTests": [],
+      "description": "Verify src_conditions and dst_conditions are enforced",
+      "assertions": [
+        "Self|Bishop src_conditions work",
+        "Empty/Foe dst_conditions work",
+        "Blocking pieces prevent movement",
+        "Conditions propagate through sequences"
+      ]
+    },
+    {
+      "testId": "L2_SequenceEngine_BoardStateModificationTest",
+      "name": "Sliding: Board State Updates",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A4, A5"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding"],
+      "blocksTests": [],
+      "description": "Ensure moves update board state correctly",
+      "assertions": [
+        "Source piece moves to destination",
+        "Board state reflects move",
+        "Captures remove opponent pieces",
+        "State transitions are valid"
+      ]
+    },
+    {
+      "testId": "L2_SequenceEngine_AbsoluteFactionTest",
+      "name": "Sliding: Absolute Faction Rendering",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A4, A5"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding"],
+      "blocksTests": [],
+      "description": "Verify post-move board describes White/Black pieces for rendering",
+      "assertions": [
+        "White pieces remain White",
+        "Black pieces remain Black",
+        "Faction information preserved",
+        "Rendering state is correct"
+      ]
+    },
+    {
       "testId": "L3_SimulationEngine_SimpleMoves",
       "name": "Simulation: Apply Simple Moves",
       "layer": 3,

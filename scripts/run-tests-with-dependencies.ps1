@@ -46,6 +46,54 @@ param(
     [switch]$ShowDetails
 )
 
+# Ensure PowerShell outputs UTF-8 so emoji/chess glyphs survive
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+} catch {}
+
+# Helper: emit ANSI-colored text (works when capturing output as bytes)
+function Get-AnsiCode {
+    param([string]$color)
+    switch ($color.ToLower()) {
+        'black' { '30' }
+        'darkblue' { '34' }
+        'darkgreen' { '32' }
+        'darkcyan' { '36' }
+        'darkred' { '31' }
+        'darkmagenta' { '35' }
+        'darkyellow' { '33' }
+        'gray' { '37' }
+        'darkgray' { '90' }
+        'blue' { '94' }
+        'green' { '92' }
+        'cyan' { '96' }
+        'red' { '91' }
+        'magenta' { '95' }
+        'yellow' { '93' }
+        'white' { '97' }
+        'brightgreen' { '92' }
+        default { '0' }
+    }
+}
+
+function Write-ColorLine {
+    param([string]$text, [string]$color)
+    try {
+        $code = Get-AnsiCode $color
+        if ($code -ne '0') { Write-Host "`e[${code}m${text}`e[0m" } else { Write-Host $text }
+    } catch { Write-Host $text }
+}
+
+function Write-ColorNoNewline {
+    param([string]$text, [string]$color)
+    try {
+        $code = Get-AnsiCode $color
+        if ($code -ne '0') { Write-Host -NoNewline "`e[${code}m${text}`e[0m" } else { Write-Host -NoNewline $text }
+    } catch { Write-Host -NoNewline $text }
+}
+
 # Set default environment variables for Spark integration
 $env:SPARK_HOME = "/opt/spark"
 $env:DOTNET_WORKER_DIR = "/opt/microsoft-spark-worker"
@@ -74,50 +122,14 @@ if (-not (Test-Path $graphFile)) {
 $graphJson = Get-Content $graphFile | ConvertFrom-Json
 $testSuite = $graphJson.testSuite
 
-Write-Host "🧪 Chess Policy Essential Tests Runner" -ForegroundColor Cyan
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host "Workspace: $workspaceRoot" -ForegroundColor Gray
-Write-Host "Filter: $Filter" -ForegroundColor Gray
+Write-ColorLine "🧪 Chess Policy Essential Tests Runner" "Cyan"
+Write-ColorLine "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Cyan"
+Write-ColorLine "Workspace: $workspaceRoot" "Gray"
+Write-ColorLine "Filter: $Filter" "Gray"
 
-# Spinner setup
+# Spinner disabled to avoid carriage-return artifacts during capture
 $green = "`e[32m"; $brightGreen = "`e[92m"; $yellow = "`e[33m"; $magenta = "`e[35m"; $cyan = "`e[36m"; $reset = "`e[0m"
-# Hide cursor
-Write-Host -NoNewline "`e[?25l"
 $accumulator = ""
-$spinnerFrames = @(
-    "${yellow}-${reset}",
-    "${yellow}/${reset}",
-    "${yellow}|${reset}",
-    "${yellow}\\${reset}",
-    "${green}=${reset}${yellow}-${reset}",
-    "${green}=${reset}${yellow}/${reset}",
-    "${green}=${reset}${yellow}|${reset}",
-    "${green}=${reset}${yellow}\\${reset}",
-    "${green}==${reset}${yellow}-${reset}",
-    "${green}==${reset}${yellow}/${reset}",
-    "${green}==${reset}${yellow}|${reset}",
-    "${green}==${reset}${yellow}\\${reset}",
-    "${green}===${reset}${yellow}-${reset}",
-    "${green}===${reset}${yellow}/${reset}",
-    "${green}===${reset}${yellow}|${reset}",
-    "${green}===${reset}${yellow}\\${reset}",
-    "${brightGreen}====${reset}${yellow}-${reset}",
-    "${brightGreen}====${reset}${yellow}/${reset}",
-    "${brightGreen}====${reset}${yellow}|${reset}",
-    "${brightGreen}====${reset}${yellow}\\${reset}",
-    "${brightGreen}=====${reset}${yellow}-${reset}",
-    "${brightGreen}=====${reset}${yellow}/${reset}",
-    "${brightGreen}=====${reset}${yellow}|${reset}",
-    "${brightGreen}=====${reset}${yellow}\\${reset}",
-    "${cyan}======${reset}${yellow}-${reset}",
-    "${cyan}======${reset}${yellow}/${reset}",
-    "${cyan}======${reset}${yellow}|${reset}",
-    "${cyan}======${reset}${yellow}\\${reset}",
-    "${cyan}=======${reset}${magenta}-${reset}",
-    "${cyan}=======${reset}${magenta}/${reset}",
-    "${cyan}=======${reset}${magenta}|${reset}",
-    "${cyan}=======${reset}${magenta}\\${reset}"
-)
 $spinIndex = 0
 $spinnerActive = $false
 $spinnerClear = ' '.PadRight(80)
@@ -141,13 +153,7 @@ function Invoke-CommandWithSpinner {
     while ($true) {
         $jobState = (Get-Job -Id $job.Id).State
         if ($jobState -ne 'Running') { break }
-        
-        $spin = $spinnerFrames[$script:spinIndex % $spinnerFrames.Count]
-        $script:spinIndex++
-        if ($script:spinIndex % $spinnerFrames.Count -eq 0) { $script:accumulator += "${cyan}*${reset}" }
-        Write-Host -NoNewline "`r$spinnerClear`r[$Label] $script:accumulator$spin"
-        $script:spinnerActive = $true
-        
+        # spinner disabled: poll and sleep
         Start-Sleep -Milliseconds 300
     }
     
@@ -237,30 +243,28 @@ $filterCriteria = Parse-Filter $Filter
 $matchingTests = $testSuite | Where-Object { Test-MatchesFilter $_ $filterCriteria }
 
 if ($matchingTests.Count -eq 0) {
-    Write-Host "❌ No tests match filter: $Filter" -ForegroundColor Red
+    Write-ColorLine "❌ No tests match filter: $Filter" "Red"
     exit 1
 }
 
 Write-Host ""
-Write-Host "📋 Tests matching filter:" -ForegroundColor Yellow
-$matchingTests | ForEach-Object { Write-Host "  • $($_.testId) - $($_.name)" -ForegroundColor Gray }
+Write-ColorLine "📋 Tests matching filter:" "Yellow"
+$matchingTests | ForEach-Object { Write-ColorLine "  • $($_.testId) - $($_.name)" "Gray" }
 
 if ($Analyze) {
     Write-Host ""
-    Write-Host "🔍 Dependency Analysis:" -ForegroundColor Yellow
+    Write-ColorLine "🔍 Dependency Analysis:" "Yellow"
     
     foreach ($test in $matchingTests) {
         Write-Host ""
-        Write-Host "  [$($test.layer)] $($test.testId)" -ForegroundColor Cyan
-        Write-Host "    Name: $($test.name)" -ForegroundColor Gray
+        Write-ColorLine "  [$($test.layer)] $($test.testId)" "Cyan"
+        Write-ColorLine "    Name: $($test.name)" "Gray"
         
         if ($test.dependsOn -and $test.dependsOn.Count -gt 0) {
-            Write-Host "    Depends on:" -ForegroundColor Yellow
-            $test.dependsOn | ForEach-Object {
-                Write-Host "      → $_" -ForegroundColor Gray
-            }
+            Write-ColorLine "    Depends on:" "Yellow"
+            $test.dependsOn | ForEach-Object { Write-ColorLine "      → $_" "Gray" }
         } else {
-            Write-Host "    No dependencies (foundational)" -ForegroundColor Green
+            Write-ColorLine "    No dependencies (foundational)" "Green"
         }
     }
     
@@ -308,17 +312,17 @@ function Get-SortedTests {
 $sortedTests = Get-SortedTests $matchingTests
 
 Write-Host ""
-Write-Host "🏃 Execution Order:" -ForegroundColor Yellow
+Write-ColorLine "🏃 Execution Order:" "Yellow"
 if ($sortedTests -and $sortedTests.Count -gt 0) {
-    $sortedTests | ForEach-Object { Write-Host "  [$($_.layer)] $($_.testId)" -ForegroundColor Gray }
+    $sortedTests | ForEach-Object { Write-ColorLine "  [$($_.layer)] $($_.testId)" "Gray" }
 } else {
-    Write-Host "  (No tests to run)" -ForegroundColor Gray
+    Write-ColorLine "  (No tests to run)" "Gray"
 }
 
 # Perform single rebuild+republish at the start to avoid DLL lock issues
 Write-Host ""
-Write-Host "🔨 Preparing test assemblies (rebuild once, then reuse)" -ForegroundColor Yellow
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+Write-ColorLine "🔨 Preparing test assemblies (rebuild once, then reuse)" "Yellow"
+Write-ColorLine "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Yellow"
 try {
     $rebuildCommand = "pwsh -NoProfile -ExecutionPolicy Bypass -File `"$workspaceRoot/scripts/spark-testctl.ps1`" -RebuildOnly"
     $rebuildResult = Invoke-CommandWithSpinner -Command $rebuildCommand -Label "rebuild"
@@ -326,22 +330,22 @@ try {
     
     # Check if rebuild succeeded
     if ($rebuildOutput -match "rebuilt and republished successfully" -or $rebuildOutput -match "Rebuild and republish complete") {
-        Write-Host "✓ Test assemblies prepared successfully" -ForegroundColor Green
+        Write-ColorLine "✓ Test assemblies prepared successfully" "Green"
     } else {
-        Write-Host "✗ Rebuild output:" -ForegroundColor Red
+        Write-ColorLine "✗ Rebuild output:" "Red"
         Write-Host $rebuildOutput
-        Write-Host "✗ Failed to prepare test assemblies" -ForegroundColor Red
+        Write-ColorLine "✗ Failed to prepare test assemblies" "Red"
         exit 1
     }
 }
 catch {
-    Write-Host "✗ Failed to prepare test assemblies: $_" -ForegroundColor Red
+    Write-ColorLine "✗ Failed to prepare test assemblies: $_" "Red"
     exit 1
 }
 
 Write-Host ""
-Write-Host "▶️  Running Tests" -ForegroundColor Yellow
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+Write-ColorLine "▶️  Running Tests" "Yellow"
+Write-ColorLine "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Yellow"
 
 $passedCount = 0
 $failedCount = 0
@@ -361,8 +365,8 @@ foreach ($test in $sortedTests) {
     }
     
     if (-not $allDepsPass) {
-        Write-Host "⊘ $($test.testId)" -ForegroundColor DarkYellow
-        Write-Host "  └─ Skipped (dependency failed: $failedDep)" -ForegroundColor Gray
+        Write-ColorLine "⊘ $($test.testId)" "DarkYellow"
+        Write-ColorLine "  └─ Skipped (dependency failed: $failedDep)" "Gray"
         $depGraph[$test.testId].Status = "skipped"
         $skippedCount++
         continue
@@ -370,8 +374,8 @@ foreach ($test in $sortedTests) {
     
     # Run test via Spark runner
     $testName = $test.name
-    Write-Host "▶ $($test.testId)" -ForegroundColor Cyan -NoNewline
-    Write-Host " - $testName" -ForegroundColor Gray
+    Write-ColorNoNewline "▶ $($test.testId)" "Cyan"
+    Write-ColorLine " - $testName" "Gray"
     
     # Build filter using unique TestId trait
     $testFilter = "TestId=$($test.testId)"
@@ -385,24 +389,24 @@ foreach ($test in $sortedTests) {
         # Check if this specific test passed (look for PASSED line with test method name)
         # The test method name includes the testId pattern
         if ($resultStr -match "\[PASSED\].*$($test.testId)" -and $resultStr -match "Total:\s*(\d+).*Passed:\s*(\d+).*Failed:\s*0") {
-            Write-Host "  ✓ PASSED" -ForegroundColor Green
+            Write-ColorLine "  ✓ PASSED" "Green"
             $depGraph[$test.testId].Status = "passed"
             $passedCount++
         } else {
-            Write-Host "  ✗ FAILED" -ForegroundColor Red
+            Write-ColorLine "  ✗ FAILED" "Red"
             $depGraph[$test.testId].Status = "failed"
             $failedCount++
             
             # Show error output
             if ($ShowDetails) {
-                Write-Host "  Error details:" -ForegroundColor Red
-                $result | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkRed }
+                Write-ColorLine "  Error details:" "Red"
+                $result | ForEach-Object { Write-ColorLine "    $_" "DarkRed" }
             }
         }
     }
     catch {
-        Write-Host "  ✗ ERROR" -ForegroundColor Red
-        Write-Host "    $_" -ForegroundColor DarkRed
+        Write-ColorLine "  ✗ ERROR" "Red"
+        Write-ColorLine "    $_" "DarkRed"
         $depGraph[$test.testId].Status = "failed"
         $failedCount++
     }
@@ -410,16 +414,20 @@ foreach ($test in $sortedTests) {
 
 # Summary
 Write-Host ""
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host "📊 Test Summary" -ForegroundColor Cyan
+Write-ColorLine "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Cyan"
+Write-ColorLine "📊 Test Summary" "Cyan"
 
 $total = $passedCount + $failedCount + $skippedCount
 $percent = if ($total -gt 0) { [int]($passedCount * 100 / $total) } else { 0 }
 
-Write-Host "  Passed:  $passedCount/$total" -ForegroundColor Green
-Write-Host "  Failed:  $failedCount/$total" -ForegroundColor $(if ($failedCount -gt 0) { 'Red' } else { 'DarkGray' })
-Write-Host "  Skipped: $skippedCount/$total" -ForegroundColor $(if ($skippedCount -gt 0) { 'Yellow' } else { 'DarkGray' })
-Write-Host "  Success: $percent%" -ForegroundColor $(if ($percent -ge 80) { 'Green' } elseif ($percent -ge 50) { 'Yellow' } else { 'Red' })
+$failedColor = if ($failedCount -gt 0) { 'Red' } else { 'DarkGray' }
+$skippedColor = if ($skippedCount -gt 0) { 'Yellow' } else { 'DarkGray' }
+$successColor = if ($percent -ge 80) { 'Green' } elseif ($percent -ge 50) { 'Yellow' } else { 'Red' }
+
+Write-ColorLine "  Passed:  $passedCount/$total" "Green"
+Write-ColorLine "  Failed:  $failedCount/$total" $failedColor
+Write-ColorLine "  Skipped: $skippedCount/$total" $skippedColor
+Write-ColorLine "  Success: $percent%" $successColor
 
 # Show cursor
 Write-Host -NoNewline "`e[?25h"

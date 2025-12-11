@@ -1,0 +1,10 @@
+{
+  "copilot.mcp.sources": {
+    "vs-test-runner": {
+      "command": "dotnet",
+      "args": [
+        "C:/___work/game/src/VsTestRunnerMcp/bin/Release/net8.0/VsTestRunnerMcp.dll"
+      ]
+    }
+  }
+}

@@ -152,10 +152,31 @@ public static class PatternMatcher
         }
         else
         {
-            // No active sequences - filter by Public flag only
-            filteredPatternsDf = uniquePatternsDf.Filter(
-                Col("sequence").BitwiseAND(Lit((int)ChessPolicyUtility.Sequence.Public)).NotEqual(Lit(0))
-            );
+            // No active sequences - check if patterns are pre-filtered (e.g., from SequenceEngine)
+            // If ANY pattern has the Public flag, filter for Public patterns only
+            // Otherwise, use patterns as-is (they're pre-filtered entry patterns)
+            var publicMask = (int)ChessPolicyUtility.Sequence.Public;
+            var hasAnyPublicPatterns = uniquePatternsDf
+                .Filter(Col("sequence").BitwiseAND(Lit(publicMask)).NotEqual(Lit(0)))
+                .Limit(1)
+                .Count() > 0;
+            
+            if (hasAnyPublicPatterns)
+            {
+                // Standard atomic pattern matching: filter for Public patterns without In requirements
+                var inMask = (int)ChessPolicyUtility.Sequence.InMask;
+                var hasNoInRequirements = Col("sequence").BitwiseAND(Lit(inMask)).EqualTo(Lit(0));
+                
+                filteredPatternsDf = uniquePatternsDf.Filter(
+                    Col("sequence").BitwiseAND(Lit(publicMask)).NotEqual(Lit(0))
+                    .And(hasNoInRequirements)
+                );
+            }
+            else
+            {
+                // Pre-filtered patterns (e.g., entry patterns from SequenceEngine): use as-is
+                filteredPatternsDf = uniquePatternsDf;
+            }
         }
 
         // ===== STEP 2: Cross-join actor pieces with patterns =====
