@@ -236,8 +236,8 @@ public static class SequenceEngine
         var nextPerspectives = emptyFrontier
             .WithColumn("x", Col("continuation_x"))
             .WithColumn("y", Col("continuation_y"))
-            .WithColumn("piece", Col("dst_piece"))
-            .WithColumn("generic_piece", Col("dst_generic_piece"))
+            .WithColumn("piece", Col("src_piece"))
+            .WithColumn("generic_piece", Col("src_generic_piece"))
             .WithColumn("perspective_x", Col("continuation_x"))
             .WithColumn("perspective_y", Col("continuation_y"))
             .Select(

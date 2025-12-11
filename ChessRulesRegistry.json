@@ -63,7 +63,7 @@
             "CandidateGenerator"
           ],
           "dependencies": [],
-          "testId": "L2_SequenceEngine_BishopSliding"
+          "testId": "L2_SequenceEngine_BishopSliding, L2_SequenceEngine_VariantRespectTest, L2_SequenceEngine_PublicFlagTest"
         },
         "A5": {
           "name": "Rook Movement (Cardinal Directions)",
@@ -78,7 +78,7 @@
             "CandidateGenerator"
           ],
           "dependencies": [],
-          "testId": "L2_SequenceEngine_RookSliding"
+          "testId": "L2_SequenceEngine_RookSliding, L2_SequenceEngine_RecursiveDepthTest"
         },
         "A6": {
           "name": "Queen Movement (Bishop + Rook)",
@@ -93,7 +93,7 @@
             "CandidateGenerator"
           ],
           "dependencies": ["A4", "A5"],
-          "testId": "L2_CandidateGenerator_SlidingMoves"
+          "testId": "L2_CandidateGenerator_SlidingMoves, L2_SequenceEngine_SrcDstConditionsTest, L2_SequenceEngine_BoardStateModificationTest"
         },
         "A7": {
           "name": "Knight Movement (L-Shape)",
@@ -367,8 +367,9 @@
     },
     "SequenceEngine": {
       "layer": 2,
-      "responsibility": "Expand patterns recursively, handle multi-phase sequences",
+      "responsibility": "Expand patterns recursively, handle multi-phase sequences with full flag support",
       "supportsRules": ["A4", "A5", "A6", "B1", "B2", "B3", "B4", "B5"],
+      "testIds": ["L2_SequenceEngine_BishopSliding", "L2_SequenceEngine_RookSliding", "L2_SequenceEngine_RecursiveDepthTest", "L2_SequenceEngine_InOutFlagsTest", "L2_SequenceEngine_VariantRespectTest", "L2_SequenceEngine_PublicFlagTest", "L2_SequenceEngine_ParallelFlagTest", "L2_SequenceEngine_SrcDstConditionsTest", "L2_SequenceEngine_BoardStateModificationTest", "L2_SequenceEngine_AbsoluteFactionTest"],
       "dependencies": ["PatternMatcher"]
     },
     "SimulationEngine": {

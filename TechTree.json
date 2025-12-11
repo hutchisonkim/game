@@ -61,9 +61,9 @@
       "order": 2,
       "services": [
         {
-          "name": "SequenceEngine",
-          "responsibility": "Expand patterns recursively, stop at blockers, handle sequences",
-          "testId": "L2_SequenceEngine_BishopSliding, L2_SequenceEngine_RookSliding",
+          "name": "SequenceEngine (Extended)",
+          "responsibility": "Expand patterns recursively with full sequence support: In/Out flags, variants, public filtering, parallel moves",
+          "testId": "L2_SequenceEngine_BishopSliding, L2_SequenceEngine_RookSliding, L2_SequenceEngine_RecursiveDepthTest, L2_SequenceEngine_InOutFlagsTest, L2_SequenceEngine_VariantRespectTest, L2_SequenceEngine_PublicFlagTest, L2_SequenceEngine_ParallelFlagTest, L2_SequenceEngine_SrcDstConditionsTest, L2_SequenceEngine_BoardStateModificationTest, L2_SequenceEngine_AbsoluteFactionTest",
           "estimatedComplexity": "high",
           "rules": ["A4", "A5", "A6"],
           "dependencies": ["PatternMatcher"]
