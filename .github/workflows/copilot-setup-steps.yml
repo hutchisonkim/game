@@ -40,8 +40,11 @@ jobs:
         run: |
           echo "=== Downloading cached dependencies from GitHub release ==="
           set -e
-          mkdir -p /cache/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1
-          cd /cache
+          
+          # Use a writable directory
+          CACHE_DIR="${HOME}/.cache/spark-dependencies"
+          mkdir -p "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1"
+          cd "$CACHE_DIR"
           
           # Download Spark distribution
           echo "Downloading spark-3.5.3-bin-hadoop3.tgz..."
@@ -68,8 +71,11 @@ jobs:
             -o .nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll
           
           echo "✅ All cached dependencies downloaded successfully"
-          ls -lh /cache/
-          ls -lh /cache/.nuget/packages/microsoft.spark/2.3.0/
+          ls -lh "$CACHE_DIR/"
+          ls -lh "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/"
+          
+          # Set environment variable for downstream steps
+          echo "SPARK_CACHE_DIR=$CACHE_DIR" >> $GITHUB_ENV
 
       - name: Restore Test Project Packages (Spark DLL fix - 1 of 3)
         run: |
