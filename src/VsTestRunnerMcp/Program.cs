@@ -4,6 +4,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.IO;
+using System.Xml.Linq;
+using System.Collections.Generic;
 
 namespace VsTestRunnerMcp
 {
@@ -85,6 +88,7 @@ namespace VsTestRunnerMcp
                         var input = p.TryGetProperty("input", out var inputEl) ? inputEl : default;
 
                         ProcessResult pres;
+                        DateTime? runStartUtc = null;
                         switch (name)
                         {
                             case "start-spark-runner":
@@ -98,6 +102,8 @@ namespace VsTestRunnerMcp
                                     filter = f.GetString() ?? filter;
                                 }
                                 var escaped = filter.Replace("\"", "\\\"");
+                                // record when the run starts so we can find artifacts produced during the run
+                                runStartUtc = DateTime.UtcNow;
                                 pres = await runner.RunPwshCommandAsync($"-NoProfile -ExecutionPolicy Bypass -File \"scripts/run-tests-with-dependencies.ps1\" -Filter \"{escaped}\"");
                                 break;
                             }
@@ -119,11 +125,78 @@ namespace VsTestRunnerMcp
                                 break;
                         }
 
-                        // Provide both raw output (with ANSI sequences) and a plain sanitized version
+                        // Provide both raw output (with ANSI sequences) and a plain sanitized version.
+                        // For JSON consumers, serialize a cleaned `output` (sanitized) so JSON doesn't contain control/ANSI.
+                        // Keep the raw marked-up content available under `rawOutput` and in stdout/stderr fields.
                         string raw = pres.Combined ?? string.Empty;
                         string plain = StripAnsiAndControl(raw);
 
-                        resultObj = new { exitCode = pres.ExitCode, output = raw, plainOutput = plain, stdout = pres.Stdout, stderr = pres.Stderr };
+                        // Compute a lean summary from TRX files (passed/failed/timeout/skipped)
+                        int totalPassed = 0, totalFailed = 0, totalTimeout = 0, totalSkipped = 0;
+                        List<string> testLogPaths = new List<string>();
+
+                        if (runStartUtc.HasValue)
+                        {
+                            try
+                            {
+                                var workspaceRoot = Directory.GetCurrentDirectory();
+
+                                // Look for TRX files under the publish TestResults folder(s)
+                                foreach (var trx in Directory.EnumerateFiles(workspaceRoot, "*.trx", SearchOption.AllDirectories))
+                                {
+                                    try
+                                    {
+                                        var fi = new FileInfo(trx);
+                                        if (fi.LastWriteTimeUtc >= runStartUtc.Value.AddSeconds(-1))
+                                        {
+                                            // parse counters from TRX XML (handle default namespace)
+                                            try
+                                            {
+                                                var xdoc = XDocument.Load(trx);
+                                                var ns = xdoc.Root?.Name.Namespace ?? XNamespace.None;
+                                                var counters = xdoc.Root?.Descendants(ns + "Counters").FirstOrDefault();
+                                                if (counters != null)
+                                                {
+                                                    int.TryParse((string?)counters.Attribute("passed"), out var passCount);
+                                                    int.TryParse((string?)counters.Attribute("failed"), out var failCount);
+                                                    int.TryParse((string?)counters.Attribute("timeout"), out var timeoutCount);
+                                                    int.TryParse((string?)counters.Attribute("notExecuted"), out var notExecutedCount);
+                                                    // Some TRX use 'notExecuted' or 'skipped' semantics; prefer 'notExecuted' as skipped
+                                                    totalPassed += passCount;
+                                                    totalFailed += failCount;
+                                                    totalTimeout += timeoutCount;
+                                                    totalSkipped += notExecutedCount;
+                                                }
+                                            }
+                                            catch { }
+                                        }
+                                    }
+                                    catch { }
+                                }
+
+                                // Collect .log files under the specific test-logs publish path for the integration runner
+                                var expectedTestLogs = Path.Combine(workspaceRoot, "tests", "Game.Chess.Tests.Integration.Runner", "bin", "Release", "net8.0", "win-x64", "publish", "test-logs");
+                                if (Directory.Exists(expectedTestLogs))
+                                {
+                                    foreach (var log in Directory.EnumerateFiles(expectedTestLogs, "*.log", SearchOption.AllDirectories))
+                                    {
+                                        try
+                                        {
+                                            var lfi = new FileInfo(log);
+                                            if (lfi.LastWriteTimeUtc >= runStartUtc.Value.AddSeconds(-1))
+                                            {
+                                                testLogPaths.Add(Path.GetFullPath(log));
+                                            }
+                                        }
+                                        catch { }
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+
+                        // Minimal JSON: aggregate counters and list of test-log paths
+                        resultObj = new { exitCode = pres.ExitCode, passed = totalPassed, failed = totalFailed, timeout = totalTimeout, skipped = totalSkipped, testLogPaths = testLogPaths };
                     }
                     else
                     {
@@ -158,7 +231,7 @@ namespace VsTestRunnerMcp
                     try
                     {
                         // Remove ANSI escape sequences
-                        var withoutAnsi = Regex.Replace(input, "\u001B\[[0-9;?]*[ -/]*[@-~]", string.Empty);
+                        var withoutAnsi = Regex.Replace(input, "\u001B\\[[0-9;?]*[ -/]*[@-~]", string.Empty);
 
                         // Remove C0 control chars except CR (\r) and LF (\n)
                         var cleaned = Regex.Replace(withoutAnsi, "[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]", string.Empty);
