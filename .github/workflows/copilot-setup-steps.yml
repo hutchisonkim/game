@@ -108,16 +108,32 @@ jobs:
           echo "=== Setting up Microsoft.Spark package ==="
           set -e
           
-          # Instead of manually copying DLL, let dotnet restore handle package installation
-          cd tests/Game.Chess.Tests.Integration
-          dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
+          # Clear any existing cache to force fresh download
+          rm -rf "$NUGET_PACKAGES/microsoft.spark"
           
-          # Verify the package was installed correctly
+          # Use dotnet restore with verbose output to see what's happening
+          cd tests/Game.Chess.Tests.Integration
+          dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64 -v n
+          
+          # Check if the package was downloaded
+          if [ -d "$NUGET_PACKAGES/microsoft.spark/2.3.0" ]; then
+            echo "✅ Microsoft.Spark package directory exists"
+            ls -la "$NUGET_PACKAGES/microsoft.spark/2.3.0/"
+          else
+            echo "❌ Microsoft.Spark package directory not found"
+            echo "Contents of NuGet packages directory:"
+            ls -la "$NUGET_PACKAGES/" | head -20
+            exit 1
+          fi
+          
+          # Verify the DLL exists
           SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
           if [ -f "$SPARK_DLL" ]; then
             echo "✅ Microsoft.Spark.dll installed at $SPARK_DLL"
           else
             echo "❌ Microsoft.Spark.dll not found after restore"
+            echo "Contents of Microsoft.Spark package directory:"
+            find "$NUGET_PACKAGES/microsoft.spark/2.3.0" -type f | head -20
             exit 1
           fi
 
