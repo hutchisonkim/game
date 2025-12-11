@@ -26,8 +26,8 @@ jobs:
       SPARK_VERSION: "3.5.3"
       DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_CLI_HOME: /github/home
-      NUGET_PACKAGES: /github/home/.nuget
+      DOTNET_CLI_HOME: /home/runner/dotnet
+      NUGET_PACKAGES: /home/runner/.nuget
       DOTNETBACKEND_PORT: "5567"
       PYTHON_WORKER_FACTORY_PORT: "5567"
       DOTNET_WORKER_SPARK_VERSION: "2.3.0"
