@@ -103,55 +103,23 @@ jobs:
           echo "✅ Microsoft.Spark.Worker extracted to /opt/microsoft-spark-worker"
           ls -lh /opt/microsoft-spark-worker/
 
-      - name: Fix Windows-style paths in NuGet cache (Spark DLL fix - 2 of 3)
-        shell: bash
+      - name: Setup Microsoft.Spark Package (Spark DLL fix - 2 of 3)
         run: |
-          echo "=== Setting up Microsoft.Spark in NuGet cache ==="
+          echo "=== Setting up Microsoft.Spark package ==="
           set -e
           
-          CACHE_DIR="${HOME}/.cache/spark-dependencies"
-          
-          # Copy the downloaded Microsoft.Spark package to the NuGet cache
-          mkdir -p "$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1"
-          cp "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll" "$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/"
-          
-          echo "=== Checking for Windows-style paths in NuGet packages ==="
-
-          # Depth-first, handle files/dirs with backslashes
-          find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
-            # Convert backslashes to forward slashes
-            NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
-            # Strip trailing slashes so Linux handles files correctly
-            NEW_PATH="${NEW_PATH%/}"
-
-            if [ -d "$f" ]; then
-              mkdir -p "$NEW_PATH"
-              mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
-              rmdir "$f" 2>/dev/null || true
-              echo "Fixed directory: $f -> $NEW_PATH"
-            else
-              mkdir -p "$(dirname "$NEW_PATH")"
-              mv "$f" "$NEW_PATH"
-              echo "Fixed file: $f -> $NEW_PATH"
-            fi
-          done
-
-          # Verify Microsoft.Spark.dll exists after fixing paths
-          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
-          if [ -f "$SPARK_DLL" ]; then
-            echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
-          else
-            echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
-            exit 1
-          fi
-
-      - name: Restore Test Project Packages
-        run: |
-          echo "=== Restoring Project Packages ==="
-          set -e
-          
+          # Instead of manually copying DLL, let dotnet restore handle package installation
           cd tests/Game.Chess.Tests.Integration
           dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
+          
+          # Verify the package was installed correctly
+          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
+          if [ -f "$SPARK_DLL" ]; then
+            echo "✅ Microsoft.Spark.dll installed at $SPARK_DLL"
+          else
+            echo "❌ Microsoft.Spark.dll not found after restore"
+            exit 1
+          fi
 
       - name: Build Test Project (Spark DLL fix - 3 of 3)
         run: |
