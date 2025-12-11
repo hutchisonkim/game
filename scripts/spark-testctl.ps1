@@ -17,6 +17,55 @@ param(
 
 if (-not $Runtime) { $Runtime = if ($IsWindows) { 'win-x64' } else { 'linux-x64' } }
 
+# Try to force UTF-8 output so emoji/chess glyphs survive round-trips
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+} catch {
+    # best-effort; continue if not supported
+}
+
+# ANSI color helper for better capture fidelity
+function Get-AnsiCode {
+    param([string]$color)
+    switch ($color.ToLower()) {
+        'black' { '30' }
+        'darkblue' { '34' }
+        'darkgreen' { '32' }
+        'darkcyan' { '36' }
+        'darkred' { '31' }
+        'darkmagenta' { '35' }
+        'darkyellow' { '33' }
+        'gray' { '37' }
+        'darkgray' { '90' }
+        'blue' { '94' }
+        'green' { '92' }
+        'cyan' { '96' }
+        'red' { '91' }
+        'magenta' { '95' }
+        'yellow' { '93' }
+        'white' { '97' }
+        default { '0' }
+    }
+}
+
+function Write-ColorLine {
+    param([string]$text, [string]$color)
+    try {
+        $code = Get-AnsiCode $color
+        if ($code -ne '0') { Write-Host "`e[${code}m${text}`e[0m" } else { Write-Host $text }
+    } catch { Write-Host $text }
+}
+
+function Write-ColorNoNewline {
+    param([string]$text, [string]$color)
+    try {
+        $code = Get-AnsiCode $color
+        if ($code -ne '0') { Write-Host -NoNewline "`e[${code}m${text}`e[0m" } else { Write-Host -NoNewline $text }
+    } catch { Write-Host -NoNewline $text }
+}
+
 function Fail([string]$msg) {
     Write-Error $msg
     exit 1
@@ -148,40 +197,7 @@ $green = "`e[32m"; $brightGreen = "`e[92m"; $yellow = "`e[33m"; $magenta = "`e[3
 # Hide cursor
 Write-Host -NoNewline "`e[?25l"
 $accumulator = ""
-$spinnerFrames = @(
-    "${yellow}-${reset}",
-    "${yellow}/${reset}",
-    "${yellow}|${reset}",
-    "${yellow}\\${reset}",
-    "${green}=${reset}${yellow}-${reset}",
-    "${green}=${reset}${yellow}/${reset}",
-    "${green}=${reset}${yellow}|${reset}",
-    "${green}=${reset}${yellow}\\${reset}",
-    "${green}==${reset}${yellow}-${reset}",
-    "${green}==${reset}${yellow}/${reset}",
-    "${green}==${reset}${yellow}|${reset}",
-    "${green}==${reset}${yellow}\\${reset}",
-    "${green}===${reset}${yellow}-${reset}",
-    "${green}===${reset}${yellow}/${reset}",
-    "${green}===${reset}${yellow}|${reset}",
-    "${green}===${reset}${yellow}\\${reset}",
-    "${brightGreen}====${reset}${yellow}-${reset}",
-    "${brightGreen}====${reset}${yellow}/${reset}",
-    "${brightGreen}====${reset}${yellow}|${reset}",
-    "${brightGreen}====${reset}${yellow}\\${reset}",
-    "${brightGreen}=====${reset}${yellow}-${reset}",
-    "${brightGreen}=====${reset}${yellow}/${reset}",
-    "${brightGreen}=====${reset}${yellow}|${reset}",
-    "${brightGreen}=====${reset}${yellow}\\${reset}",
-    "${cyan}======${reset}${yellow}-${reset}",
-    "${cyan}======${reset}${yellow}/${reset}",
-    "${cyan}======${reset}${yellow}|${reset}",
-    "${cyan}======${reset}${yellow}\\${reset}",
-    "${cyan}=======${reset}${magenta}-${reset}",
-    "${cyan}=======${reset}${magenta}/${reset}",
-    "${cyan}=======${reset}${magenta}|${reset}",
-    "${cyan}=======${reset}${magenta}\\${reset}"
-)
+$spinnerFrames = @()
 $spinIndex = 0
 $spinnerActive = $false
 $spinnerClear = ' '.PadRight(80)
@@ -227,12 +243,7 @@ if ($tailJobs.Count -gt 0) {
         $runState = (Get-Job -Id $runJob.Id).State
         if ($runState -ne 'Running') { break }
 
-        $spin = $spinnerFrames[$spinIndex % $spinnerFrames.Count]
-        $spinIndex++
-        if ($spinIndex % $spinnerFrames.Count -eq 0) { $accumulator += "${cyan}*${reset}" }
-        Write-Host -NoNewline "`r$spinnerClear`r[tail] $accumulator$spin"
-        $spinnerActive = $true
-
+        # spinner disabled: avoid emitting carriage-return overwrite frames
         Start-Sleep -Milliseconds 300
     }
 }
