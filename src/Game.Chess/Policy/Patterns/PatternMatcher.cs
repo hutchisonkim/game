@@ -158,6 +158,7 @@ public static class PatternMatcher
             var publicMask = (int)ChessPolicyUtility.Sequence.Public;
             var hasAnyPublicPatterns = uniquePatternsDf
                 .Filter(Col("sequence").BitwiseAND(Lit(publicMask)).NotEqual(Lit(0)))
+                .Limit(1)
                 .Count() > 0;
             
             if (hasAnyPublicPatterns)
