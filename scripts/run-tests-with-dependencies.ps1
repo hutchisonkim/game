@@ -46,6 +46,13 @@ param(
     [switch]$ShowDetails
 )
 
+# Set default environment variables for Spark integration
+$env:SPARK_HOME = "/opt/spark"
+$env:DOTNET_WORKER_DIR = "/opt/microsoft-spark-worker"
+$env:DOTNETBACKEND_PORT = "5567"
+$env:PYTHON_WORKER_FACTORY_PORT = "5567"
+$env:DOTNET_WORKER_SPARK_VERSION = "2.3.0"
+
 # Find workspace root
 $workspaceRoot = (Get-Location).Path
 while (-not (Test-Path "$workspaceRoot/TestDependencyGraph.json")) {
