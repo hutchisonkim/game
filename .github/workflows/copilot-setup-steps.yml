@@ -77,10 +77,42 @@ jobs:
           # Set environment variable for downstream steps
           echo "SPARK_CACHE_DIR=$CACHE_DIR" >> $GITHUB_ENV
 
+      - name: Extract cached Spark dependencies
+        run: |
+          echo "=== Extracting cached Spark dependencies ==="
+          set -e
+          
+          CACHE_DIR="${HOME}/.cache/spark-dependencies"
+          
+          # Extract Spark distribution
+          echo "Extracting spark-3.5.3-bin-hadoop3.tgz..."
+          mkdir -p /opt/spark
+          tar -xzf "$CACHE_DIR/spark-3.5.3-bin-hadoop3.tgz" -C /opt
+          mv /opt/spark-3.5.3-bin-hadoop3/* /opt/spark/
+          rmdir /opt/spark-3.5.3-bin-hadoop3
+          
+          # Extract Microsoft.Spark.Worker
+          echo "Extracting Microsoft.Spark.Worker..."
+          mkdir -p /opt/microsoft-spark-worker
+          tar -xzf "$CACHE_DIR/Microsoft.Spark.Worker.net8.0.linux-x64-2.3.0.tar.gz" -C /opt/microsoft-spark-worker
+          chmod +x /opt/microsoft-spark-worker/Microsoft.Spark.Worker || true
+          
+          # Verify Spark installation
+          echo "✅ Spark extracted to /opt/spark"
+          ls -lh /opt/spark/bin/
+          echo "✅ Microsoft.Spark.Worker extracted to /opt/microsoft-spark-worker"
+          ls -lh /opt/microsoft-spark-worker/
+
       - name: Restore Test Project Packages (Spark DLL fix - 1 of 3)
         run: |
           echo "=== Restoring Project Packages ==="
           set -e
+          
+          # Copy cached NuGet packages to the global cache
+          CACHE_DIR="${HOME}/.cache/spark-dependencies"
+          mkdir -p "$NUGET_PACKAGES"
+          cp -r "$CACHE_DIR/.nuget/packages/microsoft.spark" "$NUGET_PACKAGES/" || true
+          
           cd tests/Game.Chess.Tests.Integration
           dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
 
