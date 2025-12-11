@@ -1,0 +1,168 @@
+name: "Copilot Setup Steps"
+
+# Automatically run the setup steps when they are changed to allow for easy validation, and
+# allow manual testing through the repository's "Actions" tab
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    # Set the permissions to the lowest permissions possible needed for your steps.
+    # Copilot will be given its own token for its operations.
+    permissions:
+      contents: read
+
+    env:
+      SPARK_HOME: /opt/spark
+      SPARK_VERSION: "3.5.3"
+      DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_CLI_HOME: /home/runner/dotnet
+      NUGET_PACKAGES: /home/runner/.nuget
+      DOTNETBACKEND_PORT: "5567"
+      PYTHON_WORKER_FACTORY_PORT: "5567"
+      DOTNET_WORKER_SPARK_VERSION: "2.3.0"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download cached Spark dependencies
+        run: |
+          echo "=== Downloading cached dependencies from GitHub release ==="
+          set -e
+          
+          # Use a writable directory
+          CACHE_DIR="${HOME}/.cache/spark-dependencies"
+          mkdir -p "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1"
+          cd "$CACHE_DIR"
+          
+          # Download Spark distribution
+          echo "Downloading spark-3.5.3-bin-hadoop3.tgz..."
+          curl -fSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://github.com/${{ github.repository }}/releases/download/spark-cache-v1.0/spark-3.5.3-bin-hadoop3.tgz" \
+            -o spark-3.5.3-bin-hadoop3.tgz
+          
+          # Download Microsoft.Spark.Worker
+          echo "Downloading Microsoft.Spark.Worker..."
+          curl -fSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://github.com/${{ github.repository }}/releases/download/spark-cache-v1.0/Microsoft.Spark.Worker.net8.0.linux-x64-2.3.0.tar.gz" \
+            -o Microsoft.Spark.Worker.net8.0.linux-x64-2.3.0.tar.gz
+          
+          # Download microsoft-spark JAR
+          echo "Downloading microsoft-spark JAR..."
+          curl -fSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://github.com/${{ github.repository }}/releases/download/spark-cache-v1.0/microsoft-spark-3-5_2.12-2.3.0.jar" \
+            -o .nuget/packages/microsoft.spark/2.3.0/microsoft-spark-3-5_2.12-2.3.0.jar
+          
+          # Download Microsoft.Spark.dll
+          echo "Downloading Microsoft.Spark.dll..."
+          curl -fSL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://github.com/${{ github.repository }}/releases/download/spark-cache-v1.0/Microsoft.Spark.dll" \
+            -o .nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll
+          
+          echo "✅ All cached dependencies downloaded successfully"
+          ls -lh "$CACHE_DIR/"
+          ls -lh "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/"
+          
+          # Set environment variable for downstream steps
+          echo "SPARK_CACHE_DIR=$CACHE_DIR" >> $GITHUB_ENV
+
+      - name: Extract cached Spark dependencies
+        run: |
+          echo "=== Extracting cached Spark dependencies ==="
+          set -e
+          
+          CACHE_DIR="${HOME}/.cache/spark-dependencies"
+          
+          # Extract Spark distribution
+          echo "Extracting spark-3.5.3-bin-hadoop3.tgz..."
+          mkdir -p /opt/spark
+          tar -xzf "$CACHE_DIR/spark-3.5.3-bin-hadoop3.tgz" -C /opt
+          mv /opt/spark-3.5.3-bin-hadoop3/* /opt/spark/
+          rmdir /opt/spark-3.5.3-bin-hadoop3
+          
+          # Extract Microsoft.Spark.Worker
+          echo "Extracting Microsoft.Spark.Worker..."
+          mkdir -p /opt/microsoft-spark-worker
+          tar -xzf "$CACHE_DIR/Microsoft.Spark.Worker.net8.0.linux-x64-2.3.0.tar.gz" -C /opt/microsoft-spark-worker
+          chmod +x /opt/microsoft-spark-worker/Microsoft.Spark.Worker || true
+          
+          # Verify Spark installation
+          echo "✅ Spark extracted to /opt/spark"
+          ls -lh /opt/spark/bin/
+          echo "✅ Microsoft.Spark.Worker extracted to /opt/microsoft-spark-worker"
+          ls -lh /opt/microsoft-spark-worker/
+
+      - name: Restore Test Project Packages (Spark DLL fix - 1 of 3)
+        run: |
+          echo "=== Restoring Project Packages ==="
+          set -e
+          
+          # Copy cached NuGet packages to the global cache
+          CACHE_DIR="${HOME}/.cache/spark-dependencies"
+          NUGET_PKG_DIR="/home/runner/.nuget/packages"
+          mkdir -p "$NUGET_PKG_DIR"
+          cp -r "$CACHE_DIR/.nuget/packages/microsoft.spark" "$NUGET_PKG_DIR/" || true
+          
+          cd tests/Game.Chess.Tests.Integration
+          dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
+
+      - name: Fix Windows-style paths in NuGet cache (Spark DLL fix - 2 of 3)
+        shell: bash
+        run: |
+          echo "=== Checking for Windows-style paths in NuGet packages ==="
+
+          # Depth-first, handle files/dirs with backslashes
+          find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
+            # Convert backslashes to forward slashes
+            NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
+            # Strip trailing slashes so Linux handles files correctly
+            NEW_PATH="${NEW_PATH%/}"
+
+            if [ -d "$f" ]; then
+              mkdir -p "$NEW_PATH"
+              mv "$f"/* "$NEW_PATH"/ 2>/dev/null || true
+              rmdir "$f" 2>/dev/null || true
+              echo "Fixed directory: $f -> $NEW_PATH"
+            else
+              mkdir -p "$(dirname "$NEW_PATH")"
+              mv "$f" "$NEW_PATH"
+              echo "Fixed file: $f -> $NEW_PATH"
+            fi
+          done
+
+          # Verify Microsoft.Spark.dll exists after fixing paths
+          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
+          if [ -f "$SPARK_DLL" ]; then
+            echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
+          else
+            echo "❌ Still missing Microsoft.Spark.dll at $SPARK_DLL"
+            exit 1
+          fi
+
+      - name: Build Test Project (Spark DLL fix - 3 of 3)
+        run: |
+          set -e
+          cd tests/Game.Chess.Tests.Integration
+          dotnet build Game.Chess.Tests.Integration.csproj -c Release -v d
+
+      - name: Build Spark Runner
+        run: |
+          set -e
+          cd tests/Game.Chess.Tests.Integration.Runner
+          dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
+
+      - name: Start Spark Runner
+        shell: pwsh
+        run: pwsh ./scripts/spark-runner-start.ps1
+
