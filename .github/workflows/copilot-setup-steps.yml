@@ -121,9 +121,11 @@ jobs:
         shell: bash
         run: |
           echo "=== Checking for Windows-style paths in NuGet packages ==="
+          
+          NUGET_PKG_DIR="/home/runner/.nuget/packages"
 
           # Depth-first, handle files/dirs with backslashes
-          find "$NUGET_PACKAGES" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
+          find "$NUGET_PKG_DIR" -depth -name '*\\*' -print0 | while IFS= read -r -d '' f; do
             # Convert backslashes to forward slashes
             NEW_PATH=$(echo "$f" | sed 's/\\/\//g')
             # Strip trailing slashes so Linux handles files correctly
@@ -142,7 +144,8 @@ jobs:
           done
 
           # Verify Microsoft.Spark.dll exists after fixing paths
-          SPARK_DLL="$NUGET_PACKAGES/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
+          NUGET_PKG_DIR="/home/runner/.nuget/packages"
+          SPARK_DLL="$NUGET_PKG_DIR/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll"
           if [ -f "$SPARK_DLL" ]; then
             echo "✅ Microsoft.Spark.dll confirmed at $SPARK_DLL"
           else
