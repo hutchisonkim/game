@@ -186,6 +186,21 @@ jobs:
           mkdir -p "$PUBLISH_DIR"
           cp "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/microsoft-spark-3-5_2.12-2.3.0.jar" "$PUBLISH_DIR/" || true
 
+      - name: Prepare Spark Runner Environment
+        run: |
+          echo "=== Preparing Spark Runner Environment ==="
+          set -e
+          
+          # Copy Microsoft.Spark JAR to runner publish directory
+          PUBLISH_DIR="tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish"
+          mkdir -p "$PUBLISH_DIR"
+          cp "$NUGET_PACKAGES/microsoft.spark/2.3.0/jars/microsoft-spark-3-5_2.12-2.3.0.jar" "$PUBLISH_DIR/"
+          echo "✅ Copied Microsoft.Spark JAR to publish directory"
+          
+          # Fix permissions on NuGet packages to allow build system to write metadata
+          sudo chmod -R 777 "$NUGET_PACKAGES/microsoft.spark/" || true
+          echo "✅ Fixed NuGet package permissions"
+          
       - name: Start Spark Runner
         shell: pwsh
         run: |
