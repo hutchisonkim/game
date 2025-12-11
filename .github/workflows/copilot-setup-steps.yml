@@ -114,6 +114,11 @@ jobs:
           mkdir -p "$NUGET_PKG_DIR"
           cp -r "$CACHE_DIR/.nuget/packages/microsoft.spark" "$NUGET_PKG_DIR/" || true
           
+          # Also copy to the old NuGet cache structure for compatibility
+          OLD_NUGET_DIR="/home/runner/.nuget"
+          mkdir -p "$OLD_NUGET_DIR/microsoft.spark/2.3.0/lib/netstandard2.1"
+          cp "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/lib/netstandard2.1/Microsoft.Spark.dll" "$OLD_NUGET_DIR/microsoft.spark/2.3.0/lib/netstandard2.1/" || true
+          
           cd tests/Game.Chess.Tests.Integration
           dotnet restore Game.Chess.Tests.Integration.csproj --runtime linux-x64
 
@@ -164,6 +169,12 @@ jobs:
           set -e
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
+          
+          # Copy the Microsoft.Spark JAR to the publish directory for the runner
+          CACHE_DIR="${HOME}/.cache/spark-dependencies"
+          PUBLISH_DIR="tests/Game.Chess.Tests.Integration.Runner/bin/Release/net8.0/linux-x64/publish"
+          mkdir -p "$PUBLISH_DIR"
+          cp "$CACHE_DIR/.nuget/packages/microsoft.spark/2.3.0/microsoft-spark-3-5_2.12-2.3.0.jar" "$PUBLISH_DIR/" || true
 
       - name: Start Spark Runner
         shell: pwsh
