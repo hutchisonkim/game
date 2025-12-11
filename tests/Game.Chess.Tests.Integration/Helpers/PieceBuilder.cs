@@ -1,4 +1,4 @@
-using Game.Chess.HistoryB;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Tests.Integration.Helpers;
 
@@ -8,7 +8,7 @@ namespace Game.Chess.Tests.Integration.Helpers;
 /// </summary>
 public class PieceBuilder
 {
-    private ChessPolicy.Piece _piece = ChessPolicy.Piece.None;
+    private Piece _piece = Piece.None;
 
     private PieceBuilder() { }
 
@@ -22,7 +22,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder White()
     {
-        _piece |= ChessPolicy.Piece.White;
+        _piece |= Piece.White;
         return this;
     }
 
@@ -31,7 +31,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Black()
     {
-        _piece |= ChessPolicy.Piece.Black;
+        _piece |= Piece.Black;
         return this;
     }
 
@@ -40,7 +40,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Mint()
     {
-        _piece |= ChessPolicy.Piece.Mint;
+        _piece |= Piece.Mint;
         return this;
     }
 
@@ -49,7 +49,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Pawn()
     {
-        _piece |= ChessPolicy.Piece.Pawn;
+        _piece |= Piece.Pawn;
         return this;
     }
 
@@ -58,7 +58,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Knight()
     {
-        _piece |= ChessPolicy.Piece.Knight;
+        _piece |= Piece.Knight;
         return this;
     }
 
@@ -67,7 +67,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Bishop()
     {
-        _piece |= ChessPolicy.Piece.Bishop;
+        _piece |= Piece.Bishop;
         return this;
     }
 
@@ -76,7 +76,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Rook()
     {
-        _piece |= ChessPolicy.Piece.Rook;
+        _piece |= Piece.Rook;
         return this;
     }
 
@@ -85,7 +85,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Queen()
     {
-        _piece |= ChessPolicy.Piece.Queen;
+        _piece |= Piece.Queen;
         return this;
     }
 
@@ -94,7 +94,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder King()
     {
-        _piece |= ChessPolicy.Piece.King;
+        _piece |= Piece.King;
         return this;
     }
 
@@ -103,7 +103,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Self()
     {
-        _piece |= ChessPolicy.Piece.Self;
+        _piece |= Piece.Self;
         return this;
     }
 
@@ -112,7 +112,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Ally()
     {
-        _piece |= ChessPolicy.Piece.Ally;
+        _piece |= Piece.Ally;
         return this;
     }
 
@@ -121,7 +121,7 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Foe()
     {
-        _piece |= ChessPolicy.Piece.Foe;
+        _piece |= Piece.Foe;
         return this;
     }
 
@@ -130,19 +130,19 @@ public class PieceBuilder
     /// </summary>
     public PieceBuilder Empty()
     {
-        _piece |= ChessPolicy.Piece.Empty;
+        _piece |= Piece.Empty;
         return this;
     }
 
     /// <summary>
     /// Returns the built piece flags.
     /// </summary>
-    public ChessPolicy.Piece Build() => _piece;
+    public Piece Build() => _piece;
 
     /// <summary>
-    /// Implicit conversion to ChessPolicy.Piece for convenience.
+    /// Implicit conversion to Piece for convenience.
     /// </summary>
-    public static implicit operator ChessPolicy.Piece(PieceBuilder builder) => builder._piece;
+    public static implicit operator Piece(PieceBuilder builder) => builder._piece;
 }
 
 /// <summary>
@@ -152,54 +152,54 @@ public class PieceBuilder
 public static class TestPieces
 {
     // White Mint pieces (most common in tests)
-    public static readonly ChessPolicy.Piece WhiteMintPawn = 
-        ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Pawn;
+    public static readonly Piece WhiteMintPawn = 
+        Piece.White | Piece.Mint | Piece.Pawn;
     
-    public static readonly ChessPolicy.Piece WhiteMintKnight = 
-        ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Knight;
+    public static readonly Piece WhiteMintKnight = 
+        Piece.White | Piece.Mint | Piece.Knight;
     
-    public static readonly ChessPolicy.Piece WhiteMintBishop = 
-        ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop;
+    public static readonly Piece WhiteMintBishop = 
+        Piece.White | Piece.Mint | Piece.Bishop;
     
-    public static readonly ChessPolicy.Piece WhiteMintRook = 
-        ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+    public static readonly Piece WhiteMintRook = 
+        Piece.White | Piece.Mint | Piece.Rook;
     
-    public static readonly ChessPolicy.Piece WhiteMintQueen = 
-        ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Queen;
+    public static readonly Piece WhiteMintQueen = 
+        Piece.White | Piece.Mint | Piece.Queen;
     
-    public static readonly ChessPolicy.Piece WhiteMintKing = 
-        ChessPolicy.Piece.White | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King;
+    public static readonly Piece WhiteMintKing = 
+        Piece.White | Piece.Mint | Piece.King;
 
     // Black Mint pieces
-    public static readonly ChessPolicy.Piece BlackMintPawn = 
-        ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Pawn;
+    public static readonly Piece BlackMintPawn = 
+        Piece.Black | Piece.Mint | Piece.Pawn;
     
-    public static readonly ChessPolicy.Piece BlackMintKnight = 
-        ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Knight;
+    public static readonly Piece BlackMintKnight = 
+        Piece.Black | Piece.Mint | Piece.Knight;
     
-    public static readonly ChessPolicy.Piece BlackMintBishop = 
-        ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Bishop;
+    public static readonly Piece BlackMintBishop = 
+        Piece.Black | Piece.Mint | Piece.Bishop;
     
-    public static readonly ChessPolicy.Piece BlackMintRook = 
-        ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Rook;
+    public static readonly Piece BlackMintRook = 
+        Piece.Black | Piece.Mint | Piece.Rook;
     
-    public static readonly ChessPolicy.Piece BlackMintQueen = 
-        ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.Queen;
+    public static readonly Piece BlackMintQueen = 
+        Piece.Black | Piece.Mint | Piece.Queen;
     
-    public static readonly ChessPolicy.Piece BlackMintKing = 
-        ChessPolicy.Piece.Black | ChessPolicy.Piece.Mint | ChessPolicy.Piece.King;
+    public static readonly Piece BlackMintKing = 
+        Piece.Black | Piece.Mint | Piece.King;
 
     // Generic piece types (no color/faction)
-    public static readonly ChessPolicy.Piece JustPawn = ChessPolicy.Piece.Pawn;
-    public static readonly ChessPolicy.Piece JustKnight = ChessPolicy.Piece.Knight;
-    public static readonly ChessPolicy.Piece JustBishop = ChessPolicy.Piece.Bishop;
-    public static readonly ChessPolicy.Piece JustRook = ChessPolicy.Piece.Rook;
-    public static readonly ChessPolicy.Piece JustQueen = ChessPolicy.Piece.Queen;
-    public static readonly ChessPolicy.Piece JustKing = ChessPolicy.Piece.King;
+    public static readonly Piece JustPawn = Piece.Pawn;
+    public static readonly Piece JustKnight = Piece.Knight;
+    public static readonly Piece JustBishop = Piece.Bishop;
+    public static readonly Piece JustRook = Piece.Rook;
+    public static readonly Piece JustQueen = Piece.Queen;
+    public static readonly Piece JustKing = Piece.King;
 
     // Perspective flags
-    public static readonly ChessPolicy.Piece JustSelf = ChessPolicy.Piece.Self;
-    public static readonly ChessPolicy.Piece JustAlly = ChessPolicy.Piece.Ally;
-    public static readonly ChessPolicy.Piece JustFoe = ChessPolicy.Piece.Foe;
-    public static readonly ChessPolicy.Piece JustEmpty = ChessPolicy.Piece.Empty;
+    public static readonly Piece JustSelf = Piece.Self;
+    public static readonly Piece JustAlly = Piece.Ally;
+    public static readonly Piece JustFoe = Piece.Foe;
+    public static readonly Piece JustEmpty = Piece.Empty;
 }

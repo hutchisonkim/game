@@ -1,6 +1,7 @@
 using Microsoft.Spark.Sql;
-using Game.Chess.HistoryB;
+using Game.Chess.HistoryRefactor;
 using Game.Chess.Tests.Integration.Infrastructure;
+using static Game.Chess.HistoryRefactor.ChessPolicyUtility;
 
 namespace Game.Chess.Tests.Integration.Helpers;
 
@@ -20,12 +21,7 @@ public abstract class ChessTestBase
     /// The ChessPolicy instance for the current test.
     /// Each test gets its own policy instance to avoid cross-test contamination.
     /// </summary>
-    protected ChessPolicy Policy { get; }
-
-    /// <summary>
-    /// Helper for building type-safe DataFrame filters.
-    /// </summary>
-    protected TestPatternFactory PatternFactory { get; }
+    protected ChessPolicyRefactored Policy { get; }
 
     /// <summary>
     /// Initializes a new instance of the ChessTestBase class.
@@ -34,88 +30,29 @@ public abstract class ChessTestBase
     protected ChessTestBase(SparkFixture fixture)
     {
         Spark = fixture.Spark;
-        Policy = new ChessPolicy(Spark);
-        PatternFactory = new TestPatternFactory(Spark);
+        Policy = new ChessPolicyRefactored(Spark);
     }
 
     /// <summary>
     /// Gets the default factions (White and Black) used in most tests.
     /// </summary>
-    protected static ChessPolicy.Piece[] DefaultFactions => MoveHelpers.DefaultFactions;
+    protected static readonly Piece[] DefaultFactions = [Piece.White, Piece.Black];
 
     /// <summary>
     /// Creates an empty 8x8 chess board.
     /// </summary>
-    protected static ChessPolicy.Board CreateEmptyBoard() 
+    protected static Board CreateEmptyBoard() 
         => BoardHelpers.CreateEmptyBoard();
 
     /// <summary>
     /// Creates an empty board with a single piece at the specified position.
     /// </summary>
-    protected static ChessPolicy.Board CreateEmptyBoardWithPiece(int x, int y, ChessPolicy.Piece piece)
+    protected static Board CreateEmptyBoardWithPiece(int x, int y, Piece piece)
         => BoardHelpers.CreateEmptyBoardWithPiece(x, y, piece);
 
     /// <summary>
     /// Creates a board with multiple pieces.
     /// </summary>
-    protected static ChessPolicy.Board CreateBoardWithPieces(params (int X, int Y, ChessPolicy.Piece Piece)[] pieces)
+    protected static Board CreateBoardWithPieces(params (int X, int Y, Piece Piece)[] pieces)
         => BoardHelpers.CreateBoardWithPieces(pieces);
-
-    /// <summary>
-    /// Gets moves for a piece type with optional sequence filtering.
-    /// </summary>
-    protected Row[] GetMovesFor(
-        ChessPolicy.Board board,
-        ChessPolicy.Piece pieceType,
-        ChessPolicy.Sequence? sequenceFlags = null,
-        ChessPolicy.Piece[]? factions = null)
-    {
-        return MoveHelpers.GetMovesFor(Spark, Policy, board, pieceType, sequenceFlags, factions);
-    }
-
-    /// <summary>
-    /// Gets moves with active sequence support for testing sequence activation.
-    /// </summary>
-    protected Row[] GetMovesWithActiveSequence(
-        ChessPolicy.Board board,
-        ChessPolicy.Piece pieceType,
-        ChessPolicy.Sequence? patternSequenceFilter,
-        ChessPolicy.Sequence activeSequences,
-        ChessPolicy.Piece[]? factions = null)
-    {
-        return MoveHelpers.GetMovesWithActiveSequence(
-            Spark, Policy, board, pieceType, patternSequenceFilter, activeSequences, factions);
-    }
-
-    /// <summary>
-    /// Gets patterns for a specific piece type with optional sequence filtering.
-    /// </summary>
-    protected DataFrame GetPatternsFor(ChessPolicy.Piece pieceType, ChessPolicy.Sequence? sequenceFlags = null)
-    {
-        return PatternFactory.GetPatternsFor(pieceType, sequenceFlags);
-    }
-
-    /// <summary>
-    /// Gets public patterns for a specific piece type.
-    /// </summary>
-    protected DataFrame GetPublicPatternsFor(ChessPolicy.Piece pieceType)
-    {
-        return PatternFactory.GetPublicPatternsFor(pieceType);
-    }
-
-    /// <summary>
-    /// Gets entry patterns for sliding pieces.
-    /// </summary>
-    protected DataFrame GetEntryPatterns(ChessPolicy.Piece pieceType, ChessPolicy.Sequence outFlag)
-    {
-        return PatternFactory.GetEntryPatterns(pieceType, outFlag);
-    }
-
-    /// <summary>
-    /// Gets continuation patterns for sliding pieces.
-    /// </summary>
-    protected DataFrame GetContinuationPatterns(ChessPolicy.Piece pieceType, ChessPolicy.Sequence inFlag)
-    {
-        return PatternFactory.GetContinuationPatterns(pieceType, inFlag);
-    }
 }

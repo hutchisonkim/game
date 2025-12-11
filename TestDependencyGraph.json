@@ -1,0 +1,549 @@
+{
+  "name": "Test Dependency Graph",
+  "version": "1.0.0",
+  "date": "2025-12-09",
+  "description": "xUnit test organization with traits for dependency-aware test execution",
+  "traits": {
+    "Essential": {
+      "description": "Mark test as critical for refactoring progress; always run in CI",
+      "values": ["true", "false"]
+    },
+    "DependsOn": {
+      "description": "Test cannot pass unless its parent test passes first",
+      "values": ["test_id or list of test_ids"]
+    },
+    "Category": {
+      "description": "Groups tests by architectural layer",
+      "values": ["Foundation", "Atomic", "Sliding", "Simulation", "Threats", "SpecialMoves", "Legality", "Timeline", "Terminal"]
+    },
+    "ChessRule": {
+      "description": "Links test to chess rule in rules registry",
+      "values": ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "B1", "B2", "B3", "B4", "B5", "C1", "C2", "C3", "C4", "C5", "D1", "D2", "D3", "D4"]
+    }
+  },
+  "testSuite": [
+    {
+      "testId": "L0_Foundation_BoardStateProvider",
+      "name": "Foundation: Board to DataFrame Conversion",
+      "layer": 0,
+      "traits": {
+        "Essential": "true",
+        "Category": "Foundation",
+        "ChessRule": "-"
+      },
+      "dependsOn": [],
+      "blocksTests": ["L0_Foundation_PerspectiveEngine", "L1_PatternMatcher_Pawn", "L1_PatternMatcher_Knight", "L1_PatternMatcher_King"],
+      "description": "Verify board array correctly converts to DataFrame schema: [x, y, piece, color]",
+      "assertions": [
+        "DataFrame has correct schema",
+        "All pieces from board appear in DataFrame",
+        "Coordinates map correctly (0-7 range)",
+        "Color attributes (White/Black) assigned correctly"
+      ]
+    },
+    {
+      "testId": "L0_Foundation_PatternRepository",
+      "name": "Foundation: Pattern Repository Loading",
+      "layer": 0,
+      "traits": {
+        "Essential": "true",
+        "Category": "Foundation",
+        "ChessRule": "-"
+      },
+      "dependsOn": [],
+      "blocksTests": ["L1_PatternMatcher_Pawn", "L2_SequenceEngine_BishopSliding", "L2_SequenceEngine_RookSliding", "L5_SpecialMoves_Castling", "L5_SpecialMoves_EnPassant"],
+      "description": "Verify pattern repository loads all 60+ patterns with correct structure",
+      "assertions": [
+        "All pawn patterns loaded (A, B, C, D, E variants)",
+        "All sliding patterns loaded (F, G, H, I variants)",
+        "All piece patterns present (P, N, B, R, Q, K)",
+        "Pattern table schema correct: [src_conditions, dst_conditions, delta_x, delta_y, sequence, dst_effects]",
+        "No duplicate patterns"
+      ]
+    },
+    {
+      "testId": "L0_Foundation_PerspectiveEngine",
+      "name": "Foundation: Perspective Transformation",
+      "layer": 0,
+      "traits": {
+        "Essential": "true",
+        "Category": "Foundation",
+        "ChessRule": "-"
+      },
+      "dependsOn": ["L0_Foundation_BoardStateProvider"],
+      "blocksTests": ["L1_PatternMatcher_Pawn", "L1_PatternMatcher_Knight", "L1_PatternMatcher_King", "L4_ThreatEngine_BasicThreats"],
+      "description": "Verify perspectives correctly assign Self/Ally/Foe attributes",
+      "assertions": [
+        "White pieces: Self + White assigned correctly",
+        "Black pieces: Self + Black assigned correctly",
+        "For White's turn: White = Self | Ally, Black = Foe",
+        "For Black's turn: Black = Self | Ally, White = Foe",
+        "Empty squares correctly labeled as Empty",
+        "Threatened bit can be applied and removed"
+      ]
+    },
+    {
+      "testId": "L1_PatternMatcher_Pawn",
+      "name": "Atomic: Pawn Movement Matching",
+      "layer": 1,
+      "traits": {
+        "Essential": "true",
+        "Category": "Atomic",
+        "ChessRule": "A1, A3"
+      },
+      "dependsOn": ["L0_Foundation_PerspectiveEngine", "L0_Foundation_PatternRepository"],
+      "blocksTests": ["L1_CandidateGenerator_SimpleMoves"],
+      "description": "Verify pawn patterns match correctly: forward move and diagonal capture",
+      "assertions": [
+        "Pawn forward: (0,1) matches empty square",
+        "Pawn forward: does NOT match occupied square",
+        "Pawn diagonal capture: (1,1) matches enemy piece",
+        "Pawn diagonal capture: does NOT match empty square",
+        "Pawn initial double-step sets Passing flag",
+        "Pawn respects board boundaries"
+      ]
+    },
+    {
+      "testId": "L1_PatternMatcher_Knight",
+      "name": "Atomic: Knight L-Shape Matching",
+      "layer": 1,
+      "traits": {
+        "Essential": "true",
+        "Category": "Atomic",
+        "ChessRule": "A7"
+      },
+      "dependsOn": ["L0_Foundation_PerspectiveEngine", "L0_Foundation_PatternRepository"],
+      "blocksTests": ["L1_CandidateGenerator_SimpleMoves"],
+      "description": "Verify knight patterns match L-shaped moves in all directions",
+      "assertions": [
+        "Knight (2,1) deltas all 4 variants match",
+        "Knight (1,2) deltas all 4 variants match",
+        "Knight can jump over pieces",
+        "Knight respects board boundaries",
+        "Knight matches to empty or enemy squares"
+      ]
+    },
+    {
+      "testId": "L1_PatternMatcher_King",
+      "name": "Atomic: King One-Square Matching",
+      "layer": 1,
+      "traits": {
+        "Essential": "true",
+        "Category": "Atomic",
+        "ChessRule": "A8"
+      },
+      "dependsOn": ["L0_Foundation_PerspectiveEngine", "L0_Foundation_PatternRepository"],
+      "blocksTests": ["L1_CandidateGenerator_SimpleMoves"],
+      "description": "Verify king patterns match one-square moves in all 8 directions",
+      "assertions": [
+        "King cardinal moves (1,0) and (0,1) match",
+        "King diagonal moves (1,1) match",
+        "All 8 directions covered",
+        "King respects board boundaries",
+        "King matches to empty or enemy squares"
+      ]
+    },
+    {
+      "testId": "L1_CandidateGenerator_SimpleMoves",
+      "name": "Atomic: Candidate Collection",
+      "layer": 1,
+      "traits": {
+        "Essential": "true",
+        "Category": "Atomic",
+        "ChessRule": "A1, A3, A7, A8"
+      },
+      "dependsOn": ["L1_PatternMatcher_Pawn", "L1_PatternMatcher_Knight", "L1_PatternMatcher_King"],
+      "blocksTests": ["L2_SequenceEngine_BishopSliding", "L2_CandidateGenerator_SlidingMoves", "L3_SimulationEngine_SimpleMoves"],
+      "description": "Verify candidate generator collects all atomic patterns for all pieces",
+      "assertions": [
+        "All pieces on board generate candidates",
+        "Only pieces of current faction generate candidates",
+        "Duplicate candidates removed",
+        "All valid moves present in result",
+        "Invalid moves (blocked, off-board) excluded",
+        "Friendly fire excluded in normal mode"
+      ]
+    },
+    {
+      "testId": "L2_SequenceEngine_BishopSliding",
+      "name": "Sliding: Bishop Diagonal Expansion",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A4"
+      },
+      "dependsOn": ["L1_CandidateGenerator_SimpleMoves"],
+      "blocksTests": ["L2_CandidateGenerator_SlidingMoves"],
+      "description": "Verify bishop sliding expansion in all 4 diagonal directions",
+      "assertions": [
+        "Bishop expands to all empty squares in one direction",
+        "Bishop stops at first occupied square (can capture)",
+        "Bishop does NOT jump pieces",
+        "Bishop respects board boundaries",
+        "All 4 quadrants (Q1, Q2, Q3, Q4) covered",
+        "Intermediate cells checked in correct order"
+      ]
+    },
+    {
+      "testId": "L2_SequenceEngine_RookSliding",
+      "name": "Sliding: Rook Cardinal Expansion",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A5"
+      },
+      "dependsOn": ["L1_CandidateGenerator_SimpleMoves"],
+      "blocksTests": ["L2_CandidateGenerator_SlidingMoves"],
+      "description": "Verify rook sliding expansion in all 4 cardinal directions",
+      "assertions": [
+        "Rook expands to all empty squares in one direction",
+        "Rook stops at first occupied square (can capture)",
+        "Rook does NOT jump pieces",
+        "Rook respects board boundaries",
+        "All 4 directions (up, down, left, right) covered",
+        "Horizontal + vertical only (not diagonal)"
+      ]
+    },
+    {
+      "testId": "L2_CandidateGenerator_SlidingMoves",
+      "name": "Sliding: Full Candidate Set with Sliding",
+      "layer": 2,
+      "traits": {
+        "Essential": "true",
+        "Category": "Sliding",
+        "ChessRule": "A1, A3, A4, A5, A6, A7, A8"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding", "L2_SequenceEngine_RookSliding"],
+      "blocksTests": ["L3_SimulationEngine_SimpleMoves", "L4_ThreatEngine_BasicThreats"],
+      "description": "Verify candidate generator merges atomic + sliding patterns correctly",
+      "assertions": [
+        "Atomic moves (pawn, knight, king) still present",
+        "Sliding moves (bishop, rook, queen) expanded fully",
+        "Queen moves = bishop + rook moves combined",
+        "No duplicate candidates",
+        "All legal moves present",
+        "Piece-specific move patterns respected"
+      ]
+    },
+    {
+      "testId": "L3_SimulationEngine_SimpleMoves",
+      "name": "Simulation: Apply Simple Moves",
+      "layer": 3,
+      "traits": {
+        "Essential": "true",
+        "Category": "Simulation",
+        "ChessRule": "A1, A3, A7, A8"
+      },
+      "dependsOn": ["L2_CandidateGenerator_SlidingMoves"],
+      "blocksTests": ["L3_SimulationEngine_FlagUpdates", "L4_ThreatEngine_BasicThreats"],
+      "description": "Verify simulation engine correctly applies simple moves to board state",
+      "assertions": [
+        "Piece moves to destination square",
+        "Source square becomes empty",
+        "Captures remove target piece",
+        "Non-captures preserve board state otherwise",
+        "Color and type of pieces preserved",
+        "Turn alternates correctly"
+      ]
+    },
+    {
+      "testId": "L3_SimulationEngine_FlagUpdates",
+      "name": "Simulation: Flag Management",
+      "layer": 3,
+      "traits": {
+        "Essential": "true",
+        "Category": "Simulation",
+        "ChessRule": "A2, B5"
+      },
+      "dependsOn": ["L3_SimulationEngine_SimpleMoves"],
+      "blocksTests": ["L5_SpecialMoves_EnPassant", "L5_SpecialMoves_Castling"],
+      "description": "Verify flag updates: Mint flag removal, Passing flag set/reset",
+      "assertions": [
+        "Mint flag removed when piece moves",
+        "King Mint removal prevents castling later",
+        "Rook Mint removal prevents castling later",
+        "Pawn 2-square move sets Passing flag on target",
+        "Passing flag reset at end of opponent's turn",
+        "Threatened flag computed and applied correctly"
+      ]
+    },
+    {
+      "testId": "L4_ThreatEngine_BasicThreats",
+      "name": "Threats: Simple Piece Threats",
+      "layer": 4,
+      "traits": {
+        "Essential": "true",
+        "Category": "Threats",
+        "ChessRule": "C1"
+      },
+      "dependsOn": ["L3_SimulationEngine_SimpleMoves"],
+      "blocksTests": ["L6_Legality_KingSafety"],
+      "description": "Verify threat detection for non-sliding pieces",
+      "assertions": [
+        "Pawn attacks diagonal squares only",
+        "Knight attacks all L-shaped squares",
+        "King attacks all 8 surrounding squares",
+        "Threatened squares computed for both colors",
+        "Threatened bit can be applied to perspective"
+      ]
+    },
+    {
+      "testId": "L4_ThreatEngine_SlidingThreats",
+      "name": "Threats: Sliding Piece Threats",
+      "layer": 4,
+      "traits": {
+        "Essential": "true",
+        "Category": "Threats",
+        "ChessRule": "C1, C2, C3"
+      },
+      "dependsOn": ["L2_SequenceEngine_BishopSliding", "L2_SequenceEngine_RookSliding"],
+      "blocksTests": ["L6_Legality_PinDetection", "L6_Legality_DiscoveredCheck"],
+      "description": "Verify threat detection for sliding pieces (bishop, rook, queen)",
+      "assertions": [
+        "Bishop threatens entire diagonals (until blocker)",
+        "Rook threatens entire files/ranks (until blocker)",
+        "Queen threatens bishop + rook combined",
+        "Blockers prevent threats beyond them",
+        "Threats computed for all 4 directions (bishop/rook)"
+      ]
+    },
+    {
+      "testId": "L5_SpecialMoves_Castling",
+      "name": "Special Moves: Castling (both sides)",
+      "layer": 5,
+      "traits": {
+        "Essential": "true",
+        "Category": "SpecialMoves",
+        "ChessRule": "B2, B3"
+      },
+      "dependsOn": ["L3_SimulationEngine_FlagUpdates", "L4_ThreatEngine_SlidingThreats"],
+      "blocksTests": ["L6_Legality_KingSafety"],
+      "description": "Verify castling move generation and execution",
+      "assertions": [
+        "Castling only available if both king and rook have Mint flag",
+        "Castling not available if pieces between king and rook",
+        "Castling not available if king in check",
+        "Castling not available if king moves through check",
+        "Kingside: king (4,y) → (6,y), rook (7,y) → (5,y)",
+        "Queenside: king (4,y) → (2,y), rook (0,y) → (3,y)",
+        "Both Mint flags removed after castling"
+      ]
+    },
+    {
+      "testId": "L5_SpecialMoves_EnPassant",
+      "name": "Special Moves: En Passant",
+      "layer": 5,
+      "traits": {
+        "Essential": "true",
+        "Category": "SpecialMoves",
+        "ChessRule": "B4"
+      },
+      "dependsOn": ["L3_SimulationEngine_FlagUpdates"],
+      "blocksTests": ["L6_Legality_KingSafety"],
+      "description": "Verify en passant move generation and capture logic",
+      "assertions": [
+        "En passant candidate generated when opponent pawn has Passing flag",
+        "En passant move diagonal forward (not forward+1)",
+        "En passant removes opponent pawn from side (not forward)",
+        "En passant only valid on adjacent enemy pawn with Passing flag",
+        "Passing flag reset after en passant"
+      ]
+    },
+    {
+      "testId": "L5_SpecialMoves_PawnPromotion",
+      "name": "Special Moves: Pawn Promotion",
+      "layer": 5,
+      "traits": {
+        "Essential": "true",
+        "Category": "SpecialMoves",
+        "ChessRule": "B1"
+      },
+      "dependsOn": ["L3_SimulationEngine_SimpleMoves"],
+      "blocksTests": ["L6_Legality_KingSafety"],
+      "description": "Verify pawn promotion to queen, rook, bishop, knight",
+      "assertions": [
+        "Pawn promotion triggered when reaching opposite edge",
+        "4 promotion choices: Queen, Rook, Bishop, Knight",
+        "Promoted piece has same color as pawn",
+        "Promoted piece has correct type",
+        "Pawn is removed from board (replaced by promoted piece)"
+      ]
+    },
+    {
+      "testId": "L6_Legality_KingSafety",
+      "name": "Legality: King Cannot Move Into Check",
+      "layer": 6,
+      "traits": {
+        "Essential": "true",
+        "Category": "Legality",
+        "ChessRule": "C1"
+      },
+      "dependsOn": ["L4_ThreatEngine_BasicThreats", "L5_SpecialMoves_Castling", "L5_SpecialMoves_EnPassant", "L5_SpecialMoves_PawnPromotion"],
+      "blocksTests": ["L7_Timeline_SingleTurn"],
+      "description": "Verify moves that leave king in check are filtered out",
+      "assertions": [
+        "King cannot move to threatened square",
+        "King cannot stay in threatened square",
+        "Moves that expose king to sliding pieces rejected",
+        "All moves that leave king safe accepted",
+        "Castling through check rejected",
+        "En passant leaving king in check rejected",
+        "Promotion leaving king in check rejected"
+      ]
+    },
+    {
+      "testId": "L6_Legality_PinDetection",
+      "name": "Legality: Pinned Pieces Cannot Move",
+      "layer": 6,
+      "traits": {
+        "Essential": "true",
+        "Category": "Legality",
+        "ChessRule": "C2"
+      },
+      "dependsOn": ["L4_ThreatEngine_SlidingThreats"],
+      "blocksTests": ["L7_Timeline_SingleTurn"],
+      "description": "Verify pinned pieces are constrained correctly",
+      "assertions": [
+        "Pinned piece cannot move off pinning line",
+        "Pinned piece can move along pinning line",
+        "Pin is only along sliding piece directions",
+        "Multiple pinned pieces handled correctly",
+        "Pin removal by blocking accepted"
+      ]
+    },
+    {
+      "testId": "L6_Legality_DiscoveredCheck",
+      "name": "Legality: Discovered Check Detection",
+      "layer": 6,
+      "traits": {
+        "Essential": "true",
+        "Category": "Legality",
+        "ChessRule": "C3"
+      },
+      "dependsOn": ["L4_ThreatEngine_SlidingThreats"],
+      "blocksTests": ["L7_Timeline_SingleTurn"],
+      "description": "Verify moves that expose king to discovery are rejected",
+      "assertions": [
+        "Moving piece that blocks attack on king rejected",
+        "Blocking piece moving perpendicular to pin line rejected",
+        "Capturing pinning piece accepted",
+        "Moving along safe lines accepted"
+      ]
+    },
+    {
+      "testId": "L7_Timeline_SingleTurn",
+      "name": "Timeline: Single Turn Generation",
+      "layer": 7,
+      "traits": {
+        "Essential": "true",
+        "Category": "Timeline",
+        "ChessRule": "-"
+      },
+      "dependsOn": ["L6_Legality_KingSafety", "L6_Legality_PinDetection", "L6_Legality_DiscoveredCheck"],
+      "blocksTests": ["L7_Timeline_MultiTurn", "L8_Terminal_Checkmate"],
+      "description": "Verify timeline builds one turn of legal moves correctly",
+      "assertions": [
+        "All legal moves for one faction generated",
+        "Turn alternation correct",
+        "Board state after each move correct",
+        "Timeline maintains causality (simulation → next perspective)",
+        "Depth=1 stops after one turn"
+      ]
+    },
+    {
+      "testId": "L7_Timeline_MultiTurn",
+      "name": "Timeline: Multi-Turn Game Tree",
+      "layer": 7,
+      "traits": {
+        "Essential": "true",
+        "Category": "Timeline",
+        "ChessRule": "-"
+      },
+      "dependsOn": ["L7_Timeline_SingleTurn"],
+      "blocksTests": ["L8_Terminal_Checkmate", "L8_Terminal_Stalemate"],
+      "description": "Verify timeline builds multiple turns with correct alternation",
+      "assertions": [
+        "White → Black → White sequence correct",
+        "Multiple turns expanded to requested depth",
+        "No moves contradict previous turns",
+        "All legal moves available at each node",
+        "Depth cutoff respected (no deeper than requested)"
+      ]
+    },
+    {
+      "testId": "L7_Timeline_DepthCutoff",
+      "name": "Timeline: Depth Cutoff Control",
+      "layer": 7,
+      "traits": {
+        "Essential": "false",
+        "Category": "Timeline",
+        "ChessRule": "-"
+      },
+      "dependsOn": ["L7_Timeline_SingleTurn"],
+      "blocksTests": [],
+      "description": "Verify timeline respects maxDepth parameter",
+      "assertions": [
+        "maxDepth=1 produces only one turn",
+        "maxDepth=3 produces exactly 3 turns",
+        "No nodes generated deeper than maxDepth",
+        "Leaf nodes at depth=maxDepth have no children"
+      ]
+    },
+    {
+      "testId": "L8_Terminal_Checkmate",
+      "name": "Terminal: Checkmate Detection",
+      "layer": 8,
+      "traits": {
+        "Essential": "true",
+        "Category": "Terminal",
+        "ChessRule": "D1"
+      },
+      "dependsOn": ["L7_Timeline_MultiTurn"],
+      "blocksTests": [],
+      "description": "Verify checkmate correctly detected: king in check with no legal moves",
+      "assertions": [
+        "King must be in check",
+        "No legal moves available",
+        "Moving king away from threat not possible",
+        "No piece can block the threat",
+        "No piece can capture the threatening piece",
+        "Game-end flag set correctly"
+      ]
+    },
+    {
+      "testId": "L8_Terminal_Stalemate",
+      "name": "Terminal: Stalemate Detection",
+      "layer": 8,
+      "traits": {
+        "Essential": "true",
+        "Category": "Terminal",
+        "ChessRule": "D2"
+      },
+      "dependsOn": ["L7_Timeline_MultiTurn"],
+      "blocksTests": [],
+      "description": "Verify stalemate correctly detected: king NOT in check but no legal moves",
+      "assertions": [
+        "King must NOT be in check",
+        "No legal moves available",
+        "All legal move filters applied",
+        "Game-end flag set correctly (draw)"
+      ]
+    }
+  ],
+  "executionStrategy": {
+    "runAllEssential": "dotnet test --filter \"Essential=true\" --logger:\"console;verbosity=detailed\"",
+    "runByCategory": "dotnet test --filter \"Category={Category}\" --logger:\"console;verbosity=detailed\"",
+    "runByRule": "dotnet test --filter \"ChessRule={Rule}\" --logger:\"console;verbosity=detailed\"",
+    "runWithDependencies": "custom PowerShell runner: ./run-tests-with-dependencies.ps1 -Filter \"Category={Category}\"",
+    "failureInvestigation": [
+      "1. Check test DependsOn trait",
+      "2. Run parent tests first",
+      "3. If parent fails, fix that service",
+      "4. If parent passes, debug this service",
+      "5. Check Category for hints on which service to focus on",
+      "6. Write minimal reproduction test targeting the service"
+    ]
+  }
+}
