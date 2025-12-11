@@ -25,7 +25,7 @@ jobs:
       SPARK_HOME: /opt/spark
       SPARK_VERSION: "3.5.3"
       DOTNET_WORKER_DIR: /opt/microsoft-spark-worker
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_CLI_HOME: /github/home
       NUGET_PACKAGES: /github/home/.nuget
       DOTNETBACKEND_PORT: "5567"
@@ -123,4 +123,7 @@ jobs:
           cd tests/Game.Chess.Tests.Integration.Runner
           dotnet build Game.Chess.Tests.Integration.Runner.csproj -c Release --runtime linux-x64
 
+      - name: Start Spark Runner
+        shell: pwsh
+        run: pwsh ./scripts/spark-runner-start.ps1
 
